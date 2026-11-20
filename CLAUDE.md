@@ -1,16 +1,22 @@
 # CLAUDE.md — Contrata
 
-Fonte única de verdade: `spec.md` (v0.2). Planos aprovados: `plans/`. Os princípios da seção 0 desempatam dúvidas. Itens da seção 25 → **pare e pergunte**. Referência técnica e visual: `~/assina` (leia antes de reinventar login, R2, Resend, webhooks, MCP e OAuth). Mudou schema, rota, ferramenta ou tela → atualize `DOCUMENTACAO-TECNICA.md`, este arquivo e o README no mesmo commit.
+Fonte única de verdade: `spec.md` (v0.4.1). Planos aprovados: `plans/`. Os princípios da seção 0 desempatam dúvidas. Itens da seção 25 → **pare e pergunte**. Referências: `~/assina` (login, R2, Resend, webhooks, OAuth) e `~/agenda-psi/mcp-server` (MCP Apps, formulários, fallback com prévia). Leia antes de reinventar. Mudou schema, rota, ferramenta ou tela → atualize `DOCUMENTACAO-TECNICA.md`, este arquivo e o README no mesmo commit.
 
 ## Regra de ouro
 Se um teste falhar, corrija o código, não o teste; nunca pule nem apague teste que falha.
 Bug: teste que reproduz → ver falhar → commit → `touch .claude/fix-mode` → corrigir → `rm .claude/fix-mode`.
 
 ## Estado
-Spec **v0.4: um sistema para agentes, não para humanos** (20/11/2026). Quem recruta opera pelo Claude ou pelo ChatGPT; não há painel. Também da v0.3: clone e use, quem cria empresa é `CRIACAO_EMPRESA_EMAILS` (11.33). Épicos 8.0 e 8.1 concluídos no local; as telas de painel do 8.1 ainda existem e **saem no 8.2**. Pendentes do 8.1, com o Alexandre: migrations no remoto, cliente OAuth do Google. Próximo: 8.2 (o conector: OAuth, MCP, formulários e administração pelo chat), em plan mode, de preferência numa sessão aberta em `~/contrata`. 25.1 (nome e domínio) decide-se antes do 8.12.
+Spec **v0.4.1: um sistema para agentes, não para humanos**. Quem recruta opera pelo Claude ou pelo ChatGPT; não há painel. Clone e use: quem cria empresa é `CRIACAO_EMPRESA_EMAILS` (11.33). Épicos 8.0, 8.1 e 8.2 (o conector: OAuth, `/mcp`, formulários, API v1) concluídos **no local**. Pendentes, com o Alexandre: migrations no remoto, cliente OAuth do Google, URL pública para testar no Claude e no ChatGPT. Próximo: 8.3 (vagas e página de carreiras), em plan mode. 25.1 (nome e domínio) decide-se antes do 8.12.
+
+## Como uma ação nova entra (padrão do 8.2)
+1. Função de domínio em `src/server/<área>/` com `ator` e, se lê candidaturas, `alcance`.
+2. Consulta → `consulta(...)` em `src/server/mcp/read.ts`. Escrita → pasta `src/server/mcp/forms/<acao>/` com `index.ts` (`DefinicaoFormulario`: escopo, papel, entrada, `montar`, `opcoes`, schema) e `save.ts`; registre em `src/server/mcp/server.ts`. O HTML é o genérico (`ui/formulario/`); campo novo = tipo novo em `src/lib/formularios.ts` + desenho em `ui/formulario/main.ts`.
+3. Copy em `copy.mcp` (`titulos`, `descricoes`, `form.<acao>`). Rota da API v1 quando houver porta.
+4. Teste pelo `/mcp` (`callTool` de `tests/helpers.ts`) e veja o formulário em `/dev/formularios`.
 
 ## Regras que não se quebram
-- **Princípio 1, agente primeiro:** cada ação nasce como função de domínio em `src/server/`, depois como ferramenta MCP, depois como rota da API v1 quando houver porta. **Nenhuma tela de painel nova.** Na web ficam só entrar, consentir e convite, o candidato e as páginas públicas.
+- **Princípio 1, agente primeiro:** cada ação nasce como função de domínio em `src/server/`, depois como ferramenta MCP, depois como rota da API v1 quando houver porta. **Nenhuma tela de painel nova.** Na web ficam só entrar, consentir (`/oauth/autorizar`) e convite, o candidato e as páginas públicas.
 - **Princípio 6, o modelo propõe e a pessoa grava** (padrão de `~/agenda-psi/mcp-server`). Escrita por formulário: `abrir_formulario_*` é `visibility ["model"]`; opções e `salvar_*` são `["app"]`. O servidor revalida tudo. Classes da 11.34: C consulta, O operação direta (mover etapa, nota), F formulário, D decisão.
 - **Princípio 2 e regra 11.7:** decisão (reprovar, contratar, encerrar com ativas, reabrir) só pelo clique no formulário (`salvar_decisoes`, `salvar_propostas`). API v1 e `propor_decisao` criam proposta. Decisão não tem fallback com prévia. Nenhuma credencial confirma por chamada direta.
 - **Regra 11.5:** nenhuma candidatura sai de `ativa` para `reprovada` ou `encerrada_vaga` sem devolutiva enviada na mesma transação.
@@ -26,9 +32,10 @@ Spec **v0.4: um sistema para agentes, não para humanos** (20/11/2026). Quem rec
 - Nenhum dado pessoal em log, evento, webhook de erro, analytics ou corpo de erro.
 
 ## Comandos
-- `npm run verify`: typecheck, lint, `test` (guardrails 42/42 + varredura do repositório pelos hooks + pgTAP + Vitest), build e `npm audit`. Saída saudável: `46 de 46 casos ok`, `N de N verificações ok`, `Result: PASS`, `Tests N passed`, tabela de rotas, `found 0 vulnerabilities`.
+- `npm run verify`: typecheck, lint, `test` (guardrails 46/46 + varredura do repositório pelos hooks + pgTAP + Vitest), build e `npm audit`. Saída saudável: `46 de 46 casos ok`, `N de N verificações ok`, `Result: PASS`, `Tests N passed`, tabela de rotas, `found 0 vulnerabilities`.
 - `npm run dev` em `http://localhost:3050` · `supabase start` (portas **557xx**; o seed cria a Padaria Exemplo) · `npm run db:types` · `npm run db:schema`.
-- Sem cliente Google, em dev: `node scripts/dev-session.mjs carla@padaria.exemplo` imprime um cookie de sessão de um usuário do seed.
+- Sem cliente Google, em dev: `node scripts/dev-session.mjs carla@padaria.exemplo` imprime um cookie de sessão de um usuário do seed (para `/oauth/autorizar` e `/convite`).
+- Formulários sem Claude: `npm run dev` e abra `http://localhost:3050/dev/formularios` (só existe em desenvolvimento). Cole um token `rsm_` local (o `createTestToken` de `tests/helpers.ts` mostra como gerar), escolha a ferramenta e os argumentos, e o host abre o formulário com o `AppBridge` de verdade, com tema claro ou escuro.
 
 ## Pegadinhas
 - Remoto compartilhado: migrations pelo MCP `apply_migration` (mesmo SQL do arquivo, local e remoto), **nunca** `supabase db push`; advisors filtrados a `rs_*`; regenerar `supabase/schema.sql` filtrado a `rs_` no mesmo commit.
@@ -40,8 +47,16 @@ Spec **v0.4: um sistema para agentes, não para humanos** (20/11/2026). Quem rec
 - Hook novo ou alterado → acrescente casos em `scripts/test-guardrails.sh` e atualize o Anexo B do spec no mesmo commit.
 - Nunca logar nome, e-mail, telefone, texto de currículo, resposta, nota, avaliação, devolutiva, token ou URL `/c/…`.
 - **E-mail é `citext`, mas com `search_path = ''` o `=` vira o de `text`** e diferencia maiúsculas. Em função SQL, compare e-mail com `operator(extensions.=)`.
-- Toda página ou layout que lê a sessão leva `export const instant = false`, **inclusive fora de `/painel`** (ex.: `/convite`). O opt-out vale por segmento.
+- Toda página ou layout que lê a sessão leva `export const instant = false`, (ex.: `/convite`, `/oauth/autorizar`). O opt-out vale por segmento.
 - O Next 16 mantém cópias escondidas no DOM: `get_page_text` e `querySelector` podem ler o fallback ("Carregando…") enquanto a tela mostra o conteúdo. Confira por screenshot.
 - Vitest 5.1.1: um `vi.fn` que rejeita é dado como falha do teste mesmo quando a rota trata o erro. Para simular erro de dependência, use uma função comum controlada por variável (ver o teste do callback). Fixar `vitest@5.1.0` quebra o `npm install` (bug do arborist com o peer opcional `@vitest/browser-playwright`).
 - Esta pasta pode ser editada de uma sessão aberta em outro projeto, onde os hooks daqui não disparam: o `npm test` roda `scripts/check-guardrails-diff.sh` para compensar.
 - Empresa de teste só se apaga pelo expurgo (`rs_fn_expurga_empresa`, depois de `excluida_em` com 7+ dias); o `cleanup()` de `tests/helpers.ts` faz isso.
+- **`export const runtime` quebra o build com `cacheComponents`.** Rota que precisa de Node já roda em Node; não exporte `runtime`.
+- Scripts com `await` no topo rodam pelo `tsx` só como `.mts` (`scripts/build-ui.mts`, `vite.config.mts`); como `.ts` dá `ERR_REQUIRE_ASYNC_MODULE`.
+- O build do Vite muda `NODE_ENV` para `production` no meio do script: leia `NODE_ENV` **antes** de chamar `build()` (ver `DESENVOLVIMENTO` em `scripts/build-ui.mts`).
+- Host de MCP Apps: conecte o `AppBridge` **antes** de pôr o `srcdoc` no iframe, senão o `ui/initialize` do formulário se perde e a tela fica em branco. Mande também `hostContext.styles.variables`, senão o tema escuro sai com fundo branco.
+- `.meta({ id })` em schema zod faz o `z.toJSONSchema` emitir `$ref` para `#/$defs/…` que o documento OpenAPI não tem. Não use `id` nos schemas da API v1.
+- `registerAppTool` com schema genérico não acha o overload: faça o cast `as unknown as z.ZodObject<z.ZodRawShape>` (como em `forms/registrar.ts`). E nada de `.refine` no schema de formulário: quebra o `.extend` do fallback; a regra condicional vai para o `save.ts`.
+- `guard-decisoes` libera confirmar decisão e mexer em acesso **só** em `src/server/mcp/forms/*/save.ts`; o `index.ts` do formulário e o fallback continuam barrados.
+- A chave de API (e qualquer segredo) só sai no `structuredContent.segredo` do `salvar_*`, nunca no `content` de texto: o texto vai para o modelo.

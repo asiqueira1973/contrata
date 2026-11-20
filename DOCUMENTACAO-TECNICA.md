@@ -3,7 +3,7 @@
 Descreve o que está **de fato** implementado, na ordem da seção 19 do `spec.md` (v0.4). Toda mudança de schema, trigger, rota, ferramenta ou lógica de tela atualiza este documento no mesmo commit.
 
 ## Estado (20/11/2026)
-Épicos 8.0 (guardrails) e 8.1 (fundação) concluídos **no local**. Pendentes do 8.1: migrations no remoto e login real com o cliente Google (ver `plans/8.1-fundacao.md`). **Spec v0.4 (20/11/2026): sistema para agentes, sem painel.** As telas web do 8.1 (seção 4, mapa "Tela → tabelas") são provisórias: saem no 8.2, substituídas por formulários MCP sobre as mesmas funções de domínio. Vagas, candidaturas, API v1 e MCP chegam a partir do 8.2.
+Épicos 8.0 (guardrails), 8.1 (fundação) e 8.2 (o conector) concluídos **no local**. **Spec v0.4: sistema para agentes, sem painel.** Quem recruta conecta o Contrata no Claude ou no ChatGPT (`{site}/mcp`, OAuth próprio) e administra equipe, áreas, pessoas, conexões e chaves por consultas e formulários dentro do chat. O painel web do 8.1 saiu. Pendentes, com o Alexandre: migrations no remoto (8.1 e 8.2), cliente OAuth do Google e uma URL pública para testar no Claude e no ChatGPT de verdade (ver `plans/8.2-conector.md`). Vagas e candidaturas chegam a partir do 8.3.
 
 ---
 
@@ -11,21 +11,23 @@ Descreve o que está **de fato** implementado, na ordem da seção 19 do `spec.m
 
 Todas as tabelas `rs_*` existem desde o 8.1 (migration `20261120180000_rs_schema.sql`), com RLS ligada, nenhuma política e nenhum privilégio para `anon`/`authenticated`: só o servidor, com a service role, lê e escreve (6.5). O schema gerado está em `supabase/schema.sql`.
 
-**Em uso no 8.1** (as demais tabelas existem e ganham uso nos próximos épicos):
+**Em uso até o 8.2** (as demais tabelas existem e ganham uso nos próximos épicos):
 
 | Tabela | O que guarda, em linguagem de negócio |
 |---|---|
-| `rs_usuarios` | Quem entra no painel. Identificado pelo `google_sub` da conta Google; `email` e `nome` são atualizados a cada login. `termos_aceitos_em` nulo = ainda não passou das boas-vindas. `suspenso_em` preenchido = não entra (suspensão por SQL, feita por quem hospeda) |
-| `rs_empresas` | Cada empresa que recruta. `slug` é o endereço da página de carreiras e do painel (`/painel/{slug}`). `email_contato` recebe as respostas dos candidatos. `excluida_em` agenda o expurgo |
+| `rs_usuarios` | Quem entra (no consentimento do conector ou no convite). Identificado pelo `google_sub` da conta Google; `email` e `nome` são atualizados a cada login. `termos_aceitos_em` nulo = ainda não passou das boas-vindas. `suspenso_em` preenchido = não entra (suspensão por SQL, feita por quem hospeda) |
+| `rs_empresas` | Cada empresa que recruta. `slug` é o endereço da página de carreiras (`/{slug}`). `email_contato` recebe as respostas dos candidatos. `excluida_em` agenda o expurgo |
 | `rs_membros` | Vínculo de uma pessoa com uma empresa. Enquanto `usuario_id` é nulo, é um **convite pendente** (com `convite_token_hash` e `convite_expira_em`). Papel: `administrador` (tudo), `recrutador` (conduz vagas; `todas_areas = false` limita às áreas de `rs_membro_areas`), `avaliador` (só avalia nas vagas em que está). `removido_em` = saiu da empresa |
 | `rs_membro_areas` | Áreas de um recrutador limitado |
 | `rs_areas` | Departamentos da empresa, um nível. `responsavel_pessoa_id` vira o dono padrão das vagas novas da área. `arquivada_em` = fora das listas |
 | `rs_pessoas` | Gente da empresa que participa do recrutamento (gestores, donos de vaga), com ou sem acesso. `membro_id` nulo = **sem acesso**. Todo membro tem uma linha aqui |
-| `rs_credenciais` | Chaves de API e tokens MCP (só hash). No 8.1 só é tocada para revogar tokens MCP ao mudar acesso ou remover membro |
+| `rs_credenciais` | Chaves de API (`rsk_…`, da empresa, criadas por administrador) e tokens do conector (`rsm_…`, de um membro, criados pelo OAuth). Guarda só o SHA-256 e os 8 primeiros caracteres. `escopos` (`leitura`, `escrita`, `decisao`), `revogada_em`, `ultimo_uso_em` (atualizado no máximo uma vez por minuto) |
+| `rs_oauth_clientes` | Clientes do conector registrados por DCR (Claude, ChatGPT, Inspector): nome e `redirect_uris` |
+| `rs_oauth_codigos` | Códigos de autorização de uso único (só hash), com o `code_challenge` S256, escopos, membro e empresa. `credencial_id` liga o código ao token que ele gerou, para revogar o token se o código for reapresentado |
 | `rs_eventos` | Trilha, só inserção. Cada linha diz o tipo (catálogo fechado da 15.3), o ator (membro, candidato, sistema, api, agente), a origem e `dados` sem dado pessoal (ids, papéis, contagens) |
 | `rs_notificacoes` | Fila de e-mail idempotente: cada e-mail tem uma `chave_idempotencia` única; status `pendente` → `enviada` ou `falhou` |
 
-Valores de enum em uso: `rs_papel_membro` (administrador, recrutador, avaliador), `rs_tipo_ator` (membro), `rs_origem_evento` (painel), `rs_tipo_notificacao` (`convite_membro`), `rs_status_notificacao` (pendente, enviada, falhou). Os enums do convite da instância (`rs_status_pedido_convite`, `pedido_convite_*`) **não existem**: saíram no spec v0.3.
+Valores de enum em uso: `rs_papel_membro` (administrador, recrutador, avaliador), `rs_tipo_ator` (membro, agente, api), `rs_origem_evento` (`formulario`, `mcp`, `api`, `web`, `publico`, `cron`; o antigo `painel` virou `web` no 8.2), `rs_tipo_notificacao` (`convite_membro`), `rs_status_notificacao` (pendente, enviada, falhou). Os enums do convite da instância (`rs_status_pedido_convite`, `pedido_convite_*`) **não existem**: saíram no spec v0.3.
 
 ## 2. Relacionamentos
 
@@ -59,61 +61,92 @@ Migrations `20261120180100_rs_logica_base.sql` e `20261120190000_rs_ultimo_admin
 | `rs_fn_salva_pessoa` / `rs_fn_arquiva_pessoa` / `rs_fn_da_acesso` | funções | Pessoas | E-mail único entre as ativas; e-mail de quem tem acesso não muda; arquivar recusa quem tem acesso ou é dono de vaga aberta e tira a pessoa de responsável de área; dar acesso vira convite |
 | `rs_fn_valida_areas` / `rs_fn_garante_administrador` | auxiliares | dentro das funções acima | Regras 11.32 e 11.26 num lugar só |
 
+Do 8.2, migration `20261121090000_rs_conector.sql`:
+
+| Nome | Tipo | Quando roda | O que faz |
+|---|---|---|---|
+| `rs_fn_registra_evento` (redefinida) | função | sempre | Se o ator traz `origem`, ela vale no lugar da origem passada pela função. Assim as funções do 8.1 gravam `formulario` ou `mcp` sem mudar de assinatura |
+| `rs_fn_cria_codigo_oauth(hash, cliente, empresa, membro, escopos, redirect, challenge, validade)` | função | "Permitir" no consentimento | Confere que o membro está ativo; grava o código |
+| `rs_fn_troca_codigo_oauth(hash, cliente, redirect, verifier_s256, token_hash, prefixo)` | função | `POST /oauth/token` | Trava o código; confere validade, cliente, redirect, PKCE e membro ativo; cria a credencial `mcp` e o evento `mcp_conectado`. Código reapresentado revoga o token gerado com ele. **Nunca levanta erro** (devolve nulo), para a revogação não ser desfeita |
+| `rs_fn_cria_chave_api(empresa, nome, escopos, hash, prefixo, ator)` | função | formulário de conexões | Limite de 10 chaves ativas (`limite_chaves`, 11.15); evento `credencial_criada` |
+| `rs_fn_revoga_credencial(credencial, empresa, ator)` | função | formulário de conexões | Revoga chave ou token da empresa; evento `credencial_revogada` |
+
+As 11 funções do 8.1 que gravavam a origem `'painel'` foram redefinidas com `'web'`.
+
 ---
 
 ## 4. Mapas
 
-### Tela → tabelas
-| Tela | Rota | Lê | Escreve |
+### Páginas web (as únicas que sobraram para quem recruta)
+| Página | Rota | Lê | Escreve |
 |---|---|---|---|
+| Início provisório | `/` | — | — (mostra o endereço do conector) |
 | Entrar | `/entrar` | — | `rs_usuarios` (pelo callback) |
-| Convite | `/convite/{token}` | `rs_membros`, `rs_empresas` | `rs_membros`, `rs_pessoas` |
-| Boas-vindas | (layout de `/painel`) | `rs_usuarios` | `rs_usuarios.termos_aceitos_em` |
-| Empresas | `/painel` | `rs_membros`, `rs_empresas` | — |
-| Criar empresa | `/painel/nova` | `rs_empresas` (slug livre) | `rs_empresas`, `rs_membros`, `rs_pessoas` |
-| Minha conta | `/painel/conta` | `rs_usuarios` | — |
-| Equipe | `/painel/{e}/equipe` | `rs_membros`, `rs_usuarios`, `rs_membro_areas`, `rs_areas` | `rs_membros`, `rs_membro_areas`, `rs_credenciais` (revogação), `rs_notificacoes` |
-| Áreas | `/painel/{e}/areas` | `rs_areas`, `rs_pessoas`, `rs_vagas`, `rs_membro_areas` | `rs_areas` |
-| Pessoas | `/painel/{e}/pessoas` | `rs_pessoas`, `rs_areas`, `rs_membros`, `rs_vagas` | `rs_pessoas`, `rs_membros` (dar acesso) |
-| Início, Vagas, Para confirmar, Banco de talentos, Página de carreiras, Mensagens, Integrações, Empresa | `/painel/{e}/…` | — | — (aviso "ainda sendo construída", com o guardião do papel) |
+| Consentimento do conector | `/oauth/autorizar` | `rs_usuarios`, `rs_membros`, `rs_empresas`, `rs_oauth_clientes` | `rs_usuarios.termos_aceitos_em` (`/oauth/termos`), empresa nova (`/oauth/empresa`), `rs_oauth_codigos` (`/oauth/autorizar/decidir`) |
+| Convite | `/convite/{token}` e `/convite/aceito` | `rs_membros`, `rs_empresas` | `rs_membros`, `rs_pessoas` |
+| Documentação da API | `/docs/api` | — | — |
+| Host de formulários (só `NODE_ENV=development`) | `/dev/formularios` | — | — (abre e salva formulários de verdade, com um token local) |
+
+### Ferramentas MCP (`/mcp`)
+Consultas (`visibility ["model"]`, só `leitura`): `quem_sou_eu`, `listar_equipe` (avaliador vê só nome e áreas), `listar_areas`, `listar_pessoas` (avaliador vê só nome e área).
+
+Formulários: cada um registra `abrir_formulario_<acao>` (modelo), `opcoes_<acao>` e `salvar_<acao>` (app) e, quando o cliente não tem MCP Apps, `registrar_<acao>` (fallback com prévia, 13.5).
+
+| Formulário | Operações | Papel e escopo | Fallback |
+|---|---|---|---|
+| `convite` | convidar (e-mail, papel, áreas) | administrador, `escrita` | sim |
+| `acesso` | mudar papel e áreas, remover, reenviar convite, cancelar convite | administrador, `escrita` | sim |
+| `area` | criar, editar, arquivar | administrador, `escrita` | sim |
+| `pessoa` | cadastrar, editar (recrutador); arquivar, dar acesso (administrador) | recrutador, `escrita` | sim |
+| `conexoes` | revogar conexão (a própria; o administrador, todas); criar chave de API (administrador) | qualquer membro, `leitura` | **não**: a chave só aparece no `structuredContent.segredo` do `salvar_conexoes`, nunca no texto |
 
 ### Ação → domínio → portas
-| Ação | Domínio (`src/server/`) | Painel | API v1 | MCP |
+| Ação | Domínio (`src/server/`) | Web | API v1 | MCP |
 |---|---|---|---|---|
 | Entrar | `db/users.enterUser` | `GET /api/auth/google/callback` | — | — |
-| Aceitar termos | `db/users.acceptTerms` | `POST /api/painel/conta/boas-vindas` | sem porta (conta do usuário) | sem porta |
-| Criar empresa | `org/companies.createCompany` | `POST /api/painel/empresas` | sem porta (13.2) | sem porta |
-| Convidar, reenviar, cancelar | `org/members.inviteMember`, `resendInvite`, `cancelInvite` | `/api/painel/{e}/convites…` | sem porta (13.2) | sem porta |
+| Aceitar termos | `db/users.acceptTerms` | `POST /oauth/termos` | — | — |
+| Criar empresa | `org/companies.createCompany` | `POST /oauth/empresa` (no consentimento) | — | — |
+| Conectar | `oauth/server.createAuthorizationCode`, `exchangeCode` | `/oauth/autorizar/decidir`, `/oauth/token` | — | — |
+| Convidar | `org/members.inviteMember` | — | — | `salvar_convite` |
+| Reenviar, cancelar, mudar acesso, remover | `org/members.resendInvite`, `cancelInvite`, `changeAccess`, `removeMember` | — | — | `salvar_acesso` |
 | Aceitar convite | `org/members.acceptInvite` | `POST /api/convite/{token}/aceitar` | — | — |
-| Mudar acesso, remover | `org/members.changeAccess`, `removeMember` | `/api/painel/{e}/membros/{id}` | sem porta (13.2) | sem porta |
-| Criar, editar, arquivar área | `org/areas.saveArea`, `archiveArea` | `/api/painel/{e}/areas…` | sem porta (13.2) | sem porta |
-| Cadastrar, editar, arquivar pessoa; dar acesso | `org/people.savePerson`, `archivePerson`; `org/members.grantAccess` | `/api/painel/{e}/pessoas…` | sem porta (13.2) | sem porta |
-| Listar áreas e pessoas | `org/areas.listAreas`, `org/people.listPeople` | telas acima | `GET /areas`, `GET /pessoas` (8.2) | `listar_areas`, `listar_pessoas` (8.2) |
+| Criar, editar, arquivar área | `org/areas.saveArea`, `archiveArea` | — | — | `salvar_area` |
+| Cadastrar, editar, arquivar pessoa; dar acesso | `org/people.savePerson`, `archivePerson`; `org/members.grantAccess` | — | — | `salvar_pessoa` |
+| Revogar conexão; criar chave | `credentials/manage.revokeCredential`, `createApiKey` | — | — | `salvar_conexoes` |
+| Ler empresa, áreas, pessoas | `org/*.list…` | — | `GET /api/v1/empresa`, `/areas`, `/pessoas` | `quem_sou_eu`, `listar_*` |
 
-Guardiões: `requireUsuario` (telas e rotas sem empresa), `requireMembro(req, slug, papelMínimo)` (primeira linha de toda rota `/api/painel/{e}/…`), `memberPage(slug, papelMínimo)` (páginas). Os três releem o vínculo no banco a cada requisição; empresa inexistente, de outra pessoa ou sem vínculo dá 404. O alcance (11.32) é calculado em `org/scope.computeScope` e aplicado por `listJobsInScope`.
+Guardiões: `requireUsuario` (páginas web com sessão) e `requireCredencial(req, tipos, escopo?)` (`/mcp` e `/api/v1`). O segundo acha a credencial pelo hash, recusa revogada ou de empresa excluída, e, para token do conector, **relê o vínculo do membro a cada chamada**: membro removido ou rebaixado perde o acesso na hora. Escopo efetivo (11.16) = escopos do token ∩ papel (avaliador só `leitura`). Dentro do MCP, cada ferramenta confere escopo e papel mínimo (`bloqueio` em `src/server/mcp/kit.ts`). O alcance (11.32) vem de `org/scope.computeScope`.
 
-## 5. Lógica por tela
+## 5. Lógica por porta
 
-- **Login** (`/api/auth/google/callback`): confere `state` e PKCE, valida o `id_token` (assinatura, `aud`, `iss`, `email_verified = true`), recusa e-mail de `EMAILS_BLOQUEADOS`, chama `rs_fn_entra_usuario`. Erros: `/entrar?erro=falha|sem_acesso|suspenso|email_em_uso`, cada um com a copy de `copy.login.erros`. Se a volta era um convite que o próprio login aceitou, vai para `/painel`.
-- **Empresas** (`/painel`): uma empresa → vai direto; várias → lista; nenhuma → "Você ainda não participa de nenhuma empresa." e, sem permissão de criar, a copy da 15.2.
-- **Criar empresa**: sugere o slug a partir do nome; confere formato e reservados na hora e a disponibilidade pelo servidor (`GET /api/painel/empresas/slug`); recusa com "Esse endereço já está em uso. Tente outro." (reservado ou em uso) ou "Use de 3 a 40 letras minúsculas, números e hífens."
-- **Equipe**: convidar (e-mail, papel com a explicação da 15.2, áreas só para recrutador: Todas ou Escolher áreas); convite pendente mostra o prazo; reenviar e cancelar; mudar acesso e remover com confirmação no lugar. Erros do banco aparecem na linha (ex.: último administrador).
-- **Áreas**: criar e editar (nome, responsável); arquivar com confirmação; recusa com a copy "Arquivar área recusado".
-- **Pessoas**: cadastrar e editar (nome, e-mail, cargo, área, resumo semanal); selo "Com acesso · {papel}", "Convite enviado" ou "Sem acesso"; administrador vê "Dar acesso" e "Arquivar".
-- **E-mail** `convite_membro`: remetente "{empresa} via Contrata", `reply-to` = e-mail de contato da empresa, link `/convite/{token}`. Sem `RESEND_API_KEY`, em desenvolvimento, vai para `.caixa-de-saida-local/`.
+- **Login** (`/api/auth/google/callback`): confere `state` e PKCE, valida o `id_token` (assinatura, `aud`, `iss`, `email_verified = true`), recusa e-mail de `EMAILS_BLOQUEADOS`, chama `rs_fn_entra_usuario`. Erros: `/entrar?erro=falha|sem_acesso|suspenso|email_em_uso`. A volta só aceita `/oauth/autorizar…` e `/convite…` (`safeReturnPath`); o padrão é `/`. Convite já aceito pelo próprio login leva a `/convite/aceito`.
+- **Consentimento** (`/oauth/autorizar`), nesta ordem: sem sessão → `/entrar?volta=…`; Termos não aceitos → boas-vindas; sem empresa → criar (se o e-mail está em `CRIACAO_EMPRESA_EMAILS`) ou a mensagem da 15.2; com empresa → escolher a empresa (rádio), os escopos (só os que o papel permite) e a garantia "decisões só acontecem quando você clicar em Confirmar no formulário". `decidir` exige POST da mesma origem, sessão e vínculo, corta os escopos pelo papel e redireciona com `code` e `state` (303).
+- **Metadados e DCR:** `/.well-known/oauth-authorization-server`, `/.well-known/oauth-protected-resource[/mcp]` (com `scopes_supported`), `POST /oauth/registrar`, `POST /oauth/token` (`authorization_code` com PKCE S256; sem refresh token: o token dura até ser revogado).
+- **`/mcp`:** 401 com `WWW-Authenticate: Bearer resource_metadata="…"`; o corpo é lido uma vez para detectar MCP Apps (`suporteAUi`: `sim`, `nao` ou `desconhecido`) e repassado ao handler sem estado do SDK v2. `desconhecido` registra formulário **e** fallback.
+- **Formulários (12.5):** `abrir_formulario_*` monta campos e valores a partir do pedido do modelo (acha pessoa ou área por nome ou e-mail); a UI carrega as opções por `opcoes_*` e grava por `salvar_*`, que revalida com zod, confere papel e devolve `{ok, resumo}` ou `{ok:false, erros:[{campo, mensagem}]}`. Depois do sucesso o Salvar trava. O evento sai com origem `formulario` e o ator é o membro.
+- **Fallback (13.5):** `registrar_*` sem `token_previa` devolve a prévia e um token HMAC (`MCP_PREVIEW_SECRET`, 10 min) amarrado a membro, ação e dados; com o token, grava. Dados diferentes, outra ação, outro membro ou token vencido: `previa_divergente` ou `previa_invalida`. O ator é o agente, origem `mcp`.
+- **API v1:** `requireCredencial(req, ["api"], "leitura")`, envelope de erro `{codigo, mensagem}`, cursor base64url. `GET /api/v1/openapi.json` sai de `z.toJSONSchema` dos mesmos schemas de resposta.
+- **E-mail** `convite_membro`: remetente "{empresa} via Contrata", `reply-to` = e-mail de contato da empresa, link `/convite/{token}`. Sem `RESEND_API_KEY`, em desenvolvimento, vai para `.caixa-de-saida-local/`. O corpo é apagado depois do envio.
+
+### Como os formulários são construídos
+Um único HTML genérico (`ui/formulario/`), feito com Vite singlefile e sem React, renderiza qualquer formulário a partir da descrição que o servidor manda (`src/lib/formularios.ts`: campos `texto`, `email`, `textarea`, `select`, `radio`, `marcar`, `multipla`, `confirmar`, cada um com `mostrarSe`). `npm run build:ui` gera `src/server/mcp/ui/generated.ts` (fora do git; limite de 300 KB, hoje ~257 KB), e o recurso é publicado como `ui://contrata/formulario-<hash>.html`. O tema vem do host.
 
 ## 6. Como hospedar
-Resumo do README (o guia completo entra no 8.12): Supabase com as migrations de `supabase/migrations/`, cliente OAuth do Google próprio, variáveis do `.env.example`. **`CRIACAO_EMPRESA_EMAILS`** decide quem cria empresa (vazia = ninguém).
+Resumo do README (o guia completo entra no 8.12): Supabase com as migrations de `supabase/migrations/`, cliente OAuth do Google próprio, variáveis do `.env.example`. **`CRIACAO_EMPRESA_EMAILS`** decide quem cria empresa (vazia = ninguém); **`MCP_PREVIEW_SECRET`** (32+ caracteres) assina as prévias do fallback. O conector precisa de HTTPS público: o Claude e o ChatGPT não alcançam `localhost`.
 
 ## 7. Divergências em relação ao spec
 
-Todas já refletidas no `spec.md` v0.3.
+Todas já refletidas no `spec.md` (v0.4).
 
 1. **Clone e use (decisão do Alexandre, 20/11/2026):** saiu o pedido de convite da instância e os limites de SaaS; quem cria empresa é a lista `CRIACAO_EMPRESA_EMAILS` (11.33 reescrita).
-2. **Funções do banco por épico:** o 8.1 criou os triggers de invariante e as funções da administração; as funções de vagas, candidaturas, decisões, mensagens, retenção e faxina entram nas migrations dos épicos que as usam, com o pgTAP delas.
-3. **Funções novas:** `rs_fn_aceita_convite`, `rs_fn_reenvia_convite`, `rs_fn_cancela_convite`, `rs_fn_valida_areas`, `rs_fn_garante_administrador` (seção 7.5 atualizada).
-4. **Slugs reservados a mais:** `convite`, `nova`, `conta`, `boas-vindas`, que colidiriam com rotas fixas (11.20 atualizada).
-5. **Arquivar pessoa responsável de área** deixa a área sem responsável (o spec não dizia).
-7. **Painel web provisório (v0.4):** as telas do 8.1 seguem no código até o 8.2, que as troca por formulários no chat; o domínio (`src/server/org/`) e os testes ficam.
-8. **Corpo do e-mail apagado depois do envio** (20.3): `rs_notificacoes.html` e `.texto` são esvaziados quando o e-mail sai.
-6. **`citext` com `search_path = ''`:** o `=` cai no operador de `text`; toda comparação de e-mail nas funções usa `operator(extensions.=)`. O pgTAP pegou isso.
+2. **Funções do banco por épico:** cada épico cria as funções que usa, com o pgTAP delas.
+3. **Funções novas do 8.1:** `rs_fn_aceita_convite`, `rs_fn_reenvia_convite`, `rs_fn_cancela_convite`, `rs_fn_valida_areas`, `rs_fn_garante_administrador` (7.5).
+4. **Slugs reservados a mais:** `convite`, `nova`, `conta`, `boas-vindas` (11.20).
+5. **Arquivar pessoa responsável de área** deixa a área sem responsável.
+6. **`citext` com `search_path = ''`:** o `=` cai no operador de `text`; toda comparação de e-mail nas funções usa `operator(extensions.=)`.
+7. **Painel web retirado no 8.2:** saíram `/painel/*`, `/api/painel/*` e o menu lateral; os testes de rota do 8.1 viraram `src/server/mcp/admin.mcp.test.ts`, com todas as asserções.
+8. **Corpo do e-mail apagado depois do envio** (20.3).
+9. **Um renderizador de formulário, não um HTML por ação (8.2):** o spec pedia `ui/<acao>/` por formulário. Como todos os formulários são campos sobre um schema, o servidor descreve os campos e um HTML genérico os desenha. Menos código, um só limite de 300 KB, e a copy continua no `copy.ts`. Em `src/server/mcp/forms/<acao>/` ficam só `index.ts` (definição: abrir, opções, schema) e `save.ts` (gravação); o fallback é gerado pelo registro comum (`forms/registrar.ts`). Formulários com interação própria (ex.: decisões em lote) podem ganhar HTML dedicado quando chegarem.
+10. **Origem do evento vem do ator** (8.2): em vez de mudar a assinatura das funções do 8.1, o ator carrega `origem` e `rs_fn_registra_evento` a respeita.
+11. **Criar empresa e Termos no consentimento:** as rotas que eram do painel viraram `/oauth/empresa`, `/oauth/empresa/slug` e `/oauth/termos`.
+12. **Sem refresh token:** o token do conector vale até ser revogado (pelo formulário de conexões, ou automaticamente ao mudar o acesso ou remover o membro).

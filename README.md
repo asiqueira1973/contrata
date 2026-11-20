@@ -7,7 +7,7 @@
 A especificação completa está em [`spec.md`](spec.md); os planos de cada épico, em [`plans/`](plans/); o que existe de fato, em [`DOCUMENTACAO-TECNICA.md`](DOCUMENTACAO-TECNICA.md).
 
 ## Estado
-Em implementação. Prontos: guardrails (8.0) e fundação (8.1): banco, login com Google e o domínio de empresa, equipe, convites, áreas e pessoas. As telas web provisórias do 8.1 saem no 8.2, quando o conector MCP com formulários chegar. O guia completo de auto-hospedagem entra no épico 8.12.
+Em implementação. Prontos: guardrails (8.0), fundação (8.1: banco, login com Google, empresa, equipe, convites, áreas e pessoas) e **o conector (8.2)**: OAuth próprio, servidor MCP em `/mcp` com consultas e formulários dentro do chat, chaves de API e a API v1 de leitura. Vagas e candidaturas chegam a partir do 8.3. O guia completo de auto-hospedagem entra no épico 8.12.
 
 ## Rodar localmente
 
@@ -23,6 +23,7 @@ Preencha o `.env.local`:
 - `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`: saem de `supabase status`;
 - `SESSION_SECRET`: `openssl rand -base64 32`;
 - `CRIACAO_EMPRESA_EMAILS`: os e-mails (ou `@seudominio.com.br`) que podem criar empresa. **Vazia, ninguém cria**;
+- `MCP_PREVIEW_SECRET`: `openssl rand -base64 32` (assina as prévias do conector para clientes sem formulário);
 - `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`: veja abaixo.
 
 ```bash
@@ -30,6 +31,15 @@ npm run dev               # http://localhost:3050
 ```
 
 Sem `RESEND_API_KEY`, os e-mails vão para `.caixa-de-saida-local/`.
+
+## Conectar no Claude ou no ChatGPT
+O endereço do conector é `{NEXT_PUBLIC_SITE_URL}/mcp`. O Claude e o ChatGPT só alcançam HTTPS público, então para usar de verdade a instância precisa estar publicada (ou atrás de um túnel).
+- **Claude:** Configurações › Conectores › Adicionar conector personalizado.
+- **ChatGPT:** Configurações › Aplicativos e conectores › Criar (modo desenvolvedor).
+
+Ao conectar, você entra com o Google, aceita os Termos, escolhe (ou cria) a empresa e os escopos. Depois é conversar: "quem sou eu?", "convide a Ana como recrutadora da Loja". Toda escrita abre um formulário no chat, já preenchido, e só grava quando você clica.
+
+Para automação, crie uma chave de API pelo conector ("crie uma chave de API para o n8n") e use `Authorization: Bearer rsk_…` na API v1 (documento em `/api/v1/openapi.json`).
 
 ### Login com Google (obrigatório)
 O Contrata só aceita login pelo Google (spec 6.1). No [Google Cloud Console](https://console.cloud.google.com/):
@@ -41,13 +51,16 @@ O Contrata só aceita login pelo Google (spec 6.1). No [Google Cloud Console](ht
 Quem usa Microsoft 365 pode criar uma conta Google com o mesmo e-mail corporativo (não precisa ser Gmail).
 
 ### Sem cliente Google, só em desenvolvimento
-O seed cria a "Padaria Exemplo" com usuários fictícios. Para ver o painel como um deles:
+O seed cria a "Padaria Exemplo" com usuários fictícios. Para entrar como um deles (no consentimento do conector ou num convite):
 
 ```bash
 node scripts/dev-session.mjs carla@padaria.exemplo
 ```
 
 O comando imprime um cookie `rs_sessao=…` para colar no navegador em `localhost:3050`. Ele recusa rodar contra um banco que não seja o local.
+
+### Ver os formulários sem o Claude
+Com `npm run dev`, abra `http://localhost:3050/dev/formularios`. É um host de MCP Apps que só existe em desenvolvimento: cole um token `rsm_` local, escolha a ferramenta (`abrir_formulario_convite`, `abrir_formulario_pessoa`…) e os argumentos, e o formulário abre como abriria no chat, em tema claro ou escuro.
 
 ## Testes
 

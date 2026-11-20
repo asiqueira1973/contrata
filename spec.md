@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Versão | 0.4 (20/11/2026: **um sistema para agentes, não para humanos**. MCP first e headless: o console do LLM é a tela de quem recruta; consulta em linguagem natural e escrita por formulário no chat (MCP Apps), no padrão "o modelo propõe, a pessoa grava" do Agenda Psi. Sai o painel web; ficam na web só entrar/consentir/convite, o candidato e páginas públicas. Pergunta 25.3 respondida: decisões são confirmadas pelo clique no formulário. Avaliadores avaliam pelo LLM. Nova ordem de épicos a partir do 8.2) · 0.3 (20/11/2026: **clone e use, não SaaS**. Saem o pedido de convite da instância (tabela `rs_pedidos_convite`, telas `/pedir-convite` e `/admin/convites`, `CRIACAO_EMPRESA`, `ADMIN_INSTANCIA_EMAILS`) e os limites de instância de SaaS (usuários e empresas novas por dia, empresas por usuário). Quem pode criar empresa passa a ser a lista `CRIACAO_EMPRESA_EMAILS` (regra 11.33 reescrita). A instância continua servindo várias empresas) · 0.2 (20/11/2026: perguntas 25.2, 25.5, 25.6 e 25.7 respondidas; Resend gratuito; licença MIT; SMTP fica para a v2) · 0.1 (20/11/2026: primeira versão. ATS aberto e gratuito, só de recrutamento e seleção, para várias empresas, com API e MCP como portas principais do lado de quem recruta. Login sempre pelo Google; administração da empresa com convites, papéis, áreas e cadastro de pessoas, incluindo donos de vaga que não acessam o sistema) |
+| Versão | 0.4.1 (20/11/2026, divergências do 8.2: **um renderizador de formulário genérico** em `ui/formulario/`, descrito pelo servidor, no lugar de um HTML por ação; a origem do evento viaja no ator; token do conector sem refresh, vale até ser revogado) · 0.4 (20/11/2026: **um sistema para agentes, não para humanos**. MCP first e headless: o console do LLM é a tela de quem recruta; consulta em linguagem natural e escrita por formulário no chat (MCP Apps), no padrão "o modelo propõe, a pessoa grava" do Agenda Psi. Sai o painel web; ficam na web só entrar/consentir/convite, o candidato e páginas públicas. Pergunta 25.3 respondida: decisões são confirmadas pelo clique no formulário. Avaliadores avaliam pelo LLM. Nova ordem de épicos a partir do 8.2) · 0.3 (20/11/2026: **clone e use, não SaaS**. Saem o pedido de convite da instância (tabela `rs_pedidos_convite`, telas `/pedir-convite` e `/admin/convites`, `CRIACAO_EMPRESA`, `ADMIN_INSTANCIA_EMAILS`) e os limites de instância de SaaS (usuários e empresas novas por dia, empresas por usuário). Quem pode criar empresa passa a ser a lista `CRIACAO_EMPRESA_EMAILS` (regra 11.33 reescrita). A instância continua servindo várias empresas) · 0.2 (20/11/2026: perguntas 25.2, 25.5, 25.6 e 25.7 respondidas; Resend gratuito; licença MIT; SMTP fica para a v2) · 0.1 (20/11/2026: primeira versão. ATS aberto e gratuito, só de recrutamento e seleção, para várias empresas, com API e MCP como portas principais do lado de quem recruta. Login sempre pelo Google; administração da empresa com convites, papéis, áreas e cadastro de pessoas, incluindo donos de vaga que não acessam o sistema) |
 | Responsável de produto | Alexandre Siqueira (DabLab) |
 | Status | pronto para revisão |
 | Data | 20/11/2026 |
@@ -136,7 +136,7 @@ O Contrata é o miolo de recrutamento e seleção, aberto e gratuito, pensado pa
 | Extração de texto do currículo | `unpdf` (PDF) e `mammoth` (DOCX), no servidor, depois do upload | O texto alimenta a busca (regra 11.28) e o MCP (`ler_curriculo`), para a IA do recrutador ler sem baixar o arquivo | OCR: pesado; PDF escaneado fica sem texto e o MCP avisa |
 | E-mail | **Resend**, remetente `naoresponda@{dominio}`, nome de exibição "{Empresa} via Contrata", `reply-to` = `email_contato` da empresa. Fila idempotente em `rs_notificacoes` | Mesmo do Assina | SMTP genérico: v2, para quem hospeda (pergunta 25.5) |
 | MCP | Rota `/mcp` no próprio Next, **stateless**, com o SDK v2 (`@modelcontextprotocol/server` 2.x, protocolo `2026-07-28` e fallback para clientes de 2025) e **`@modelcontextprotocol/ext-apps` 2.x** (MCP Apps: `registerAppTool`, `registerAppResource`), como o servidor MCP do Agenda Psi | Um deploy só; chama `src/server/` direto (princípio 1); formulários funcionam no Claude e no ChatGPT com o mesmo código | Servidor separado: duplicaria o domínio; `window.openai`: só ChatGPT |
-| Formulários | TypeScript + Vite + `vite-plugin-singlefile`, **sem React**; um HTML por formulário em `ui/<acao>/`, embutido no servidor no build; CSP `connect-src 'none'` | Igual ao Agenda Psi: pequeno, sem rede, tema do host | React: pesa no bundle |
+| Formulários | TypeScript + Vite + `vite-plugin-singlefile`, **sem React**; um HTML genérico em `ui/formulario/` que desenha qualquer formulário a partir da descrição de campos enviada pelo servidor (`src/lib/formularios.ts`), embutido no servidor no build; CSP `connect-src 'none'` | Igual ao Agenda Psi: pequeno, sem rede, tema do host | React: pesa no bundle |
 | OAuth do MCP | O **site é o servidor de autorização** (DCR RFC 7591, PKCE S256, RFC 8414 e 9728), como no Assina, **mais** Termos, escolha ou criação de empresa e escopos na tela de consentimento (seção 6.4), que é a porta de entrada do produto | Padrão que já funciona com Claude e ChatGPT | Só chave: não serve como conector no claude.ai |
 | Busca | Postgres full-text (`to_tsvector('portuguese', …)`), coluna gerada e índice GIN | Sem serviço extra | Busca semântica com embeddings: v2 |
 | Datas | `date-fns` v4 + `@date-fns/tz`, exibição em `America/Sao_Paulo` | Mesmo do Assina | — |
@@ -752,18 +752,20 @@ Todas as funções em `plpgsql`, `SECURITY INVOKER`, `search_path=''`, chamadas 
 ### 8.2 O conector: OAuth, MCP, formulários e administração pelo chat
 **Objetivo:** o Contrata funciona dentro do Claude e do ChatGPT antes de existir produto de recrutamento: conectar, criar a empresa e administrar a equipe pelo chat. É o épico que define o padrão de todos os outros.
 **Fluxo:** claude.ai → "Adicionar conector" com `{site}/mcp` → entrar com Google → aceitar os Termos → escolher ou criar a empresa → escopos → "Permitir" → "quem sou eu?" → "convide a Ana como recrutadora da Loja" → formulário preenchido → Enviar convite.
-- [ ] Premissa (e) conferida e registrada no plano: o handler do SDK v2 e os recursos `ui://` funcionam numa rota do Next 16 na Vercel.
-- [ ] Guardrails da v0.4 instalados: `guard-decisoes` com a exceção de `src/server/mcp/forms/*/save.ts` (Anexo B), casos novos em `scripts/test-guardrails.sh`; migration que renomeia `rs_origem_evento.painel` para `web` e acrescenta `formulario`.
-- [ ] OAuth completo (6.4): DCR, PKCE S256, entrar, Termos, escolha ou **criação** de empresa (11.33), escopos limitados pelo papel (11.16); avaliador não vê `escrita` nem `decisao`.
-- [ ] Infraestrutura de formulários (padrão do Agenda Psi): `registerAppTool` + `registerAppResource`, HTML único por formulário (Vite singlefile, sem React, < 300 KB, CSP `connect-src 'none'`), tema do host, estados `carregando → pronto → salvando → sucesso | erro` (12.5), Salvar travado depois do sucesso.
-- [ ] Detecção de MCP Apps por request; sem MCP Apps, o fallback com prévia (13.5) é registrado no lugar do formulário.
-- [ ] `requireCredencial` com as respostas 401/403 da seção 6.3; teste de cada escopo; `salvar_*` só com `visibility: ["app"]` (teste que percorre o registro de ferramentas).
-- [ ] Ferramentas: `quem_sou_eu`, `listar_equipe`, `listar_areas`, `listar_pessoas` (consulta); formulários de convite (convidar, reenviar, cancelar), acesso (mudar papel e áreas, remover), áreas (criar, editar, arquivar), pessoas (cadastrar, editar, arquivar, dar acesso), conexões (listar e revogar), chaves de API (criar, revogar; a chave aparece **só no formulário**, nunca no texto devolvido ao modelo) — todas sobre o domínio do 8.1, com os mesmos testes de alcance, último administrador e revogação de tokens.
-- [ ] `GET /api/v1/empresa`, `/areas`, `/pessoas`; `/docs/api` serve o OpenAPI 3.1 gerado dos schemas zod.
-- [ ] Retirada do painel web: `/painel/*`, o menu lateral e as rotas `/api/painel/*` saem; ficam `/entrar`, `/oauth/autorizar`, `/convite/{token}` e `POST /sair`. Os testes de rota do 8.1 viram testes das ferramentas, sem perder nenhuma asserção.
-- [ ] `/convite/{token}` termina em "Conecte o Contrata" com o passo a passo de `/docs/mcp`.
-- [ ] Todas as respostas de erro seguem `{codigo, mensagem}` (13.2) e nenhuma traz dado pessoal.
+- [ ] Premissa (e) conferida e registrada no plano: o handler do SDK v2 e os recursos `ui://` funcionam numa rota do Next 16 na Vercel. *(Conferido numa rota do Next 16 local, por testes de HTTP e pelo host `/dev/formularios`; falta a Vercel.)*
+- [x] Guardrails da v0.4 instalados: `guard-decisoes` com a exceção de `src/server/mcp/forms/*/save.ts` (Anexo B), casos novos em `scripts/test-guardrails.sh`; migration que renomeia `rs_origem_evento.painel` para `web` e acrescenta `formulario`.
+- [x] OAuth completo (6.4): DCR, PKCE S256, entrar, Termos, escolha ou **criação** de empresa (11.33), escopos limitados pelo papel (11.16); avaliador não vê `escrita` nem `decisao`.
+- [x] Infraestrutura de formulários (padrão do Agenda Psi): `registerAppTool` + `registerAppResource`, HTML genérico de formulário (Vite singlefile, sem React, < 300 KB, CSP `connect-src 'none'`), tema do host, estados `carregando → pronto → salvando → sucesso | erro` (12.5), Salvar travado depois do sucesso.
+- [x] Detecção de MCP Apps por request; sem MCP Apps, o fallback com prévia (13.5) é registrado no lugar do formulário.
+- [x] `requireCredencial` com as respostas 401/403 da seção 6.3; teste de cada escopo; `salvar_*` só com `visibility: ["app"]` (teste que percorre o registro de ferramentas).
+- [x] Ferramentas: `quem_sou_eu`, `listar_equipe`, `listar_areas`, `listar_pessoas` (consulta); formulários de convite (convidar, reenviar, cancelar), acesso (mudar papel e áreas, remover), áreas (criar, editar, arquivar), pessoas (cadastrar, editar, arquivar, dar acesso), conexões (listar e revogar), chaves de API (criar, revogar; a chave aparece **só no formulário**, nunca no texto devolvido ao modelo) — todas sobre o domínio do 8.1, com os mesmos testes de alcance, último administrador e revogação de tokens.
+- [x] `GET /api/v1/empresa`, `/areas`, `/pessoas`; `/docs/api` serve o OpenAPI 3.1 gerado dos schemas zod.
+- [x] Retirada do painel web: `/painel/*`, o menu lateral e as rotas `/api/painel/*` saem; ficam `/entrar`, `/oauth/autorizar`, `/convite/{token}` e `POST /sair`. Os testes de rota do 8.1 viram testes das ferramentas, sem perder nenhuma asserção.
+- [x] `/convite/{token}` termina em "Conecte o Contrata" com o passo a passo (em `/convite/aceito`; a página `/docs/mcp` entra no 8.12).
+- [x] Todas as respostas de erro seguem `{codigo, mensagem}` (13.2) e nenhuma traz dado pessoal.
 - [ ] Fluxo do épico feito no Claude **e** no ChatGPT (modo desenvolvedor), e no MCP Inspector sem MCP Apps (fallback).
+
+**Concluído no local em 20/11/2026** (v0.4.1, `plans/8.2-conector.md`). Pendentes: migrations no remoto, cliente OAuth do Google, deploy com URL pública, e com ela o teste no Claude, no ChatGPT e no MCP Inspector.
 
 ### 8.3 Vagas e página de carreiras
 **Objetivo:** criar, publicar, pausar e encerrar vagas pelo chat, com página pública indexável.
@@ -1320,7 +1322,7 @@ Não há painel. O visual vive em três lugares:
 - **Alcance explícito:** toda função de domínio que lê candidaturas recebe `alcance: Alcance` (`{tipo:'todas'} | {tipo:'equipe', membroId}`).
 - **Armazenamento atrás de interface:** `src/server/files/storage.ts` com `ArquivoStorage` (URL de upload e download, ler, apagar, apagar por prefixo, somar uso). Implementação S3 genérica configurada para R2 por padrão.
 - **Um domínio, quatro portas:** `src/server/org/` e `src/server/recruiting/` concentram a regra. `src/server/mcp/` (ferramentas e formulários), `src/app/api/v1/`, `src/app/api/publico/` e `src/app/api/c/` só fazem guardião, parse (zod) e chamada.
-- **Formulários:** um módulo por ação em `src/server/mcp/forms/<acao>/` (`open.ts`, `options.ts`, `save.ts`, `fallback.ts`) e a UI em `ui/<acao>/` (Vite singlefile), como em `agenda-psi/mcp-server/src/tools/`. Copy dos formulários vem de `src/lib/copy.ts`.
+- **Formulários:** um módulo por ação em `src/server/mcp/forms/<acao>/`: `index.ts` (definição: título, escopo, papel, entrada do modelo, `montar` dos campos e valores, `opcoes`, schema zod) e `save.ts` (gravação). `forms/registrar.ts` registra, a partir da definição, `abrir_formulario_*`, `opcoes_*`, `salvar_*` e o fallback `registrar_*`. A UI é um HTML genérico em `ui/formulario/` (Vite singlefile) que desenha os campos descritos pelo servidor; formulário com interação própria pode ganhar HTML dedicado. Copy dos formulários vem de `src/lib/copy.ts`.
 - **Pastas:**
 
 ```
@@ -1341,7 +1343,7 @@ src/
     mcp/ (server, read/, forms/<acao>/, preview-token, client-capabilities)
     db/  auth/  org/ (members, invites, areas, people, scope)  recruiting/ (jobs, applications, pipeline, decisions, messages, talent, retention)
     files/ (storage, extract, fetch-remote)  email/  webhooks/  analytics/  jobs/ (jsonld, feed)  cron.ts
-ui/ shared/  <acao>/        # formulários MCP Apps (Vite singlefile)
+ui/ shared/  formulario/  dev-host/   # formulário genérico MCP Apps (Vite singlefile); dev-host só em desenvolvimento
 supabase/ migrations/  tests/  schema.sql  seed.sql
 scripts/  tests/  plans/
 ```
