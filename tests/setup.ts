@@ -21,6 +21,7 @@ process.env.NEXT_PUBLIC_SITE_URL = "http://localhost:3050";
 process.env.GOOGLE_CLIENT_ID = "client-teste.apps.googleusercontent.com";
 process.env.GOOGLE_CLIENT_SECRET = "segredo-teste";
 process.env.SESSION_SECRET = randomBytes(32).toString("base64url");
+process.env.MCP_PREVIEW_SECRET = randomBytes(32).toString("base64url");
 // Regra 11.33: só o domínio dos testes cria empresa; os testes de permissão trocam e restauram.
 process.env.CRIACAO_EMPRESA_EMAILS = "@criador.test";
 process.env.EMAILS_BLOQUEADOS = "bloqueado@teste.dev";

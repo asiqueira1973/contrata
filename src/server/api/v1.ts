@@ -44,18 +44,15 @@ export function paginar<T>(itens: T[], p: { inicio: number; limite: number }) {
 }
 
 // Schemas de resposta (nomes do banco, seção 13).
-export const Erro = z.object({ codigo: z.string(), mensagem: z.string() }).meta({ id: "Erro" });
+export const Erro = z.object({ codigo: z.string(), mensagem: z.string() });
 export const EmpresaV1 = z
   .object({
     empresa: z.object({ id: z.uuid(), slug: z.string(), nome: z.string() }),
     credencial: z.object({ nome: z.string(), escopos: z.array(z.enum(["leitura", "escrita", "decisao"])) }),
-  })
-  .meta({ id: "Empresa" });
+  });
 export const AreaV1 = z
-  .object({ id: z.uuid(), nome: z.string(), responsavel: z.object({ id: z.uuid(), nome: z.string() }).nullable(), vagas_abertas: z.number().int() })
-  .meta({ id: "Area" });
+  .object({ id: z.uuid(), nome: z.string(), responsavel: z.object({ id: z.uuid(), nome: z.string() }).nullable(), vagas_abertas: z.number().int() });
 export const PessoaV1 = z
-  .object({ id: z.uuid(), nome: z.string(), email: z.string(), cargo: z.string().nullable(), area: z.object({ id: z.uuid(), nome: z.string() }).nullable(), tem_acesso: z.boolean() })
-  .meta({ id: "Pessoa" });
-export const ListaAreas = z.object({ itens: z.array(AreaV1), proximo_cursor: z.string().nullable() }).meta({ id: "ListaAreas" });
-export const ListaPessoas = z.object({ itens: z.array(PessoaV1), proximo_cursor: z.string().nullable() }).meta({ id: "ListaPessoas" });
+  .object({ id: z.uuid(), nome: z.string(), email: z.string(), cargo: z.string().nullable(), area: z.object({ id: z.uuid(), nome: z.string() }).nullable(), tem_acesso: z.boolean() });
+export const ListaAreas = z.object({ itens: z.array(AreaV1), proximo_cursor: z.string().nullable() });
+export const ListaPessoas = z.object({ itens: z.array(PessoaV1), proximo_cursor: z.string().nullable() });

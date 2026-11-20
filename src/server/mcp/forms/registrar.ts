@@ -118,11 +118,17 @@ export function registrarFormulario<S extends z.ZodObject>(server: McpServer, ct
         const v = validar(def.schema, resto);
         if (!v.ok) return resposta(v.r as unknown as Record<string, unknown>, c.nadaGravado, true);
         const acao = `registrar_${def.acao}`;
+        // Sem segredo de 32+ caracteres, o fallback não assina nada (13.5).
+        const segredo = process.env.MCP_PREVIEW_SECRET ?? "";
+        if (segredo.length < 32) {
+          console.error("erro_interno_mcp", "MCP_PREVIEW_SECRET ausente");
+          return erro("generico");
+        }
         if (!confirmar) {
-          const token = emitirTokenDePrevia(process.env.MCP_PREVIEW_SECRET ?? "", ctx.credencial.id, acao, v.dados);
+          const token = emitirTokenDePrevia(segredo, ctx.credencial.id, acao, v.dados);
           return resposta({ ok: true, previa: v.dados, token_previa: token }, c.previaPronta);
         }
-        const conferencia = conferirTokenDePrevia(process.env.MCP_PREVIEW_SECRET ?? "", ctx.credencial.id, acao, v.dados, token_previa);
+        const conferencia = conferirTokenDePrevia(segredo, ctx.credencial.id, acao, v.dados, token_previa);
         if (conferencia === "divergente") return erro("previa_divergente");
         if (conferencia !== "ok") return erro("previa_invalida");
         // Sem formulário, quem grava é o agente, depois de a pessoa concordar na conversa.

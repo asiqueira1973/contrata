@@ -6,9 +6,11 @@ import { NextRequest } from "next/server";
 import type { Papel } from "@/lib/limits";
 import { signSession } from "@/server/auth/session";
 import { db } from "@/server/db/client";
+import { generateCredential } from "@/server/credentials/keys";
 import { setMailerForTests, type EmailMessage } from "@/server/email/mailer";
 
 export const SITE = "http://localhost:3050";
+
 
 export type TestUser = { id: string; email: string; cookie: string };
 
@@ -101,4 +103,61 @@ export function captureEmails(): EmailMessage[] {
   const box: EmailMessage[] = [];
   setMailerForTests({ async send(m) { box.push(m); return { id: `teste-${box.length}` }; } });
   return box;
+}
+
+// ---------------------------------------------------------------- 8.2: conector e API v1
+
+// Cria um token do conector (credencial mcp) para um membro, direto no banco. Devolve o valor.
+export async function createTestToken(empresaId: string, membroId: string, escopos: ("leitura" | "escrita" | "decisao")[] = ["leitura", "escrita", "decisao"]) {
+  const k = generateCredential("mcp");
+  const { error } = await db().from("rs_credenciais").insert({ empresa_id: empresaId, tipo: "mcp", nome: "Teste", prefixo: k.prefixo, valor_hash: k.hash, escopos, membro_id: membroId, criada_por_membro_id: membroId });
+  if (error) throw error;
+  return k.valor;
+}
+
+// Cria uma chave de API da empresa, direto no banco. Devolve o valor.
+export async function createTestApiKey(empresaId: string, criadaPor: string, escopos: ("leitura" | "escrita" | "decisao")[] = ["leitura"]) {
+  const k = generateCredential("api");
+  const { error } = await db().from("rs_credenciais").insert({ empresa_id: empresaId, tipo: "api", nome: "Chave teste", prefixo: k.prefixo, valor_hash: k.hash, escopos, criada_por_membro_id: criadaPor });
+  if (error) throw error;
+  return k.valor;
+}
+
+// Capacidades do cliente na revisão 2026-07-28 (13.5): com formulário, sem, ou sem dizer.
+export const COM_UI = { extensions: { "io.modelcontextprotocol/ui": { mimeTypes: ["text/html;profile=mcp-app"] } } };
+export const SEM_UI = { extensions: {} };
+
+let rpcId = 0;
+// Chama /mcp com JSON-RPC. Recebe: token, método, params e as capacidades do cliente (ou null).
+// Devolve: o status HTTP e o corpo JSON-RPC (lido de JSON ou de SSE).
+export async function mcpRpc(token: string | null, method: string, params: Record<string, unknown> = {}, caps: unknown = COM_UI) {
+  const { POST } = await import("@/app/mcp/route");
+  const meta = caps === null ? {} : { _meta: { "io.modelcontextprotocol/clientCapabilities": caps } };
+  const req = new NextRequest(`${SITE}/mcp`, {
+    method: "POST",
+    headers: {
+      ...(token ? { authorization: `Bearer ${token}` } : {}),
+      "content-type": "application/json",
+      accept: "application/json, text/event-stream",
+      "mcp-protocol-version": "2025-06-18",
+    },
+    body: JSON.stringify({ jsonrpc: "2.0", id: ++rpcId, method, params: { ...params, ...meta } }),
+  });
+  const res = await POST(req);
+  const text = await res.text();
+  const data = text.startsWith("event:") || text.includes("\ndata:") ? text.split("\n").find((l) => l.startsWith("data:"))!.slice(5) : text;
+  return { status: res.status, headers: res.headers, body: data ? JSON.parse(data) : null };
+}
+
+// Chama uma ferramenta e devolve o result ({content, structuredContent, isError}) ou lança o erro JSON-RPC.
+export async function callTool(token: string, name: string, args: Record<string, unknown> = {}, caps: unknown = COM_UI) {
+  const r = await mcpRpc(token, "tools/call", { name, arguments: args }, caps);
+  if (r.body?.error) return { rpcError: r.body.error as { code: number; message: string } };
+  return r.body.result as { content: { type: string; text: string }[]; structuredContent?: Record<string, unknown>; isError?: boolean };
+}
+
+// Lista as ferramentas visíveis para um token, com as capacidades dadas.
+export async function listTools(token: string, caps: unknown = COM_UI) {
+  const r = await mcpRpc(token, "tools/list", {}, caps);
+  return r.body.result.tools as { name: string; title?: string; annotations?: Record<string, unknown>; _meta?: { ui?: { visibility?: string[]; resourceUri?: string } } }[];
 }
