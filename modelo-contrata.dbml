@@ -1,0 +1,695 @@
+// Contrata (nome de trabalho) — modelo de dados (spec.md v0.2, seção 7)
+// ATS aberto de recrutamento e seleção. Banco em português, snake_case, prefixo rs_.
+// RLS ligado e sem política em todas as tabelas (seção 6.5). Acesso só pelo servidor.
+
+enum rs_papel_membro {
+  administrador
+  recrutador
+  avaliador
+}
+
+enum rs_tipo_credencial {
+  api
+  mcp
+}
+
+enum rs_escopo {
+  leitura
+  escrita
+  decisao
+}
+
+enum rs_status_vaga {
+  rascunho
+  publicada
+  pausada
+  encerrada
+}
+
+enum rs_motivo_encerramento_vaga {
+  preenchida
+  cancelada
+  outro
+}
+
+enum rs_modelo_trabalho {
+  presencial
+  hibrido
+  remoto
+}
+
+enum rs_regime {
+  clt
+  pj
+  estagio
+  temporario
+  aprendiz
+  trainee
+  freelancer
+  outro
+}
+
+enum rs_tipo_etapa {
+  triagem
+  entrevista
+  avaliacao
+  proposta
+}
+
+enum rs_papel_na_vaga {
+  responsavel
+  avaliador
+}
+
+enum rs_tipo_pergunta {
+  texto_curto
+  texto_longo
+  sim_nao
+  escolha_unica
+  numero
+}
+
+enum rs_situacao_candidatura {
+  ativa
+  reprovada
+  desistiu
+  contratada
+  encerrada_vaga
+}
+
+enum rs_motivo_reprovacao {
+  requisitos
+  experiencia
+  perfil
+  pretensao_salarial
+  localizacao
+  outro_candidato
+  sem_retorno
+  outro
+}
+
+enum rs_origem_candidatura {
+  pagina
+  api_publica
+  integracao
+  manual
+  banco_talentos
+}
+
+enum rs_tipo_arquivo {
+  curriculo
+  anexo
+  logo
+}
+
+enum rs_status_extracao {
+  pendente
+  ok
+  sem_texto
+  falhou
+}
+
+enum rs_recomendacao {
+  forte_sim
+  sim
+  nao
+  forte_nao
+}
+
+enum rs_tipo_decisao {
+  reprovar
+  contratar
+  encerrar_vaga
+  enviar_mensagem
+}
+
+enum rs_status_decisao {
+  pendente
+  confirmada
+  descartada
+  expirada
+}
+
+enum rs_tipo_ator {
+  membro
+  candidato
+  sistema
+  api
+  agente
+}
+
+enum rs_origem_evento {
+  painel
+  api
+  mcp
+  publico
+  cron
+}
+
+enum rs_tipo_mensagem {
+  confirmacao
+  devolutiva
+  contato
+  convite_vaga
+  desistencia
+  resposta_revisao
+}
+
+enum rs_mensagens_agente {
+  confirmar
+  direto
+}
+
+enum rs_tipo_notificacao {
+  pedido_convite_recebido
+  pedido_convite_admin
+  pedido_convite_aprovado
+  pedido_convite_recusado
+  convite_membro
+  candidatura_recebida
+  mensagem_candidato
+  links_reenviados
+  codigo_exclusao
+  resumo_diario
+  decisoes_pendentes
+  revisao_pedida
+  talentos_expirando
+  resumo_dono_vaga
+}
+
+enum rs_status_notificacao {
+  pendente
+  enviada
+  falhou
+  descartada
+}
+
+enum rs_status_pedido_convite {
+  pendente
+  aprovado
+  recusado
+  usado
+  vencido
+}
+
+enum rs_status_entrega {
+  pendente
+  entregue
+  falhou
+  desistiu
+}
+
+// ---------- Pessoas, empresas e acesso ----------
+
+Table rs_usuarios {
+  id uuid [pk, default: `gen_random_uuid()`]
+  email citext [not null, unique]
+  nome text [not null, note: 'do Google']
+  google_sub text [not null, unique, note: 'identificador do login (só Google, 6.1)']
+  foto_url text [note: 'nulo se o Google não mandar']
+  termos_aceitos_em timestamptz [note: 'nulo até aceitar as boas-vindas']
+  suspenso_em timestamptz [note: 'nulo = ativo']
+  ultimo_acesso_em timestamptz
+  criado_em timestamptz [not null, default: `now()`]
+  Note: 'Pessoa que entra no painel. Login sempre pelo Google.'
+}
+
+Table rs_pedidos_convite {
+  id uuid [pk, default: `gen_random_uuid()`]
+  email citext [not null, note: 'um pendente por e-mail (índice parcial)']
+  nome text [not null, note: '2–120']
+  empresa_nome text [not null, note: '2–80']
+  uso text [note: 'até 500; nulo = não respondeu']
+  status rs_status_pedido_convite [not null, default: 'pendente']
+  decidido_por_usuario_id uuid [note: 'administrador da instância']
+  decidido_em timestamptz
+  aprovado_ate timestamptz [note: 'aprovação + 30 dias']
+  empresa_id uuid [note: 'empresa criada com o convite (usado)']
+  ip_hash text [note: 'HMAC do IP, só para o limite 11.14']
+  criado_em timestamptz [not null, default: `now()`]
+  Note: 'Pedidos de convite para criar empresa na instância hospedada (11.33).'
+}
+
+Table rs_empresas {
+  id uuid [pk, default: `gen_random_uuid()`]
+  slug text [not null, unique, note: '^[a-z0-9](-?[a-z0-9])*$, 3–40, fora da lista reservada (11.20)']
+  nome text [not null, note: '2–80']
+  descricao text [note: 'markdown até 2.000; nulo = página sem texto']
+  site_url text
+  logo_path text [note: 'caminho no R2; nulo = iniciais']
+  cor_destaque text [note: '#rrggbb com contraste AA; nulo = azul do produto']
+  email_contato citext [not null, note: 'reply-to dos e-mails a candidatos']
+  pagina_publicada boolean [not null, default: false]
+  retencao_dias smallint [not null, default: 180, note: '90–365 (11.12)']
+  talentos_meses smallint [not null, default: 12, note: '6–24 (11.12)']
+  mensagens_agente rs_mensagens_agente [not null, default: 'confirmar', note: '11.8']
+  aviso_privacidade_extra text [note: 'até 1.000; nulo = só o padrão']
+  criada_por_usuario_id uuid [not null]
+  suspensa_em timestamptz
+  excluida_em timestamptz [note: 'expurgo 7 dias depois (7.4)']
+  criado_em timestamptz [not null, default: `now()`]
+  atualizado_em timestamptz [not null, default: `now()`]
+  Note: 'O inquilino. Todo dado de recrutamento pertence a uma empresa.'
+}
+
+Table rs_membros {
+  id uuid [pk, default: `gen_random_uuid()`]
+  empresa_id uuid [not null]
+  usuario_id uuid [note: 'nulo enquanto o convite não foi aceito']
+  email citext [not null, note: 'único por empresa entre os não removidos (índice parcial)']
+  papel rs_papel_membro [not null]
+  todas_areas boolean [not null, default: true, note: 'só vale para recrutador (11.32)']
+  link_agenda text [note: 'variável {{link_agenda}}; nulo = vazia']
+  convite_token_hash text [note: 'nulo depois de aceito']
+  convite_expira_em timestamptz [note: 'criação + 7 dias (11.24)']
+  convidado_por_membro_id uuid [note: 'nulo só para quem criou a empresa']
+  aceito_em timestamptz
+  removido_em timestamptz [note: 'soft delete']
+  criado_em timestamptz [not null, default: `now()`]
+  Note: 'Quem tem acesso à empresa e com que papel. Inclui convites pendentes.'
+}
+
+Table rs_areas {
+  id uuid [pk, default: `gen_random_uuid()`]
+  empresa_id uuid [not null]
+  nome text [not null, note: '2–60; único por empresa entre as ativas']
+  responsavel_pessoa_id uuid [note: 'dono padrão das vagas novas da área; nulo = sem responsável']
+  arquivada_em timestamptz [note: 'soft delete']
+  criado_em timestamptz [not null, default: `now()`]
+  atualizado_em timestamptz [not null, default: `now()`]
+  Note: 'Departamentos da empresa. Um nível, sem hierarquia.'
+}
+
+Table rs_membro_areas {
+  membro_id uuid [not null]
+  area_id uuid [not null]
+  criado_em timestamptz [not null, default: `now()`]
+  indexes {
+    (membro_id, area_id) [pk]
+  }
+  Note: 'Áreas de um recrutador com todas_areas = false (11.32).'
+}
+
+Table rs_pessoas {
+  id uuid [pk, default: `gen_random_uuid()`]
+  empresa_id uuid [not null]
+  nome text [not null, note: '2–120']
+  email citext [not null, note: 'único por empresa entre as ativas']
+  cargo text
+  area_id uuid [note: 'nulo = sem área']
+  membro_id uuid [unique, note: 'nulo = pessoa sem acesso ao sistema (11.31)']
+  recebe_resumo boolean [not null, default: true, note: 'resumo semanal para dono de vaga sem acesso']
+  arquivada_em timestamptz [note: 'soft delete']
+  criado_em timestamptz [not null, default: `now()`]
+  atualizado_em timestamptz [not null, default: `now()`]
+  Note: 'Gestores, donos de vaga e entrevistadores, com ou sem acesso. Todo membro tem uma linha aqui.'
+}
+
+Table rs_credenciais {
+  id uuid [pk, default: `gen_random_uuid()`]
+  empresa_id uuid [not null]
+  tipo rs_tipo_credencial [not null]
+  nome text [not null]
+  prefixo text [not null, note: '8 primeiros caracteres']
+  valor_hash text [not null, unique, note: 'SHA-256; a chave é mostrada uma vez']
+  escopos "rs_escopo[]" [not null]
+  membro_id uuid [note: 'obrigatório se mcp; nulo se api']
+  oauth_cliente_id uuid [note: 'só mcp']
+  criada_por_membro_id uuid [not null]
+  ultimo_uso_em timestamptz
+  revogada_em timestamptz [note: 'nulo = ativa']
+  criado_em timestamptz [not null, default: `now()`]
+}
+
+Table rs_oauth_clientes {
+  id uuid [pk, default: `gen_random_uuid()`, note: 'client_id']
+  nome text [not null, note: 'até 100; padrão Cliente MCP']
+  redirect_uris "text[]" [not null, note: '1–5']
+  criado_em timestamptz [not null, default: `now()`]
+}
+
+Table rs_oauth_codigos {
+  codigo_hash text [pk]
+  cliente_id uuid [not null]
+  empresa_id uuid [not null]
+  membro_id uuid [not null]
+  escopos "rs_escopo[]" [not null, note: 'limitados pelo papel (11.16)']
+  redirect_uri text [not null]
+  code_challenge text [not null]
+  expira_em timestamptz [not null, note: 'criação + 10 min']
+  usado_em timestamptz [note: 'nulo = ainda não trocado']
+}
+
+// ---------- Vagas ----------
+
+Table rs_vagas {
+  id uuid [pk, default: `gen_random_uuid()`]
+  empresa_id uuid [not null]
+  area_id uuid [note: 'nula = Sem área (11.32)']
+  dono_pessoa_id uuid [note: 'gestor que pediu a vaga; pode não ter acesso (11.31)']
+  slug text [not null, note: 'único por empresa']
+  titulo text [not null, note: '3–120']
+  descricao text [not null, default: '', note: 'markdown até 20.000; vazio só em rascunho']
+  requisitos text [note: 'markdown até 5.000']
+  modelo_trabalho rs_modelo_trabalho [not null, default: 'presencial']
+  cidade text [note: 'obrigatória se presencial ou híbrido']
+  uf char(2)
+  regime rs_regime [not null, default: 'clt']
+  salario_min "numeric(12,2)"
+  salario_max "numeric(12,2)"
+  salario_periodo text [note: 'mes ou hora; obrigatório se houver salário']
+  mostrar_salario boolean [not null, default: false]
+  curriculo_obrigatorio boolean [not null, default: true]
+  status rs_status_vaga [not null, default: 'rascunho', note: 'só por rs_fn_transicao_vaga (12.1)']
+  encerra_em date [note: 'data-limite opcional (11.11)']
+  publicada_em timestamptz [note: 'primeira publicação']
+  encerrada_em timestamptz
+  motivo_encerramento rs_motivo_encerramento_vaga [note: 'obrigatório quando encerrada']
+  criado_em timestamptz [not null, default: `now()`]
+  atualizado_em timestamptz [not null, default: `now()`]
+  indexes {
+    (empresa_id, slug) [unique]
+    (empresa_id, status)
+    (empresa_id, area_id)
+  }
+}
+
+Table rs_etapas {
+  id uuid [pk, default: `gen_random_uuid()`]
+  vaga_id uuid [not null]
+  nome text [not null, note: '2–40']
+  tipo rs_tipo_etapa [not null, note: 'define o texto que o candidato vê (11.21)']
+  ordem smallint [not null]
+  indexes {
+    (vaga_id, ordem) [unique, note: 'deferrable']
+  }
+}
+
+Table rs_perguntas {
+  id uuid [pk, default: `gen_random_uuid()`]
+  vaga_id uuid [not null]
+  ordem smallint [not null]
+  texto text [not null, note: '3–300']
+  tipo rs_tipo_pergunta [not null]
+  opcoes "text[]" [note: '2–10, só escolha_unica']
+  obrigatoria boolean [not null, default: true]
+  resposta_esperada text [note: 'só sim_nao e escolha_unica; sinaliza, nunca reprova (11.10)']
+}
+
+Table rs_vaga_equipe {
+  vaga_id uuid [not null]
+  membro_id uuid [not null]
+  papel_na_vaga rs_papel_na_vaga [not null, note: 'um responsavel por vaga (índice parcial)']
+  criado_em timestamptz [not null, default: `now()`]
+  indexes {
+    (vaga_id, membro_id) [pk]
+  }
+}
+
+// ---------- Candidatos ----------
+
+Table rs_candidatos {
+  id uuid [pk, default: `gen_random_uuid()`]
+  empresa_id uuid [not null]
+  email citext [note: 'único por empresa quando não nulo; nulo depois de anonimizado']
+  nome text [not null]
+  telefone text
+  linkedin_url text
+  cidade text
+  talentos_consentido_em timestamptz [note: 'nulo = fora do banco de talentos']
+  talentos_expira_em timestamptz
+  anonimizado_em timestamptz
+  criado_em timestamptz [not null, default: `now()`]
+  atualizado_em timestamptz [not null, default: `now()`]
+  Note: 'A pessoa dentro de uma empresa. O mesmo e-mail em duas empresas são dois candidatos (11.27).'
+}
+
+Table rs_candidaturas {
+  id uuid [pk, default: `gen_random_uuid()`]
+  empresa_id uuid [not null]
+  vaga_id uuid [not null]
+  candidato_id uuid [not null]
+  etapa_id uuid [note: 'etapa atual']
+  situacao rs_situacao_candidatura [not null, default: 'ativa', note: 'só pelas funções (12.2)']
+  origem rs_origem_candidatura [not null]
+  token_hash text [not null, unique, note: 'link /c/{token}']
+  consentimento_versao text [not null]
+  consentimento_em timestamptz [not null]
+  sinalizada boolean [not null, default: false, note: '11.10']
+  texto_busca tsvector [note: 'recalculado por rs_fn_atualiza_busca; índice GIN']
+  movida_em timestamptz [not null, default: `now()`]
+  motivo_reprovacao rs_motivo_reprovacao [note: 'interno; só reprovada']
+  encerrada_em timestamptz
+  expurgar_em timestamptz [note: 'encerrada_em + retencao_dias (11.12)']
+  revisao_pedida_em timestamptz
+  revisao_respondida_em timestamptz
+  criado_em timestamptz [not null, default: `now()`]
+  indexes {
+    (vaga_id, candidato_id) [unique]
+    (empresa_id, vaga_id, situacao, etapa_id)
+    (empresa_id, movida_em)
+    expurgar_em
+  }
+}
+
+Table rs_respostas {
+  candidatura_id uuid [not null]
+  pergunta_id uuid [not null]
+  valor text [not null]
+  criado_em timestamptz [not null, default: `now()`]
+  indexes {
+    (candidatura_id, pergunta_id) [pk]
+  }
+}
+
+Table rs_arquivos {
+  id uuid [pk, default: `gen_random_uuid()`]
+  empresa_id uuid [not null]
+  candidatura_id uuid [note: 'nulo só para logo']
+  tipo rs_tipo_arquivo [not null]
+  path text [not null]
+  nome_original text [not null]
+  mime text [not null]
+  bytes integer [not null]
+  sha256 text
+  texto_extraido text [note: 'até 100.000 caracteres']
+  extracao_status rs_status_extracao [not null, default: 'pendente']
+  confirmado_em timestamptz [note: 'nulo = upload não concluído']
+  criado_em timestamptz [not null, default: `now()`]
+}
+
+// ---------- Funil ----------
+
+Table rs_avaliacoes {
+  id uuid [pk, default: `gen_random_uuid()`]
+  candidatura_id uuid [not null]
+  etapa_id uuid [not null]
+  membro_id uuid [not null]
+  recomendacao rs_recomendacao [not null]
+  comentario text [not null, note: '10–5.000']
+  criado_em timestamptz [not null, default: `now()`]
+  atualizado_em timestamptz [not null, default: `now()`]
+  indexes {
+    (candidatura_id, etapa_id, membro_id) [unique]
+  }
+}
+
+Table rs_notas {
+  id uuid [pk, default: `gen_random_uuid()`]
+  candidatura_id uuid [not null]
+  texto text [not null, note: '1–10.000']
+  ator_tipo rs_tipo_ator [not null, note: 'membro, api ou agente']
+  membro_id uuid [note: 'autor ou dono do token do agente']
+  credencial_id uuid
+  criado_em timestamptz [not null, default: `now()`]
+}
+
+Table rs_decisoes {
+  id uuid [pk, default: `gen_random_uuid()`]
+  empresa_id uuid [not null]
+  tipo rs_tipo_decisao [not null]
+  candidatura_id uuid
+  vaga_id uuid
+  payload jsonb [not null]
+  justificativa text [note: 'até 2.000']
+  status rs_status_decisao [not null, default: 'pendente']
+  proposta_por_tipo rs_tipo_ator [not null, note: 'api ou agente']
+  proposta_por_membro_id uuid
+  credencial_id uuid [not null]
+  decidida_por_membro_id uuid
+  decidida_em timestamptz
+  expira_em timestamptz [not null, note: 'criação + 7 dias']
+  criado_em timestamptz [not null, default: `now()`]
+  Note: 'Propostas de API/MCP que esperam confirmação humana no painel (11.7).'
+}
+
+// ---------- Comunicação ----------
+
+Table rs_modelos_mensagem {
+  id uuid [pk, default: `gen_random_uuid()`]
+  empresa_id uuid [not null]
+  chave text [not null]
+  nome text [not null]
+  assunto text [not null]
+  corpo text [not null]
+  atualizado_em timestamptz [not null, default: `now()`]
+  indexes {
+    (empresa_id, chave) [unique]
+  }
+}
+
+Table rs_mensagens {
+  id uuid [pk, default: `gen_random_uuid()`]
+  empresa_id uuid [not null]
+  candidatura_id uuid [not null]
+  tipo rs_tipo_mensagem [not null]
+  assunto text [not null]
+  corpo text [not null]
+  ator_tipo rs_tipo_ator [not null]
+  membro_id uuid
+  credencial_id uuid
+  decisao_id uuid
+  notificacao_id uuid [not null]
+  criado_em timestamptz [not null, default: `now()`]
+}
+
+Table rs_notificacoes {
+  id uuid [pk, default: `gen_random_uuid()`]
+  empresa_id uuid [note: 'nulo só nas notificações de pedido de convite']
+  candidatura_id uuid
+  tipo rs_tipo_notificacao [not null]
+  destinatario citext [not null]
+  chave_idempotencia text [not null, unique]
+  assunto text [not null]
+  html text [not null]
+  texto text [not null]
+  reply_to citext
+  status rs_status_notificacao [not null, default: 'pendente']
+  tentativas smallint [not null, default: 0, note: 'máx. 5']
+  ultimo_erro text [note: 'sem dado pessoal']
+  enviar_apos timestamptz [not null, default: `now()`]
+  enviada_em timestamptz
+  resend_id text
+  criado_em timestamptz [not null, default: `now()`]
+}
+
+// ---------- Trilha e integrações ----------
+
+Table rs_eventos {
+  id bigint [pk, increment]
+  empresa_id uuid [not null]
+  vaga_id uuid
+  candidatura_id uuid
+  tipo text [not null, note: 'catálogo fechado da seção 15.3']
+  ator_tipo rs_tipo_ator [not null]
+  membro_id uuid
+  credencial_id uuid
+  autorizado_por_membro_id uuid [note: 'quem confirmou a proposta']
+  origem rs_origem_evento [not null]
+  dados jsonb [not null, default: '{}', note: 'sem dado pessoal']
+  criado_em timestamptz [not null, default: `now()`]
+  indexes {
+    (empresa_id, candidatura_id, id)
+    (empresa_id, id)
+  }
+  Note: 'Só inserção, por rs_fn_registra_evento (11.6).'
+}
+
+Table rs_webhooks {
+  id uuid [pk, default: `gen_random_uuid()`]
+  empresa_id uuid [not null]
+  url text [not null, note: 'https (11.18)']
+  segredo_cifrado text [not null, note: 'AES-256-GCM']
+  eventos "text[]" [not null, note: 'catálogo 13.4']
+  ativo boolean [not null, default: true]
+  criado_em timestamptz [not null, default: `now()`]
+}
+
+Table rs_entregas_webhook {
+  id uuid [pk, default: `gen_random_uuid()`]
+  empresa_id uuid [not null]
+  webhook_id uuid [not null]
+  evento_id bigint [not null]
+  tipo text [not null]
+  corpo jsonb [not null]
+  status rs_status_entrega [not null, default: 'pendente']
+  tentativas smallint [not null, default: 0, note: 'máx. 8']
+  ultimo_status_http smallint
+  proxima_tentativa_em timestamptz
+  reservada_em timestamptz
+  criado_em timestamptz [not null, default: `now()`]
+  entregue_em timestamptz
+  indexes {
+    (webhook_id, evento_id) [unique]
+  }
+}
+
+// ---------- Relacionamentos ----------
+
+Ref: rs_empresas.criada_por_usuario_id > rs_usuarios.id
+Ref: rs_pedidos_convite.decidido_por_usuario_id > rs_usuarios.id
+Ref: rs_pedidos_convite.empresa_id - rs_empresas.id
+Ref: rs_membros.empresa_id > rs_empresas.id [delete: cascade]
+Ref: rs_membros.usuario_id > rs_usuarios.id
+Ref: rs_membros.convidado_por_membro_id > rs_membros.id
+Ref: rs_areas.empresa_id > rs_empresas.id [delete: cascade]
+Ref: rs_areas.responsavel_pessoa_id > rs_pessoas.id
+Ref: rs_membro_areas.membro_id > rs_membros.id [delete: cascade]
+Ref: rs_membro_areas.area_id > rs_areas.id
+Ref: rs_pessoas.empresa_id > rs_empresas.id [delete: cascade]
+Ref: rs_pessoas.area_id > rs_areas.id
+Ref: rs_pessoas.membro_id - rs_membros.id
+Ref: rs_credenciais.empresa_id > rs_empresas.id [delete: cascade]
+Ref: rs_credenciais.membro_id > rs_membros.id
+Ref: rs_credenciais.oauth_cliente_id > rs_oauth_clientes.id
+Ref: rs_credenciais.criada_por_membro_id > rs_membros.id
+Ref: rs_oauth_codigos.cliente_id > rs_oauth_clientes.id [delete: cascade]
+Ref: rs_oauth_codigos.empresa_id > rs_empresas.id [delete: cascade]
+Ref: rs_oauth_codigos.membro_id > rs_membros.id
+Ref: rs_vagas.empresa_id > rs_empresas.id [delete: cascade]
+Ref: rs_vagas.area_id > rs_areas.id
+Ref: rs_vagas.dono_pessoa_id > rs_pessoas.id
+Ref: rs_etapas.vaga_id > rs_vagas.id [delete: cascade]
+Ref: rs_perguntas.vaga_id > rs_vagas.id [delete: cascade]
+Ref: rs_vaga_equipe.vaga_id > rs_vagas.id [delete: cascade]
+Ref: rs_vaga_equipe.membro_id > rs_membros.id
+Ref: rs_candidatos.empresa_id > rs_empresas.id [delete: cascade]
+Ref: rs_candidaturas.empresa_id > rs_empresas.id [delete: cascade]
+Ref: rs_candidaturas.vaga_id > rs_vagas.id
+Ref: rs_candidaturas.candidato_id > rs_candidatos.id
+Ref: rs_candidaturas.etapa_id > rs_etapas.id
+Ref: rs_respostas.candidatura_id > rs_candidaturas.id [delete: cascade]
+Ref: rs_respostas.pergunta_id > rs_perguntas.id
+Ref: rs_arquivos.empresa_id > rs_empresas.id [delete: cascade]
+Ref: rs_arquivos.candidatura_id > rs_candidaturas.id [delete: cascade]
+Ref: rs_avaliacoes.candidatura_id > rs_candidaturas.id [delete: cascade]
+Ref: rs_avaliacoes.etapa_id > rs_etapas.id
+Ref: rs_avaliacoes.membro_id > rs_membros.id
+Ref: rs_notas.candidatura_id > rs_candidaturas.id [delete: cascade]
+Ref: rs_notas.membro_id > rs_membros.id
+Ref: rs_notas.credencial_id > rs_credenciais.id
+Ref: rs_decisoes.empresa_id > rs_empresas.id [delete: cascade]
+Ref: rs_decisoes.candidatura_id > rs_candidaturas.id
+Ref: rs_decisoes.vaga_id > rs_vagas.id
+Ref: rs_decisoes.proposta_por_membro_id > rs_membros.id
+Ref: rs_decisoes.credencial_id > rs_credenciais.id
+Ref: rs_decisoes.decidida_por_membro_id > rs_membros.id
+Ref: rs_modelos_mensagem.empresa_id > rs_empresas.id [delete: cascade]
+Ref: rs_mensagens.empresa_id > rs_empresas.id [delete: cascade]
+Ref: rs_mensagens.candidatura_id > rs_candidaturas.id [delete: cascade]
+Ref: rs_mensagens.membro_id > rs_membros.id
+Ref: rs_mensagens.credencial_id > rs_credenciais.id
+Ref: rs_mensagens.decisao_id > rs_decisoes.id
+Ref: rs_mensagens.notificacao_id > rs_notificacoes.id
+Ref: rs_notificacoes.empresa_id > rs_empresas.id [delete: cascade]
+Ref: rs_notificacoes.candidatura_id > rs_candidaturas.id
+Ref: rs_eventos.empresa_id > rs_empresas.id [delete: cascade]
+Ref: rs_eventos.vaga_id > rs_vagas.id
+Ref: rs_eventos.candidatura_id > rs_candidaturas.id
+Ref: rs_eventos.membro_id > rs_membros.id
+Ref: rs_eventos.credencial_id > rs_credenciais.id
+Ref: rs_eventos.autorizado_por_membro_id > rs_membros.id
+Ref: rs_webhooks.empresa_id > rs_empresas.id [delete: cascade]
+Ref: rs_entregas_webhook.empresa_id > rs_empresas.id [delete: cascade]
+Ref: rs_entregas_webhook.webhook_id > rs_webhooks.id [delete: cascade]
+Ref: rs_entregas_webhook.evento_id > rs_eventos.id
