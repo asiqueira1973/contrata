@@ -1,4 +1,4 @@
-// Contrata (nome de trabalho) — modelo de dados (spec.md v0.2, seção 7)
+// Contrata (nome de trabalho) — modelo de dados (spec.md v0.3, seção 7)
 // ATS aberto de recrutamento e seleção. Banco em português, snake_case, prefixo rs_.
 // RLS ligado e sem política em todas as tabelas (seção 6.5). Acesso só pelo servidor.
 
@@ -161,10 +161,6 @@ enum rs_mensagens_agente {
 }
 
 enum rs_tipo_notificacao {
-  pedido_convite_recebido
-  pedido_convite_admin
-  pedido_convite_aprovado
-  pedido_convite_recusado
   convite_membro
   candidatura_recebida
   mensagem_candidato
@@ -182,14 +178,6 @@ enum rs_status_notificacao {
   enviada
   falhou
   descartada
-}
-
-enum rs_status_pedido_convite {
-  pendente
-  aprovado
-  recusado
-  usado
-  vencido
 }
 
 enum rs_status_entrega {
@@ -212,22 +200,6 @@ Table rs_usuarios {
   ultimo_acesso_em timestamptz
   criado_em timestamptz [not null, default: `now()`]
   Note: 'Pessoa que entra no painel. Login sempre pelo Google.'
-}
-
-Table rs_pedidos_convite {
-  id uuid [pk, default: `gen_random_uuid()`]
-  email citext [not null, note: 'um pendente por e-mail (índice parcial)']
-  nome text [not null, note: '2–120']
-  empresa_nome text [not null, note: '2–80']
-  uso text [note: 'até 500; nulo = não respondeu']
-  status rs_status_pedido_convite [not null, default: 'pendente']
-  decidido_por_usuario_id uuid [note: 'administrador da instância']
-  decidido_em timestamptz
-  aprovado_ate timestamptz [note: 'aprovação + 30 dias']
-  empresa_id uuid [note: 'empresa criada com o convite (usado)']
-  ip_hash text [note: 'HMAC do IP, só para o limite 11.14']
-  criado_em timestamptz [not null, default: `now()`]
-  Note: 'Pedidos de convite para criar empresa na instância hospedada (11.33).'
 }
 
 Table rs_empresas {
@@ -555,7 +527,7 @@ Table rs_mensagens {
 
 Table rs_notificacoes {
   id uuid [pk, default: `gen_random_uuid()`]
-  empresa_id uuid [note: 'nulo só nas notificações de pedido de convite']
+  empresa_id uuid
   candidatura_id uuid
   tipo rs_tipo_notificacao [not null]
   destinatario citext [not null]
@@ -627,8 +599,6 @@ Table rs_entregas_webhook {
 // ---------- Relacionamentos ----------
 
 Ref: rs_empresas.criada_por_usuario_id > rs_usuarios.id
-Ref: rs_pedidos_convite.decidido_por_usuario_id > rs_usuarios.id
-Ref: rs_pedidos_convite.empresa_id - rs_empresas.id
 Ref: rs_membros.empresa_id > rs_empresas.id [delete: cascade]
 Ref: rs_membros.usuario_id > rs_usuarios.id
 Ref: rs_membros.convidado_por_membro_id > rs_membros.id

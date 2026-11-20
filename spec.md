@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Versão | 0.2 (20/11/2026: perguntas 25.2, 25.5, 25.6 e 25.7 respondidas. Instância hospedada só por convite, com pedido de convite no site aprovado pelo Alexandre (regra 11.33, tabela `rs_pedidos_convite`, tela `/admin/convites`); é vitrine de portfólio, não serviço para uso em produção; Resend gratuito; licença MIT; SMTP fica para a v2) · 0.1 (20/11/2026: primeira versão. ATS aberto e gratuito, só de recrutamento e seleção, para várias empresas, com API e MCP como portas principais do lado de quem recruta. Login sempre pelo Google; administração da empresa com convites, papéis, áreas e cadastro de pessoas, incluindo donos de vaga que não acessam o sistema) |
+| Versão | 0.3 (20/11/2026: **clone e use, não SaaS**. Saem o pedido de convite da instância (tabela `rs_pedidos_convite`, telas `/pedir-convite` e `/admin/convites`, `CRIACAO_EMPRESA`, `ADMIN_INSTANCIA_EMAILS`) e os limites de instância de SaaS (usuários e empresas novas por dia, empresas por usuário). Quem pode criar empresa passa a ser a lista `CRIACAO_EMPRESA_EMAILS` (regra 11.33 reescrita). A instância continua servindo várias empresas) · 0.2 (20/11/2026: perguntas 25.2, 25.5, 25.6 e 25.7 respondidas; Resend gratuito; licença MIT; SMTP fica para a v2) · 0.1 (20/11/2026: primeira versão. ATS aberto e gratuito, só de recrutamento e seleção, para várias empresas, com API e MCP como portas principais do lado de quem recruta. Login sempre pelo Google; administração da empresa com convites, papéis, áreas e cadastro de pessoas, incluindo donos de vaga que não acessam o sistema) |
 | Responsável de produto | Alexandre Siqueira (DabLab) |
 | Status | pronto para revisão |
 | Data | 20/11/2026 |
@@ -48,7 +48,7 @@ O Contrata é o miolo de recrutamento e seleção, aberto e gratuito, com três 
 2. **Respeito ao candidato de fábrica.** Candidatura curta, link de acompanhamento, devolutiva obrigatória, pedido de revisão humana e exclusão dos próprios dados em um clique.
 3. **LGPD aplicada pelo sistema.** Retenção automática, banco de talentos só com consentimento e trilha de quem fez o quê, incluindo agentes e quem os autorizou.
 
-Funciona como **instância hospedada** pela DabLab, aberta a várias empresas, e como código que qualquer empresa pode hospedar por conta própria (seção 4.2).
+É **código para clonar e usar** (decisão de 20/11/2026): cada empresa, consultoria ou desenvolvedor hospeda a própria instância (seção 4.2). Não existe serviço da DabLab aberto a terceiros; uma instância da DabLab, se existir, é a do próprio autor. Uma instância serve várias empresas.
 
 **Anti-escopo:** o Contrata não é um sistema de admissão (documentos admissionais, eSocial, contrato), nem de treinamento, desempenho, folha ou ponto. Não aplica testes, jogos ou vídeo-entrevista, não roda IA própria para pontuar ou ranquear candidatos, não lê a caixa de entrada de ninguém (as respostas dos candidatos chegam no e-mail de contato da empresa, não no sistema), não publica vagas pagas em LinkedIn ou Indeed e não cobra de ninguém.
 
@@ -91,7 +91,7 @@ Funciona como **instância hospedada** pela DabLab, aberta a várias empresas, e
 - **Trilha de eventos** só de inserção, com tipo de ator (membro, candidato, sistema, integração, agente), credencial e quem autorizou.
 - **Retenção LGPD automática** e faxina diária (expurgo, alertas de candidatura parada, vagas vencidas, retentativas de e-mail e webhook).
 - **Analytics** no Visão do Produto, pelo servidor e **opcional** (desligado se as variáveis não existirem, para quem hospeda).
-- **Instância hospedada por convite** (regra 11.33): a página inicial tem "Pedir convite" (nome, e-mail, empresa, para que vai usar). O pedido chega por e-mail ao administrador da instância, que aprova ou recusa numa tela própria. Aprovado, a pessoa recebe o link para entrar com o Google desse e-mail e criar **uma** empresa. Membros convidados por uma empresa já criada não passam por isso.
+- **Criação de empresa restrita** (regra 11.33): só os e-mails da variável `CRIACAO_EMPRESA_EMAILS`, definida por quem hospeda, criam empresa. Todo o resto entra por convite de membro de uma empresa já criada.
 - Página inicial, Política de privacidade, Termos de uso, documentação da API e guia de auto-hospedagem.
 
 ### Fora
@@ -122,7 +122,7 @@ Funciona como **instância hospedada** pela DabLab, aberta a várias empresas, e
 | Camada | Escolha | Por quê | Alternativa descartada |
 |---|---|---|---|
 | Framework | **Next.js 16** (16.4.x, App Router, Cache Components, `proxy.ts`), React 19, TypeScript | Mesmo do Assina; reaproveita guardrails e aprendizados | Outro framework: stack novo sem ganho |
-| Banco (instância hospedada) | **Supabase Postgres, projeto compartilhado "BANCO DE TESTE"** (`jeesdmfcrmhyufwzwzwt`), tabelas com **prefixo `rs_`** (livre em 20/11/2026) | Custo zero e o mesmo arranjo do Assina | Projeto próprio: melhor isolamento; vira o caminho quando o volume justificar (risco 23.1) |
+| Banco (instância do autor, desenvolvimento e demonstração) | **Supabase Postgres, projeto compartilhado "BANCO DE TESTE"** (`jeesdmfcrmhyufwzwzwt`), tabelas com **prefixo `rs_`** (livre em 20/11/2026) | Custo zero e o mesmo arranjo do Assina | Projeto próprio: melhor isolamento; vira o caminho quando o volume justificar (risco 23.1) |
 | Banco (auto-hospedagem) | Qualquer projeto Supabase (ou Postgres 15+ com as mesmas extensões), mesmas migrations e mesmo prefixo | Um código só para as duas formas | Prefixo configurável: complica as migrations sem ganho |
 | Arquivos | **Cloudflare R2**, bucket **privado** `contrata-arquivos`, pela API S3 (`@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner`), só por URL pré-assinada. Atrás da interface `ArquivoStorage` (seção 18), que aceita qualquer S3 compatível (MinIO, AWS) por `S3_ENDPOINT` | Mesmo do Assina: 10 GB grátis e saída grátis. Quem hospeda pode usar outro S3 | Supabase Storage: 1 GB dividido no projeto compartilhado |
 | Acesso ao banco | **Só pelo servidor**, service role, em `src/server/db/`. RLS **ligada sem nenhuma política** em todas as `rs_*`, `REVOKE ALL` de `anon` e `authenticated` | Mesmo do Assina | Supabase Auth com RLS por `auth.uid()`: mexeria na Auth do projeto compartilhado |
@@ -164,21 +164,21 @@ Candidato → /c/{token}: "Encerrada" + devolutiva → "Pedir revisão" (opciona
 Faxina diária → expurga o que venceu (11.12), alerta candidaturas paradas (11.11), pausa vagas vencidas
 ```
 
-### 4.2 Instância hospedada e auto-hospedagem
+### 4.2 Auto-hospedagem
 
-| | Instância hospedada (DabLab) | Auto-hospedagem |
-|---|---|---|
-| Finalidade | **vitrine de portfólio** do projeto de código aberto (decisão de 20/11/2026): demonstração para quem foi convidado, sem promessa de disponibilidade nem de suporte. A página inicial e os Termos dizem isso | uso real da empresa que hospeda |
-| Empresas | várias, **só por convite** (`CRIACAO_EMPRESA=convite`, regra 11.33): pedido de convite no site, aprovação pelo administrador da instância (`ADMIN_INSTANCIA_EMAILS`, o Alexandre) | normalmente uma; `CRIACAO_EMPRESA=aberta` deixa qualquer conta Google criar empresa, ou `convite` com o mesmo fluxo de pedido |
-| E-mail | Resend no plano gratuito (100 por dia), da DabLab | conta Resend própria de quem hospeda (README) |
-| Controlador dos dados dos candidatos | cada empresa | a empresa |
-| Operador | DabLab | quem hospeda |
-| Banco | projeto compartilhado, prefixo `rs_` | projeto próprio, mesmo prefixo |
-| Analytics | Visão do Produto | desligado (variáveis vazias) |
-| Login Google | cliente OAuth da DabLab | cliente OAuth próprio (obrigatório; o README explica como criar) |
+O Contrata é "clone e use" (decisão de 20/11/2026): quem quer usar sobe a própria instância com Supabase, R2 (ou outro S3), Resend e um cliente OAuth do Google próprios, seguindo o README. Não há fluxo de cadastro público nem aprovação de terceiros.
 
-O código não tem nenhum `if (hospedada)`. O comportamento muda só por variáveis de ambiente (seção 18).
+| Aspecto | Como fica |
+|---|---|
+| Empresas | várias por instância; só os e-mails de `CRIACAO_EMPRESA_EMAILS` criam empresa (regra 11.33); vazia = ninguém cria |
+| Controlador dos dados dos candidatos | cada empresa |
+| Operador | quem hospeda |
+| Banco | projeto Supabase de quem hospeda, prefixo `rs_` (na instância do autor, o projeto compartilhado da seção 4) |
+| E-mail | conta Resend de quem hospeda (o plano gratuito serve para testar; uso real precisa de plano pago, risco 23.2) |
+| Analytics | desligado se as variáveis estiverem vazias (seção 21) |
+| Login Google | cliente OAuth próprio (obrigatório; o README explica como criar) |
 
+O código não tem nenhum `if` por instância. O comportamento muda só por variáveis de ambiente (seção 18).
 ---
 
 ## 5. Perfis de usuário e matriz de permissões
@@ -196,7 +196,7 @@ Perfis:
 
 | Ação | Administrador | Recrutador | Avaliador | Integração (API) | Agente (MCP) | Candidato | Público |
 |---|---|---|---|---|---|---|---|
-| Criar empresa | ✅ quem tem pedido de convite aprovado e não usado, ou está em `ADMIN_INSTANCIA_EMAILS` (com `CRIACAO_EMPRESA=aberta`: qualquer pessoa logada), com os limites 11.14; vira administrador | — | — | ❌ | ❌ | ❌ | ❌ |
+| Criar empresa | ✅ quem está em `CRIACAO_EMPRESA_EMAILS` (regra 11.33); vira administrador | — | — | ❌ | ❌ | ❌ | ❌ |
 | Editar dados da empresa, página de carreiras, retenção | ✅ só a própria empresa | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Convidar, mudar papel e áreas, remover membro | ✅ (não remove o último administrador, 11.26) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 | Criar, editar e arquivar áreas | ✅ | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
@@ -223,7 +223,7 @@ Perfis:
 | Ver vagas publicadas | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ | ✅ |
 | Excluir a empresa | ✅ (exige digitar o slug) | ❌ | ❌ | ❌ | ❌ | ❌ | ❌ |
 
-**Administrador da instância:** não é papel de empresa. São os e-mails de `ADMIN_INSTANCIA_EMAILS` (na instância hospedada, o Alexandre). Eles aprovam ou recusam pedidos de convite em `/admin/convites` e podem criar empresas sem pedido. Não veem dados de nenhuma empresa por causa disso: para ver, precisam ser membros dela como qualquer pessoa. Guardião: `requireAdminInstancia()`.
+**Quem cria empresas:** não é papel de empresa. São os e-mails (ou `@dominio`) de `CRIACAO_EMPRESA_EMAILS`, definidos por quem hospeda (regra 11.33). Estar na lista não dá acesso a dado de nenhuma empresa: para ver, é preciso ser membro dela como qualquer pessoa.
 
 **Primeiro administrador:** não há seed. Quem cria a empresa vira administrador dela.
 
@@ -249,7 +249,7 @@ As funções de domínio recebem sempre um objeto `Ator` (seção 7.3, `rs_event
 - **Identificador:** `google_sub`, guardado em `rs_usuarios`. O e-mail pode mudar no Google: a cada login, `email` é atualizado se o novo não pertencer a outro usuário (se pertencer, o login é recusado com a mensagem da seção 15 e um alerta ao `ADMIN_EMAIL`).
 - **Entrar:** igual ao Assina (6.1 de lá): `state` e PKCE, `scope=openid email profile`, `prompt=select_account`, sem `access_type=offline`, `email_verified = true` obrigatório.
 - **Convite:** o link do convite (`/convite/{token}`) mostra empresa, papel e quem convidou e o botão "Entrar com Google para aceitar". O convite só é aceito se o e-mail da conta Google for igual ao convidado (regra 11.24); se não for, a tela diz qual e-mail foi convidado e oferece "Entrar com outra conta".
-- **Retorno, nesta ordem:** proteções (bloqueados, suspensos, limite diário de usuários novos da 11.14) → cria ou atualiza `rs_usuarios` → aceita convites pendentes para esse e-mail (11.24) → abre a sessão → redireciona para `volta`, para a única empresa do usuário ou para `/painel` (escolha de empresa).
+- **Retorno, nesta ordem:** proteções (e-mails bloqueados de `EMAILS_BLOQUEADOS`, usuários suspensos) → cria ou atualiza `rs_usuarios` → aceita convites pendentes para esse e-mail (11.24) → abre a sessão → redireciona para `volta`, para a única empresa do usuário ou para `/painel` (escolha de empresa).
 - **Sessão:** cookie `rs_sessao`, JWT HS256 (`SESSION_SECRET`), `HttpOnly`, `Secure`, `SameSite=Lax`, 30 dias com renovação depois de 7. Conteúdo: `usuario_id`, `iat`. **A empresa não vai na sessão:** vem da URL (`/painel/{empresa}/…`) e é conferida em cada requisição pelo `requireMembro`.
 - **Termos:** usuário com `termos_aceitos_em` nulo vê só as boas-vindas.
 - **Sair:** `POST /sair` por formulário.
@@ -295,7 +295,6 @@ Banco em português, `snake_case`, prefixo `rs_`. Datas em `timestamptz` (UTC). 
 
 ```
 rs_usuarios 1─N rs_membros N─1 rs_empresas
-rs_pedidos_convite 0..1─1 rs_empresas (empresa criada com o convite)
 rs_membros 1─N rs_membro_areas N─1 rs_areas
 rs_empresas 1─N rs_areas N─1 rs_pessoas (responsável)
 rs_empresas 1─N rs_pessoas 0..1─1 rs_membros (pessoa com acesso)
@@ -343,10 +342,9 @@ rs_empresas 1─N rs_eventos, rs_notificacoes, rs_webhooks 1─N rs_entregas_web
 | `rs_origem_evento` | `painel`, `api`, `mcp`, `publico`, `cron` |
 | `rs_tipo_mensagem` | `confirmacao`, `devolutiva`, `contato`, `convite_vaga`, `desistencia`, `resposta_revisao` |
 | `rs_mensagens_agente` | `confirmar`, `direto` |
-| `rs_tipo_notificacao` | `pedido_convite_recebido`, `pedido_convite_admin`, `pedido_convite_aprovado`, `pedido_convite_recusado`, `convite_membro`, `candidatura_recebida`, `mensagem_candidato`, `links_reenviados`, `codigo_exclusao`, `resumo_diario`, `decisoes_pendentes`, `revisao_pedida`, `talentos_expirando`, `resumo_dono_vaga` |
+| `rs_tipo_notificacao` | `convite_membro`, `candidatura_recebida`, `mensagem_candidato`, `links_reenviados`, `codigo_exclusao`, `resumo_diario`, `decisoes_pendentes`, `revisao_pedida`, `talentos_expirando`, `resumo_dono_vaga` |
 | `rs_status_notificacao` | `pendente`, `enviada`, `falhou`, `descartada` |
 | `rs_status_entrega` | `pendente`, `entregue`, `falhou`, `desistiu` |
-| `rs_status_pedido_convite` | `pendente`, `aprovado`, `recusado`, `usado`, `vencido` |
 
 ### 7.3 Tabelas
 
@@ -360,25 +358,8 @@ rs_empresas 1─N rs_eventos, rs_notificacoes, rs_webhooks 1─N rs_entregas_web
 | `google_sub` | text | não | — | único; identificador do login (6.1) |
 | `foto_url` | text | sim | — | `picture` do Google; nulo se não vier |
 | `termos_aceitos_em` | timestamptz | sim | — | nulo até aceitar as boas-vindas |
-| `suspenso_em` | timestamptz | sim | — | nulo = ativo. Só o admin da instância suspende (SQL no MVP) |
+| `suspenso_em` | timestamptz | sim | — | nulo = ativo. Só quem hospeda suspende (SQL no MVP) |
 | `ultimo_acesso_em` | timestamptz | sim | — | atualizado no login |
-| `criado_em` | timestamptz | não | `now()` | |
-
-**`rs_pedidos_convite`** — pedidos de convite para criar empresa na instância (regra 11.33).
-
-| Coluna | Tipo | Nulo | Padrão | Nota |
-|---|---|---|---|---|
-| `id` | uuid | não | `gen_random_uuid()` | PK |
-| `email` | citext | não | — | conta Google que vai criar a empresa; um pedido `pendente` por e-mail (índice parcial) |
-| `nome` | text | não | — | 2–120 |
-| `empresa_nome` | text | não | — | 2–80, sugestão de nome da empresa |
-| `uso` | text | sim | — | "Para que você quer usar?", até 500. Nulo = não respondeu |
-| `status` | `rs_status_pedido_convite` | não | `pendente` | |
-| `decidido_por_usuario_id` | uuid | sim | — | administrador da instância que aprovou ou recusou |
-| `decidido_em` | timestamptz | sim | — | |
-| `aprovado_ate` | timestamptz | sim | — | aprovação + 30 dias; depois disso vira `vencido` |
-| `empresa_id` | uuid | sim | — | empresa criada com este convite (`usado`) |
-| `ip_hash` | text | sim | — | HMAC do IP com `SESSION_SECRET`, só para o limite 11.14; apagado com o pedido |
 | `criado_em` | timestamptz | não | `now()` | |
 
 **`rs_empresas`** — o inquilino. Todo dado de recrutamento pertence a uma.
@@ -399,7 +380,7 @@ rs_empresas 1─N rs_eventos, rs_notificacoes, rs_webhooks 1─N rs_entregas_web
 | `mensagens_agente` | `rs_mensagens_agente` | não | `confirmar` | 11.8 |
 | `aviso_privacidade_extra` | text | sim | — | texto da empresa que aparece abaixo do aviso padrão (até 1.000). Nulo = só o padrão |
 | `criada_por_usuario_id` | uuid | não | — | FK `rs_usuarios` |
-| `suspensa_em` | timestamptz | sim | — | admin da instância |
+| `suspensa_em` | timestamptz | sim | — | quem hospeda (SQL no MVP) |
 | `excluida_em` | timestamptz | sim | — | exclusão agendada (7.4) |
 | `criado_em`, `atualizado_em` | timestamptz | não | `now()` | |
 
@@ -668,7 +649,7 @@ Modelo padrão copiado ao criar a vaga (constante em `src/lib/limits.ts`, não t
 | `dados` | jsonb | não | `'{}'` | **sem dado pessoal**: ids, de/para, contagens, motivo interno |
 | `criado_em` | timestamptz | não | `now()` | índices (`empresa_id`, `candidatura_id`, `id`) e (`empresa_id`, `id`) |
 
-**`rs_notificacoes`** — fila de e-mail idempotente, como `as_notificacoes` do Assina: `id`, `empresa_id` (nulo só nas notificações de pedido de convite), `candidatura_id` (nulo em notificações de membro; usado para descartar as pendentes na anonimização), `tipo` (`rs_tipo_notificacao`), `destinatario` (citext), `chave_idempotencia` (text, única: ex. `devolutiva:{candidatura_id}`), `assunto`, `html`, `texto`, `reply_to`, `status`, `tentativas`, `ultimo_erro` (sem dado pessoal), `enviar_apos`, `enviada_em`, `resend_id`, `criado_em`.
+**`rs_notificacoes`** — fila de e-mail idempotente, como `as_notificacoes` do Assina: `id`, `empresa_id`, `candidatura_id` (nulo em notificações de membro; usado para descartar as pendentes na anonimização), `tipo` (`rs_tipo_notificacao`), `destinatario` (citext), `chave_idempotencia` (text, única: ex. `devolutiva:{candidatura_id}`), `assunto`, `html`, `texto`, `reply_to`, `status`, `tentativas`, `ultimo_erro` (sem dado pessoal), `enviar_apos`, `enviada_em`, `resend_id`, `criado_em`.
 
 **`rs_webhooks`** — `id`, `empresa_id`, `url` (https), `segredo_cifrado` (AES-256-GCM com `CHAVES_ENC_KEY`), `eventos` (text[] do catálogo 13.4), `ativo`, `criado_em`. Até 5 por empresa.
 
@@ -688,7 +669,6 @@ Modelo padrão copiado ao criar a vaga (constante em `src/lib/limits.ts`, não t
 | Pergunta | hard delete só se a vaga nunca foi publicada; depois, só desativar não existe no MVP: perguntas ficam congeladas a partir da publicação (11.1) | |
 | Candidatura | **anonimização** no expurgo (11.12) ou a pedido do candidato (11.13): apaga arquivos, respostas, notas, avaliações (comentário vira `''`, recomendação fica para as métricas), mensagens (corpo e assunto viram `''`), e anonimiza o candidato se ele não tiver outra candidatura viva nem consentimento de talentos válido | A linha da candidatura fica (vaga, etapa alcançada, datas, origem, situação) para métricas sem dado pessoal |
 | Credencial | revogação (`revogada_em`), nunca delete | |
-| Pedido de convite | hard delete pela faxina: `recusado` e `vencido` 90 dias depois da decisão; `usado` fica (liga a empresa ao pedido) até a empresa ser excluída | |
 | Evento | nunca (trigger) | não contém dado pessoal |
 | Notificação | delete das `enviada`/`descartada` com mais de 30 dias (faxina) | o HTML contém dado pessoal |
 
@@ -702,9 +682,7 @@ Todas as funções em `plpgsql`, `SECURITY INVOKER`, `search_path=''`, chamadas 
 | `rs_tg_eventos_imutaveis` | trigger `before update or delete` em `rs_eventos` | Levanta erro sempre, com uma exceção: o delete em cascata do expurgo de uma empresa excluída (7.4), liberado pela variável de sessão `rs.expurgo_empresa = '{empresa_id}'`, setada só por `rs_fn_expurga_empresa` |
 | `rs_fn_expurga_empresa(empresa)` | função | Apaga a empresa e tudo dela, 7 dias depois de `excluida_em` (os arquivos no R2 são apagados antes pelo servidor, por prefixo) |
 | `rs_fn_entra_usuario(google_sub, email, nome, foto)` | função | Cria ou atualiza o usuário pelo `google_sub`, aceita convites pendentes do e-mail (11.24), liga o membro à pessoa de mesmo e-mail em cada empresa (cria a pessoa se não houver), devolve usuário e empresas |
-| `rs_fn_pede_convite(email, nome, empresa_nome, uso, ip_hash)` | função | Cria o pedido `pendente` (ou devolve o pendente existente do e-mail sem criar outro) e enfileira `pedido_convite_recebido` (ao solicitante) e `pedido_convite_admin` (aos administradores da instância) |
-| `rs_fn_decide_convite(pedido, usuario_admin, aprovar)` | função | `pendente` → `aprovado` (com `aprovado_ate`) ou `recusado`; enfileira o e-mail correspondente |
-| `rs_fn_cria_empresa(usuario, slug, nome, email_contato, pedido?)` | função | Com `CRIACAO_EMPRESA=convite`, exige pedido `aprovado`, não vencido e do mesmo e-mail do usuário (ou usuário administrador da instância); marca o pedido `usado`. Cria empresa + membro administrador + pessoa dele; evento `empresa_criada` |
+| `rs_fn_cria_empresa(usuario, slug, nome, email_contato)` | função | Cria empresa + membro administrador + pessoa dele; evento `empresa_criada`. Quem pode criar (11.33) é conferido no servidor antes da chamada, porque a lista vive numa variável de ambiente |
 | `rs_fn_convida_membro(empresa, email, papel, todas_areas, areas, ator)` | função | Convite com token (7 dias); se já houver pessoa com o e-mail, usa o nome dela |
 | `rs_fn_muda_acesso(membro, papel, todas_areas, areas, ator)` | função | Muda papel e áreas; revoga os tokens MCP do membro na mesma transação; recusa deixar a empresa sem administrador (11.26) ou recrutador limitado sem área (11.32) |
 | `rs_fn_remove_membro(membro, ator)` | função | Soft delete, revoga tokens, desliga a pessoa do membro; 11.26 |
@@ -762,7 +740,7 @@ Todas as funções em `plpgsql`, `SECURITY INVOKER`, `search_path=''`, chamadas 
 - [ ] Áreas: criar, renomear, definir responsável, arquivar (com as recusas da 7.4).
 - [ ] Pessoas: cadastrar com nome, e-mail, cargo e área; o selo "Com acesso · {papel}" ou "Sem acesso"; "Dar acesso" vira convite; ao aceitar, a pessoa fica ligada ao membro sem duplicar.
 - [ ] Recrutador limitado a uma área não vê vagas de outras áreas nem as "Sem área", em nenhuma porta (teste com duas áreas; 11.32).
-- [ ] Pedido de convite (11.33): formulário em `/pedir-convite` com honeypot e limite por IP; e-mail de recebimento ao solicitante e aviso aos administradores da instância; `/admin/convites` lista pendentes, aprovados e recusados com "Aprovar" e "Recusar"; aprovado recebe o link; com outro e-mail Google, "Criar empresa" mostra a mensagem da seção 15; pedido usado não cria segunda empresa; usuário sem pedido aprovado vê "Pedir convite" no lugar de "Criar empresa" (teste com `CRIACAO_EMPRESA=convite` e `aberta`).
+- [ ] Criação de empresa (11.33): só e-mails de `CRIACAO_EMPRESA_EMAILS` (endereço exato ou `@dominio`, sem diferenciar maiúsculas) veem e usam "Criar empresa"; os outros veem a mensagem "Sem permissão para criar empresa" da seção 15.2; com a variável vazia, ninguém cria (teste com vazia, e-mail exato e domínio).
 - [ ] Usuário em duas empresas vê a escolha em `/painel`; usuário em uma vai direto para ela.
 - [ ] Menu lateral (seção 16) com a empresa atual e o seletor de empresa no topo.
 
@@ -860,8 +838,8 @@ Todas as funções em `plpgsql`, `SECURITY INVOKER`, `search_path=''`, chamadas 
 - [ ] Teste de compilação do tipo fechado de propriedades.
 
 ### 8.12 Página inicial, páginas legais, auto-hospedagem e entrega
-- [ ] `/` com o que é, para quem, o que não faz, o aviso de que é uma instância de demonstração, "Pedir convite" (ou "Criar empresa" com `CRIACAO_EMPRESA=aberta`) e "Ver no GitHub"; `/privacidade`, `/termos`, `/docs/api`, `/docs/mcp` (como conectar no Claude, ChatGPT e Claude Code) e `/docs/auto-hospedagem`.
-- [ ] README com auto-hospedagem passo a passo: Supabase, R2 (ou S3), Resend (conta própria; o plano gratuito serve para testar), Google (obrigatório), Vercel, variáveis, `CRIACAO_EMPRESA` e `ADMIN_INSTANCIA_EMAILS`, migrations.
+- [ ] `/` com o que é, para quem, o que não faz, "Como hospedar" (link para `/docs/auto-hospedagem`) e "Ver no GitHub"; `/privacidade`, `/termos` (modelos que quem hospeda ajusta), `/docs/api`, `/docs/mcp` (como conectar no Claude, ChatGPT e Claude Code) e `/docs/auto-hospedagem`.
+- [ ] README com auto-hospedagem passo a passo: Supabase, R2 (ou S3), Resend (conta própria; o plano gratuito serve para testar), Google (obrigatório), Vercel, variáveis, `CRIACAO_EMPRESA_EMAILS`, migrations.
 - [ ] `robots.txt` e `sitemap.xml` (seção 17), incluindo as páginas de carreiras publicadas e as vagas publicadas.
 - [ ] `DOCUMENTACAO-TECNICA.md`, `CLAUDE.md`, `README.md` e `THIRD_PARTY_NOTICES.md` em dia; Definition of Done (seção 26) completo.
 
@@ -912,9 +890,7 @@ Rotas do painel sob `/painel/{empresa}/…`. Rótulo = quem acessa.
 
 | Tela | Rota | Mostra | Ações | Lê / escreve |
 |---|---|---|---|---|
-| `[Público]` Página inicial | `/` | o que é, o que não faz, aviso de vitrine de portfólio | Pedir convite (ou Criar empresa, se `aberta`), GitHub | — |
-| `[Público]` Pedir convite | `/pedir-convite` | nome, e-mail, empresa, para que vai usar | enviar | `rs_pedidos_convite` |
-| `[Admin da instância]` Convites | `/admin/convites` | pedidos por status com data, nome, e-mail, empresa e uso | aprovar, recusar | `rs_pedidos_convite` |
+| `[Público]` Página inicial | `/` | o que é, o que não faz, como hospedar | Entrar, Como hospedar, GitHub | — |
 | `[Público]` Entrar | `/entrar` | "Entrar com Google" | entrar | `rs_usuarios` |
 | `[Público]` Convite | `/convite/{token}` | empresa, papel, quem convidou | entrar com Google para aceitar | `rs_membros`, `rs_pessoas` |
 | `[Membro]` Boas-vindas | `/painel/boas-vindas` | termos | aceitar | `rs_usuarios` |
@@ -964,7 +940,7 @@ Todas as constantes vivem em `src/lib/limits.ts`, com o número da regra ao lado
 | 11.11 | Tempo | candidatura ativa sem movimento há **14 dias** entra no resumo diário do responsável (ou dos recrutadores); vaga com `encerra_em < hoje` (America/Sao_Paulo) é **pausada** pela faxina, não encerrada, e o responsável recebe aviso; proposta pendente há 24 h entra no resumo; revisão pedida há 15 dias aparece como atrasada | faxina |
 | 11.12 | Retenção | Candidatura encerrada: `expurgar_em = encerrada_em + retencao_dias` (90–365, padrão 180). Na data, a faxina anonimiza (7.4). Exceção: candidato com consentimento de talentos válido mantém nome, contato e currículo mais recente até `talentos_expira_em`, e só então anonimiza. Banco de talentos: `talentos_meses` 6–24, padrão 12, a partir do último consentimento ou renovação. Empresa excluída: 7 dias | faxina + funções |
 | 11.13 | Direitos do titular | Em `/c/{token}`: **baixar dados** (JSON da 14.2, na hora); **excluir dados** (código de 6 dígitos por e-mail, 10 min, 5 tentativas → `rs_fn_exclui_dados_candidato`, na hora); **retirar candidatura** (`desistiu`); **pedir revisão** (uma vez por candidatura encerrada como `reprovada` ou `encerrada_vaga`, enquanto não expurgada; texto opcional de até 1.000; avisa o responsável; a resposta é uma mensagem `resposta_revisao` e pode vir com reabertura). Prazo de resposta sugerido: 15 dias (LGPD art. 19, II, por analogia; ver 20.1) | rotas do candidato + funções |
-| 11.14 | Limites anti-abuso (instância) | usuários novos: `USUARIOS_NOVOS_POR_DIA` (padrão 100); empresas por usuário: 5; empresas novas por dia: `EMPRESAS_NOVAS_POR_DIA` (padrão 30); vagas publicadas por empresa ao mesmo tempo: 50; candidaturas por IP: 10 por hora; por vaga: 10.000; armazenamento por empresa: 5 GB (passou: recusa upload novo com mensagem e avisa o administrador); e-mails por empresa por dia: 1.000 (o que passar fica `pendente` para o dia seguinte, exceto códigos de login e de exclusão); chamadas de API por credencial: 600 por minuto | servidor (contagem no banco; janela deslizante) |
+| 11.14 | Limites anti-abuso | vagas publicadas por empresa ao mesmo tempo: 50; candidaturas por IP: 10 por hora; por vaga: 10.000; armazenamento por empresa: 5 GB (passou: recusa upload novo com mensagem e avisa o administrador); e-mails por empresa por dia: 1.000 (o que passar fica `pendente` para o dia seguinte, exceto códigos de exclusão); chamadas de API por credencial: 600 por minuto | servidor (contagem no banco; janela deslizante) |
 | 11.15 | Formato das credenciais | `rsk_` / `rsm_` + 32 bytes base64url; até 10 chaves de API ativas por empresa; tokens MCP sem limite por membro, listados para revogação | servidor |
 | 11.16 | Escopo efetivo | Integração: os escopos da chave, alcance de todas as áreas. Agente: escopos do token ∩ papel do membro, no **alcance** dele (11.32), onde `avaliador` = só `leitura` (no alcance da equipe) e não registra avaliação pelo MCP; `recrutador` e `administrador` = `leitura`, `escrita`, `decisao`. O papel é relido a cada chamada (membro rebaixado perde o poder na hora, mesmo que o token sobreviva) | `requireCredencial` |
 | 11.17 | Webhooks | HMAC SHA-256 do corpo com o segredo, cabeçalhos `X-Contrata-Assinatura: t={unix},v1={hex}` e `X-Contrata-Evento`; timeout 10 s; retentativas em 1 min, 10 min e 1 h (na hora, com `after()`), depois pela faxina diária por até 3 dias; status 2xx = entregue | `src/server/webhooks/` |
@@ -982,7 +958,7 @@ Todas as constantes vivem em `src/lib/limits.ts`, com o número da regra ao lado
 | 11.29 | Variáveis das mensagens | `{{nome}}` (primeiro nome do candidato), `{{nome_completo}}`, `{{vaga}}`, `{{empresa}}`, `{{link_acompanhamento}}`, `{{link_vaga}}`, `{{recrutador}}` (nome de quem envia, ou do responsável da vaga se for agente/integração), `{{link_agenda}}`. Variável desconhecida é recusada ao salvar o modelo | `src/server/messages/` |
 | 11.30 | Mover em lote | até 100 candidaturas por chamada, todas da mesma vaga e ativas; parcial não existe (tudo ou nada) | domínio |
 | 11.31 | Dono de vaga sem acesso | É uma linha de `rs_pessoas` sem `membro_id`. Não entra no sistema e não vê candidaturas. Se `recebe_resumo = true`, recebe às segundas (faxina) um e-mail por vaga `publicada` ou `pausada` de que é dono, **só com contagens** (candidaturas por etapa, encerradas na semana, contratada sim/não) e o nome do recrutador responsável; **sem nomes nem dados de candidatos**. O e-mail traz "Pedir acesso", que avisa os administradores (notificação, sem criar convite). Para opinar sobre candidatos, a pessoa precisa de acesso (avaliador) | faxina + `src/server/email/` |
-| 11.33 | Instância por convite | Com `CRIACAO_EMPRESA=convite` (padrão na instância hospedada): criar empresa exige pedido de convite aprovado para o mesmo e-mail Google, ou ser administrador da instância. Um pedido cria **uma** empresa. Aprovação vale 30 dias. Pedidos: até 3 por IP por dia, um pendente por e-mail; repetir enquanto pendente não cria outro. Recusa envia e-mail curto sem motivo. A aprovação é sempre manual, por um administrador da instância, em `/admin/convites`; não há porta de API nem MCP | `rs_fn_pede_convite`, `rs_fn_decide_convite`, `rs_fn_cria_empresa`, `requireAdminInstancia` |
+| 11.33 | Criação de empresa | Só cria empresa quem tem o e-mail na variável `CRIACAO_EMPRESA_EMAILS` (lista separada por vírgulas; cada item é um endereço exato ou `@dominio`; sem diferenciar maiúsculas). Vazia ou ausente = ninguém cria (padrão seguro: um deploy público não vira cadastro aberto). Quem não está na lista entra só por convite de membro (11.24). Não há porta de API nem MCP | servidor (`canCreateCompany`) antes de `rs_fn_cria_empresa` |
 | 11.32 | Alcance por área | Administrador: todas as vagas. Recrutador com `todas_areas = true`: todas. Recrutador limitado: só vagas com `area_id` nas áreas dele; vagas "Sem área" ficam fora. Avaliador: só vagas da equipe (o dono com acesso entra na equipe automaticamente). O alcance vale para listas, busca, banco de talentos (candidatos que se candidataram a vagas do alcance ou que consentiram sem vaga ligada a área de fora), propostas a confirmar, exportação, API e MCP do membro. Recrutador limitado precisa de pelo menos uma área ativa | guardião (`alcance`) + funções |
 
 ---
@@ -1034,8 +1010,6 @@ Convenções: JSON, nomes do banco (português) nos campos, datas ISO 8601 UTC, 
 | `POST /api/painel/empresas` | sessão | cria empresa |
 | `/api/painel/{e}/…` | `requireMembro` | espelham a API v1 com a sessão do membro, **mais**: membros, convites, áreas, pessoas (escrita), chaves, webhooks, confirmar e descartar decisões, reabrir, responder revisão, avaliações |
 | `GET /convite/{token}`, `POST /api/convite/{token}/aceitar` | sessão Google | 11.24 |
-| `POST /api/pedir-convite` | limites + honeypot | 11.33; resposta sempre igual |
-| `GET /api/admin/convites`, `POST /api/admin/convites/{id}/decidir` | `requireAdminInstancia()` + `Origin` | 11.33 |
 | `POST /api/painel/{e}/decisoes/confirmar` | `requireMembro(recrutador)` + `Origin` | `{ids: [...], ajustes: {id: {devolutiva}}}` → confirma em lote (11.7) |
 | `POST /api/publico/{e}/vagas/{slug}/candidaturas` | `requireEmpresaPublica` + limites | cria candidatura, devolve `{id, upload_url?}` (sem token) |
 | `POST /api/publico/{e}/candidaturas/{id}/concluir` | idem + `id` recém-criado na mesma origem (cookie de 1 h `rs_cand_{id}`) | confirma o upload, dispara extração e e-mail |
@@ -1073,7 +1047,7 @@ Base `/api/v1`, `Authorization: Bearer rsk_…` (ou `rsm_…`). Escopo exigido e
 | `GET /eventos` | leitura | `?desde={id}`, ordem crescente |
 | `GET /openapi.json` | — | documento OpenAPI 3.1 |
 
-**Sem porta de API nem MCP (de propósito):** confirmar ou descartar decisão (princípio 2), avaliar candidatura (é opinião de pessoa), reabrir candidatura e responder revisão (exigem julgamento humano registrado com nome), pedidos de convite da instância, membros, convites, áreas, escrita no cadastro de pessoas, chaves, webhooks, retenção e exclusão de empresa (administração e segurança: quem dá acesso é sempre uma pessoa no painel).
+**Sem porta de API nem MCP (de propósito):** confirmar ou descartar decisão (princípio 2), avaliar candidatura (é opinião de pessoa), reabrir candidatura e responder revisão (exigem julgamento humano registrado com nome), criar empresa, membros, convites, áreas, escrita no cadastro de pessoas, chaves, webhooks, retenção e exclusão de empresa (administração e segurança: quem dá acesso é sempre uma pessoa no painel).
 
 **API pública (sem chave):** `GET /api/publico/{e}/vagas`, `GET /api/publico/{e}/vagas/{slug}` (só publicadas, sem dados internos), `POST …/candidaturas` e `…/concluir`, `GET /{e}/vagas.xml`. CORS aberto (`*`) só nas leituras públicas; o `POST` aceita as origens de `cors_origens` da empresa — no MVP, qualquer origem `https` com os limites da 11.14 (assunção 24.8).
 
@@ -1168,10 +1142,7 @@ Conteúdo final, não placeholder. Tudo em `src/lib/copy.ts`. Tom: direto, respe
 
 | Onde | Texto |
 |---|---|
-| Pedir convite | **Pedir convite.** Esta é uma instância de demonstração do Contrata, um projeto de código aberto. Para criar uma empresa aqui, peça um convite. Para usar de verdade, você pode hospedar o seu ([ver no GitHub]). · Seu nome · E-mail da conta Google que você vai usar · Nome da empresa · Para que você quer usar? (opcional) · [Pedir convite] |
-| Pedido enviado | Pedido enviado. Você vai receber a resposta em {email}. |
-| Sem convite aprovado | Para criar uma empresa aqui, você precisa de um convite aprovado para {email}. [Pedir convite] |
-| Admin — convites vazio | Nenhum pedido pendente. |
+| Sem permissão para criar empresa | Esta instância só permite criar empresas para os e-mails definidos por quem a hospeda. Para entrar numa empresa que já existe, peça um convite ao administrador dela. |
 | Boas-vindas | Bem-vindo ao Contrata. Para continuar, leia e aceite os [Termos de uso] e a [Política de privacidade]. [Aceitar e continuar] |
 | Entrar | Entrar com Google |
 | Convite — outra conta | Este convite é para {email}. Você entrou como {outro}. [Entrar com outra conta] |
@@ -1224,10 +1195,6 @@ Os nomes no rótulo são resolvidos na hora de exibir (ids em `dados`), nunca gr
 | Modelo `convite_entrevista` | Entrevista para {{vaga}} | Olá, {{nome}}. Gostaríamos de conversar com você sobre a vaga de {{vaga}}. Escolha um horário por aqui: {{link_agenda}}. {{recrutador}} |
 | Modelo `convite_vaga` | Uma vaga na {{empresa}} que pode interessar a você | Olá, {{nome}}. Você está no nosso banco de talentos e abrimos a vaga de {{vaga}}. Se tiver interesse, candidate-se: {{link_vaga}} |
 | `codigo_exclusao` | Código para excluir seus dados: {codigo} | … |
-| `pedido_convite_recebido` | Recebemos seu pedido de convite | Olá, {nome}. Recebemos seu pedido para usar o Contrata. Você vai receber a resposta neste e-mail. |
-| `pedido_convite_admin` | Pedido de convite: {empresa_nome} | {nome} ({email}) pediu um convite. Uso: {uso}. [Ver pedidos] |
-| `pedido_convite_aprovado` | Seu convite para o Contrata foi aprovado | Olá, {nome}. Entre com a conta Google de {email} e crie sua empresa: [Criar minha empresa]. O convite vale até {data}. |
-| `pedido_convite_recusado` | Sobre seu pedido de convite | Olá, {nome}. Não conseguimos liberar um convite agora. O Contrata é de código aberto: você pode hospedar o seu seguindo o guia em {link_github}. |
 | `convite_membro` | Convite para a equipe da {empresa} | {nome} convidou você como {papel}. Para aceitar, entre com a conta Google de {email}: [Aceitar convite]. O convite vale por 7 dias. |
 | `resumo_dono_vaga` | {vaga}: resumo da semana | Olá, {nome}. Como está a vaga {vaga} que você pediu: {n} em análise, {n} em entrevistas, {n} em fase final, {n} encerradas nesta semana. Quem conduz: {recrutador}. Para ver as candidaturas e avaliar, [Pedir acesso]. |
 | `resumo_diario` | {empresa}: {n} itens precisam de você | Propostas para confirmar · Revisões pedidas · Candidaturas paradas há 14 dias ou mais · Vagas pausadas pelo prazo |
@@ -1283,7 +1250,7 @@ Texto em `copy.ts` (`AVISO_PRIVACIDADE`), com: quem é o controlador ({empresa} 
 | Lista de candidaturas | < 500 ms para 5.000 candidaturas numa vaga (índices da 7.3) |
 | API v1 e MCP | p95 < 400 ms para leituras simples; `ler_curriculo` < 300 ms (texto já extraído) |
 | Extração de currículo | < 10 s para 5 MB; fora da requisição do candidato |
-| Volume por instância hospedada (dimensionamento) | 500 empresas, 5.000 vagas/ano, 500 mil candidaturas/ano |
+| Volume por instância (dimensionamento) | 500 empresas, 5.000 vagas/ano, 500 mil candidaturas/ano |
 | Navegadores | Safari iOS 17+, Chrome Android atual, Safari/Chrome/Edge/Firefox desktop atuais |
 | Acessibilidade | WCAG 2.2 AA nas páginas públicas e do candidato (formulário com rótulos, erros ligados por `aria-describedby`, foco visível, toque ≥ 44 px); painel AA em contraste e teclado |
 | Idioma | pt-BR; datas "20 de novembro de 2026", 24 h |
@@ -1313,7 +1280,7 @@ src/
     c/[token]/            # acompanhamento
     entrar/  sair/
     painel/               # boas-vindas, nova, conta, [empresa]/(inicio, vagas, candidaturas, confirmar, talentos, mensagens, pagina, equipe, areas, pessoas, integracoes, empresa)
-    convite/[token]/  pedir-convite/  admin/convites/
+    convite/[token]/
     api/
       auth/  painel/  publico/  c/  v1/  cron/diario/
     mcp/  oauth/  .well-known/
@@ -1342,8 +1309,8 @@ scripts/  tests/  plans/
 | `RESEND_API_KEY`, `EMAIL_REMETENTE` | não | e-mail |
 | `CRON_SECRET` | não | faxina |
 | `VISAO_INGEST_URL`, `VISAO_API_KEY` | não | analytics (opcional) |
-| `CRIACAO_EMPRESA` (`convite` padrão \| `aberta`), `ADMIN_INSTANCIA_EMAILS` | não | 4.2, 11.33 |
-| `USUARIOS_NOVOS_POR_DIA`, `EMPRESAS_NOVAS_POR_DIA`, `EMAILS_BLOQUEADOS` | não | 11.14 |
+| `CRIACAO_EMPRESA_EMAILS` | não | 11.33: e-mails ou `@dominio` que podem criar empresa; vazia = ninguém |
+| `EMAILS_BLOQUEADOS` | não | e-mails que não entram (moderação de quem hospeda) |
 | `ADMIN_EMAIL` | não | alertas da instância (armazenamento, erros da faxina) |
 | *(reservadas v2)* `SMTP_*`, `GOOGLE_INDEXING_*` | — | — |
 
@@ -1377,7 +1344,7 @@ Ao fim da implementação, o agente gera o `DOCUMENTACAO-TECNICA.md` em portugu�
 3. toda a lógica no banco (nome exato, tabela, quando dispara e o que faz);
 4. mapa tela → tabelas, e o mapa ação → função de domínio → rota do painel, rota da API v1, ferramenta MCP (com "sem porta" e o motivo onde for o caso);
 5. lógica por tela e por ferramenta (o que valida, grava e calcula, e o erro que a pessoa vê);
-6. como hospedar (resumo do README) e o que muda entre a instância hospedada e a auto-hospedagem;
+6. como hospedar (resumo do README) e as variáveis que mudam o comportamento;
 7. divergências em relação a este spec, com o porquê.
 
 Toda mudança de schema, trigger, rota, ferramenta ou lógica de tela atualiza este documento no mesmo commit.
@@ -1387,7 +1354,7 @@ Toda mudança de schema, trigger, rota, ferramenta ou lógica de tela atualiza e
 
 ### 20.1 Enquadramento (LGPD)
 
-- **Papéis:** cada **empresa é controladora** dos dados dos seus candidatos. Na instância hospedada, a **DabLab é operadora** desses dados e controladora dos dados dos membros (conta, login). Na auto-hospedagem, quem hospeda é o operador. Os Termos têm cláusula de operador: tratamento só para o serviço, sem uso secundário, subprocessadores listados (Supabase, Vercel, Cloudflare, Resend) e exclusão quando a empresa é excluída.
+- **Papéis:** cada **empresa é controladora** dos dados dos seus candidatos. **Quem hospeda a instância é operador** desses dados e controlador dos dados dos membros (conta, login). Os Termos têm cláusula de operador: tratamento só para o serviço, sem uso secundário, subprocessadores listados (Supabase, Vercel, Cloudflare, Resend) e exclusão quando a empresa é excluída.
 - **Base legal da candidatura:** procedimentos preliminares a contrato a pedido do titular (art. 7º, V). **Banco de talentos:** consentimento (art. 7º, I), separado, opcional, com prazo e revogável a qualquer momento (art. 8º, § 5º). **Candidatura manual:** legítimo interesse da empresa (art. 7º, IX), com aviso imediato ao titular e saída em um clique (art. 9º e art. 10, § 2º). A copy cita a base, e a decisão final sobre ela é da empresa (o Contrata dá o padrão).
 - **Retenção:** o produto aplica prazo padrão de 180 dias depois do encerramento (configurável de 90 a 365), que é a faixa usual de mercado para processos seletivos. A empresa decide e responde pelo prazo; o Contrata garante que ele é aplicado.
 - **Decisões automatizadas (art. 20):** o produto não toma decisão automatizada sobre candidatos (princípio 2). Mesmo assim, oferece o pedido de revisão em toda candidatura encerrada, porque a empresa pode usar IA para ler candidaturas e o titular tem direito de entender e contestar a decisão.
@@ -1406,7 +1373,7 @@ Toda mudança de schema, trigger, rota, ferramenta ou lógica de tela atualiza e
 | Avaliações e notas | opinião da equipe | `rs_avaliacoes`, `rs_notas` | membros no alcance (11.9) | apagadas na anonimização |
 | Mensagens enviadas | comunicação | `rs_mensagens`, `rs_notificacoes` | membros; o próprio candidato vê as dele | igual à candidatura; notificação 30 dias |
 | Chaves e tokens (hash) | integrações | `rs_credenciais` | administradores | até revogar |
-| Logs | diagnóstico | Vercel | DabLab | padrão da Vercel; **nunca** registrar nome, e-mail, telefone, texto de currículo, resposta, nota, avaliação, devolutiva, token ou URL `/c/…` |
+| Logs | diagnóstico | Vercel | quem hospeda | padrão da Vercel; **nunca** registrar nome, e-mail, telefone, texto de currículo, resposta, nota, avaliação, devolutiva, token ou URL `/c/…` |
 
 ### 20.3 Segurança
 
@@ -1448,8 +1415,6 @@ O Contrata **não roda modelo de IA** no servidor. A IA entra pelo MCP, escolhid
 
 | Evento | Tela | Propriedades (fechadas) |
 |---|---|---|
-| `contrata_convite_pedido` | `pedir_convite` | — |
-| `contrata_convite_decidido` | `admin_convites` | `aprovado`, `horas_ate_decidir` |
 | `contrata_empresa_criada` | `nova` | — |
 | `contrata_membro_convidado` | `equipe` | `papel`, `limitado_por_area` |
 | `contrata_area_criada` | `areas` | — |
@@ -1508,17 +1473,17 @@ Nenhuma propriedade carrega nome, e-mail, texto, título de vaga, nome de área 
 | # | Risco | Impacto | Prob. | Mitigação |
 |---|---|---|---|---|
 | 23.1 | Volume no banco compartilhado (texto de currículo é grande: 500 mil candidaturas × ~10 KB = ~5 GB) | alto | média | Limite de 100.000 caracteres por texto; retenção automática; alerta ao `ADMIN_EMAIL` acima de 70% do plano; plano de saída: projeto Supabase próprio com as mesmas migrations (o prefixo facilita) |
-| 23.2 | **Resend gratuito (100 e-mails/dia):** uma vaga com 200 candidaturas gera ~400 e-mails | baixo na instância hospedada (vitrine por convite, decisão de 20/11/2026); alto para quem hospeda e usa de verdade | alta | Limite por empresa (11.14) com fila para o dia seguinte; README avisa que uso real precisa de plano pago do Resend na conta de quem hospeda |
+| 23.2 | **Resend gratuito (100 e-mails/dia):** uma vaga com 200 candidaturas gera ~400 e-mails | alto para quem hospeda e usa de verdade | alta | Limite por empresa (11.14) com fila para o dia seguinte; README avisa que uso real precisa de plano pago do Resend na conta de quem hospeda |
 | 23.3 | Agente propõe muita coisa e a equipe confirma em lote sem ler | médio | média | Lote máximo de 50; texto ao candidato visível e editável em cada cartão; métrica "confirmadas sem edição" (21) |
 | 23.4 | Encerrar vaga grande estoura o tempo da função | médio | baixa | Limite de 1.000 ativas por encerramento (11.7); e-mails enfileirados, não enviados na transação |
-| 23.5 | Abuso da página pública (spam de candidaturas, phishing com página de carreiras falsa) | médio | baixa | Empresas só por convite aprovado (11.33); limites 11.14, honeypot, suspensão manual, Termos; Turnstile na v2 |
+| 23.5 | Abuso da página pública (spam de candidaturas, phishing com página de carreiras falsa) | médio | baixa | Criação de empresa restrita a `CRIACAO_EMPRESA_EMAILS` (11.33); limites 11.14, honeypot, suspensão manual, Termos; Turnstile na v2 |
 | 23.6 | Empresa usa o produto com critério discriminatório | alto | baixa | Termos, aviso no editor de perguntas, descrição das ferramentas; o produto não filtra por dado pessoal |
 | 23.7 | Injeção de prompt em currículo induz o agente a ações indevidas | médio | média | 20.3: texto marcado como dado; ações de efeito sobre a pessoa só com confirmação humana |
 | 23.8 | Google for Jobs muda os requisitos de JobPosting ou deixa de mostrar vagas de sites pequenos | médio | média | Premissa (d); feed e API pública como alternativas; página indexável de qualquer forma |
 | 23.9 | Empresas sem Google (Microsoft 365) desistem por causa do login | médio | média | Decisão de 20/11/2026: só Google. O README explica como criar conta Google com e-mail corporativo; Microsoft na v2 se houver pedido |
 | 23.10 | Vazamento entre empresas ou entre áreas pela service role | alto | baixa | Helpers com `empresaId` e `alcance` obrigatórios, testes nas cinco portas, `verifier` |
 | 23.11 | Colisão no projeto compartilhado | alto | baixa | Prefixo `rs_` conferido livre em 20/11/2026; nunca `db push` |
-| 23.12 | Vercel Hobby: cron diário e uso comercial | baixo | baixa | A instância hospedada é vitrine sem fins comerciais, por convite (4.2); atrasos de até 24 h aceitos |
+| 23.12 | Vercel Hobby: cron diário e uso comercial | baixo | baixa | Cada instância escolhe o plano da Vercel de quem hospeda; a do autor é só demonstração; atrasos de até 24 h aceitos |
 
 ---
 
@@ -1551,12 +1516,12 @@ O agente de código **para e pergunta** ao cruzar com qualquer item abaixo.
 | # | Pergunta | Quem decide | Até quando |
 |---|---|---|---|
 | 25.1 | **Nome e domínio.** "Contrata" é nome de trabalho; o Alexandre está buscando o domínio (`.app.br`, como os outros). Conferir também no INPI | Alexandre | antes do 8.12 (o código usa `NEXT_PUBLIC_NOME_PRODUTO` até lá) |
-| 25.2 | ~~Custos~~ **Respondida (20/11/2026):** Resend gratuito por ora. A instância hospedada é vitrine de portfólio, não deve ser usada para valer; quem clonar configura o próprio Resend | — | — |
+| 25.2 | ~~Custos~~ **Respondida (20/11/2026):** Resend gratuito por ora. Quem clonar configura o próprio Resend | — | — |
 | 25.3 | **Confirmar decisão dentro do chat:** quando os clientes MCP suportarem elicitação de forma confiável, aceitar a confirmação ali (com o usuário humano clicando, não o modelo)? Como garantir que foi a pessoa? | Alexandre | v2 |
 | 25.4 | **LinkedIn e Indeed:** vale pedir parceria de ATS ao LinkedIn (Basic Jobs) e integrar o Indeed Apply? Ambos exigem processo com as plataformas | Alexandre | depois do lançamento |
 | 25.5 | ~~SMTP~~ **Respondida (20/11/2026):** só Resend no MVP; quem clonar usa a própria conta. SMTP genérico fica na v2 (seção 28) | — | — |
 | 25.6 | ~~Licença~~ **Respondida (20/11/2026):** MIT | — | — |
-| 25.7 | ~~Aberta ou por convite~~ **Respondida (20/11/2026):** por convite. A pessoa pede no site, o pedido chega ao Alexandre e ele aprova (regra 11.33) | — | — |
+| 25.7 | ~~Aberta ou por convite~~ **Respondida (20/11/2026), revista no mesmo dia:** nem uma nem outra. O Contrata é clone e use, não SaaS; não há pedido de convite. Quem cria empresa é a lista `CRIACAO_EMPRESA_EMAILS` de cada instância (regra 11.33) | — | — |
 
 ---
 
@@ -1588,7 +1553,7 @@ O agente de código **para e pergunta** ao cruzar com qualquer item abaixo.
 5. Durante o 8.1: cliente OAuth do Google (escopos básicos), bucket R2 privado com CORS e token restrito, variáveis na Vercel.
 6. Antes do 8.4: domínio apontado para a Vercel e verificado no Resend (SPF, DKIM, DMARC).
 7. Durante o 8.11: projeto "Contrata" no Visão do Produto.
-8. Antes de divulgar como portfólio, colocar `alexandre@dablab.com.br` em `ADMIN_INSTANCIA_EMAILS`, pedir um convite de teste, aprovar e rodar o fluxo 9.1 com uma empresa fictícia.
+8. Antes de divulgar, pôr o próprio e-mail em `CRIACAO_EMPRESA_EMAILS` na instância do autor e rodar o fluxo 9.1 com uma empresa fictícia; depois, fazer uma auto-hospedagem do zero seguindo só o README.
 
 ---
 
