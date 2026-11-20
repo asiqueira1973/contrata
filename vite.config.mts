@@ -6,16 +6,19 @@ import { resolve } from "node:path";
 import { defineConfig } from "vite";
 import { viteSingleFile } from "vite-plugin-singlefile";
 
+// Qual página montar: o formulário (padrão, embutido no servidor) ou o host de desenvolvimento.
+const ENTRADA = process.env.UI_ENTRADA ?? "formulario";
+
 export default defineConfig({
-  root: "ui/formulario",
+  root: `ui/${ENTRADA}`,
   plugins: [viteSingleFile()],
   resolve: { alias: { "@": resolve(import.meta.dirname, "src") } },
   // copy.ts lê o nome do produto do ambiente; no formulário (navegador) ele vem fixo do build.
   define: { "process.env.NEXT_PUBLIC_NOME_PRODUTO": JSON.stringify(process.env.NEXT_PUBLIC_NOME_PRODUTO ?? "Contrata") },
   build: {
-    outDir: "../dist/formulario",
+    outDir: `../dist/${ENTRADA}`,
     emptyOutDir: true,
-    rollupOptions: { input: resolve(import.meta.dirname, "ui", "formulario", "index.html") },
+    rollupOptions: { input: resolve(import.meta.dirname, "ui", ENTRADA, "index.html") },
   },
   logLevel: "warn",
 });

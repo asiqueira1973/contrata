@@ -131,3 +131,8 @@ main[aria-busy='true'] .campo textarea {
 .vazio, .confirmar { margin: 0; }
 .confirmar { font-weight: 600; }
 button.perigo { background: var(--perigo); color: var(--fundo); border-color: var(--perigo); }
+
+/* Contrata: título do formulário com respiro e a chave de API mostrada uma vez (16). */
+#titulo { margin: 0 0 12px; font-size: var(--font-heading-sm-size, 17px); }
+.segredo { display: flex; flex-direction: column; gap: 8px; margin-top: 12px; }
+.segredo input { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: var(--tamanho-pequeno); }

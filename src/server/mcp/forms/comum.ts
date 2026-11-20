@@ -34,7 +34,7 @@ export function camposDeAcesso(quando: Condicao[] = []): Campo[] {
       opcoes: [{ valor: "todas", rotulo: c.todasAreas }, { valor: "escolher", rotulo: c.escolherAreas }],
       mostrarSe: [...quando, { campo: "papel", igual: "recrutador" }],
     },
-    { tipo: "multipla", nome: "areas", rotulo: c.areas, opcoes: "areas", mostrarSe: [...quando, { campo: "papel", igual: "recrutador" }, { campo: "todas", igual: "escolher" }] },
+    { tipo: "multipla", nome: "areas", rotulo: c.quaisAreas, opcoes: "areas", mostrarSe: [...quando, { campo: "papel", igual: "recrutador" }, { campo: "todas", igual: "escolher" }] },
   ];
 }
 

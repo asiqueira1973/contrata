@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Host de formulários (dev)</title>
+    <style>
+      body { margin: 0; font-family: -apple-system, system-ui, sans-serif; background: #f5f5f7; color: #1d1d1f; }
+      body.escuro { background: #000; color: #f5f5f7; }
+      header { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 12px 16px; border-bottom: 1px solid #d2d2d7; }
+      input, select, button, textarea { font: inherit; min-height: 36px; }
+      #args { width: 320px; }
+      main { padding: 16px; display: flex; justify-content: center; }
+      iframe { width: min(560px, 100%); height: 760px; border: 1px solid #d2d2d7; border-radius: 12px; background: transparent; }
+      #log { padding: 0 16px; font-size: 12px; white-space: pre-wrap; color: #6e6e73; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <input id="token" type="password" placeholder="token rsm_… (só dev)" autocomplete="off" />
+      <select id="ferramenta"></select>
+      <input id="args" value="{}" aria-label="argumentos JSON" />
+      <label><input id="escuro" type="checkbox" /> escuro</label>
+      <button id="abrir">Abrir</button>
+    </header>
+    <main><!-- Só no host de desenvolvimento: allow-same-origin para inspecionar o DOM do formulário. -->
+    <iframe id="app" sandbox="allow-scripts allow-forms allow-same-origin" title="formulário"></iframe></main>
+    <pre id="log"></pre>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

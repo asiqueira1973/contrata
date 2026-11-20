@@ -288,6 +288,7 @@ export const copy = {
         email: "E-mail",
         papel: "Papel",
         areas: "Áreas",
+        quaisAreas: "Quais áreas",
         todasAreas: "Todas as áreas",
         escolherAreas: "Escolher áreas",
         resumo: (email: string) => `Convite enviado para ${email}.`,
@@ -376,6 +377,11 @@ export const copy = {
   inicioPublico: {
     titulo: `${NOME_PRODUTO}: recrutamento e seleção para agentes`,
     texto: "Quem recruta usa o Contrata pelo Claude ou pelo ChatGPT. Para conectar, adicione um conector personalizado com este endereço:",
+  },
+  docsApi: {
+    titulo: "API v1",
+    metaTitulo: `API — ${NOME_PRODUTO}`,
+    texto: "Autentique com uma chave de API no cabeçalho Authorization: Bearer rsk_…. O documento OpenAPI descreve as rotas:",
   },
   conviteAceito: {
     titulo: "Convite aceito",

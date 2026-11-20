@@ -5,6 +5,9 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { build } from "vite";
 import { FORMULARIO_HTML_MAX_BYTES } from "../src/lib/limits";
 
+// O build do Vite troca NODE_ENV para production: lê antes.
+const DESENVOLVIMENTO = process.env.NODE_ENV !== "production";
+process.env.UI_ENTRADA = "formulario";
 await build({ configFile: "vite.config.mts", logLevel: "warn" });
 const html = readFileSync("ui/dist/formulario/index.html", "utf8");
 const bytes = Buffer.byteLength(html);
@@ -18,3 +21,10 @@ writeFileSync(
   "src/server/mcp/ui/generated.ts",
   `// GERADO por scripts/build-ui.mts a partir de ui/formulario. Não edite.\nexport const FORMULARIO_HTML: string = ${JSON.stringify(html)};\n`,
 );
+
+// Host de formulários só para desenvolvimento (ui/dev-host): vai para ui/dist/dev-host, nunca
+// para o servidor. A rota /dev/formularios lê esse arquivo só com NODE_ENV=development.
+if (DESENVOLVIMENTO) {
+  process.env.UI_ENTRADA = "dev-host";
+  await build({ configFile: "vite.config.mts", logLevel: "warn" });
+}
