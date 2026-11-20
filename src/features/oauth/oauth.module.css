@@ -1,0 +1,16 @@
+/* Tela de consentimento do OAuth (seção 16): cartão central de até 440 px, como no Assina. */
+.page { min-height: 100dvh; display: grid; place-items: center; padding: 24px 16px; background: var(--surface); }
+.card { width: 100%; max-width: 440px; display: flex; flex-direction: column; gap: 14px; padding: 32px 24px; border-radius: var(--radius-card); background: var(--bg); }
+.brand { margin: 0; font-size: 15px; font-weight: 700; color: var(--accent); }
+.title { margin: 0; font-size: 24px; font-weight: 700; letter-spacing: -0.02em; line-height: 1.25; overflow-wrap: anywhere; }
+.text { margin: 0; font-size: 16px; line-height: 1.45; }
+.muted { margin: 0; font-size: 14px; color: var(--text-secondary); overflow-wrap: anywhere; }
+.buttons { display: flex; flex-wrap: wrap; gap: 8px; justify-content: flex-end; margin-top: 8px; }
+.primary, .secondary { min-height: var(--tap); padding: 0 22px; border-radius: 999px; font: inherit; font-size: 16px; font-weight: 600; cursor: pointer; }
+.primary { border: 0; background: var(--accent); color: #fff; }
+.secondary { border: 1px solid var(--hairline); background: var(--bg); color: var(--text); }
+.fieldset { margin: 0; padding: 0; border: 0; display: flex; flex-direction: column; gap: 2px; }
+.legend { padding: 0; margin-bottom: 6px; font-size: 14px; font-weight: 600; }
+.choice { display: flex; align-items: center; gap: 10px; min-height: var(--tap); font-size: 16px; }
+.choice input { width: 18px; height: 18px; accent-color: var(--accent); }
+.guarantee { margin: 0; padding: 12px 14px; border-radius: 12px; background: var(--accent-soft); font-size: 14px; line-height: 1.45; }

@@ -1,0 +1,29 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="color-scheme" content="light dark" />
+    <title>Formulário</title>
+    <link rel="stylesheet" href="../shared/form.css" />
+  </head>
+  <body>
+    <main class="form" aria-busy="true">
+      <p id="titulo" class="titulo"></p>
+      <div id="avisos" class="avisos" hidden></div>
+      <p id="erro-opcoes" class="carregar-erro" role="alert" hidden></p>
+      <form id="form" novalidate></form>
+      <p id="cancelado" class="cancelado" role="status" hidden></p>
+      <section id="sucesso" class="sucesso" role="status" hidden>
+        <h2 id="sucesso-titulo"></h2>
+        <p id="sucesso-resumo"></p>
+        <div id="segredo" class="segredo" hidden>
+          <p id="segredo-aviso" class="aviso-linha"></p>
+          <label id="segredo-rotulo" for="segredo-valor"></label>
+          <input id="segredo-valor" readonly />
+        </div>
+      </section>
+    </main>
+    <script type="module" src="./main.ts"></script>
+  </body>
+</html>

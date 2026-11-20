@@ -9,7 +9,7 @@ import { PAPEIS, type Papel } from "@/lib/limits";
 import { db } from "@/server/db/client";
 import type { Usuario } from "@/server/db/users";
 import { jsonError } from "@/server/http";
-import { atorDoPainel, type Ator } from "@/server/org/actor";
+import { atorDaWeb, type Ator } from "@/server/org/actor";
 import { computeScope, type Alcance } from "@/server/org/scope";
 import { getCurrentUser, requireUsuario } from "./require-usuario";
 
@@ -40,7 +40,7 @@ async function loadMembership(usuario: Usuario, empresaSlug: string): Promise<Om
   if (!membro) return null;
   const m: Membro = { id: membro.id, papel: membro.papel, todas_areas: membro.todas_areas };
   const areaIds = (membro.rs_membro_areas ?? []).map((a) => a.area_id);
-  return { empresa, membro: m, alcance: computeScope(m, areaIds), ator: atorDoPainel(m.id) };
+  return { empresa, membro: m, alcance: computeScope(m, areaIds), ator: atorDaWeb(m.id) };
 }
 
 // Diz se o papel alcança o mínimo exigido (seção 5).

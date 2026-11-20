@@ -1,6 +1,6 @@
 "use client";
-// Boas-vindas — seção 6.1 e 15.2: sem marcar o aceite, o botão fica desabilitado. Ao aceitar,
-// grava pelo POST /api/painel/conta/boas-vindas e recarrega a partir do servidor (toda escrita
+// Boas-vindas — seções 6.1, 6.4 e 15.2, no consentimento do conector: sem marcar o aceite, o botão
+// fica desabilitado. Ao aceitar, grava pelo POST /oauth/termos e recarrega do servidor (toda escrita
 // invalida a leitura). Os links de Termos e Privacidade apontam para as páginas do épico 8.12.
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -18,13 +18,13 @@ export function WelcomeForm() {
   const [before, rest] = c.aceite.split(c.termos);
   const [middle, after] = rest.split(c.privacidade);
 
-  // Grava o aceite; só mostra o painel depois que o servidor confirmou.
+  // Grava o aceite; só segue depois que o servidor confirmou.
   async function submit(event: React.FormEvent) {
     event.preventDefault();
     if (!accepted || saving) return;
     setSaving(true);
     setError(null);
-    const r = await request("POST", "/api/painel/conta/boas-vindas", { aceite: true });
+    const r = await request("POST", "/oauth/termos", { aceite: true });
     if (r.ok) return router.refresh();
     setError(r.mensagem);
     setSaving(false);

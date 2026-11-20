@@ -10,3 +10,5 @@ supabase/.temp/
 .DS_Store
 .armazenamento-local/
 .caixa-de-saida-local/
+ui/dist/
+src/server/mcp/ui/generated.ts

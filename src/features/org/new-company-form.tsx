@@ -1,7 +1,7 @@
 "use client";
-// Criar empresa — seção 10, 15.2 e critério 8.1: nome, endereço da página de carreiras mostrado ao
-// vivo como {site}/{slug} (reservado ou em uso recusado com a copy da 15), e-mail de contato
-// (padrão: o de quem cria). Quem pode criar (11.33) já foi conferido pela página.
+// Criar empresa no consentimento do conector — 6.4, 15.2 e 11.33: nome, endereço da página de
+// carreiras mostrado ao vivo como {site}/{slug} (reservado ou em uso recusado com a copy da 15),
+// e-mail de contato (padrão: o de quem cria). Criada, a tela recarrega e segue para os escopos.
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { copy, mensagemDeErro } from "@/lib/copy";
@@ -35,7 +35,7 @@ export function NewCompanyForm({ site, emailPadrao }: { site: string; emailPadra
       return () => clearTimeout(t);
     }
     const t = setTimeout(async () => {
-      const r = await request<{ livre: boolean; codigo?: string }>("GET", `/api/painel/empresas/slug?valor=${encodeURIComponent(slug)}`);
+      const r = await request<{ livre: boolean; codigo?: string }>("GET", `/oauth/empresa/slug?valor=${encodeURIComponent(slug)}`);
       if (r.ok) setSlugMsg(r.data.livre ? { ok: true, texto: c.enderecoLivre } : { ok: false, texto: mensagemDeErro(r.data.codigo) });
     }, 350);
     return () => clearTimeout(t);
@@ -45,16 +45,16 @@ export function NewCompanyForm({ site, emailPadrao }: { site: string; emailPadra
     e.preventDefault();
     setBusy(true);
     setError(null);
-    const r = await request<{ slug: string }>("POST", "/api/painel/empresas", { nome, slug, email_contato: email });
+    const r = await request<{ slug: string }>("POST", "/oauth/empresa", { nome, slug, email_contato: email });
     if (!r.ok) {
       setBusy(false);
       return setError(r.mensagem);
     }
-    router.push(`/painel/${r.data.slug}`);
+    router.refresh();
   }
 
   return (
-    <form className={`${ui.card} ${ui.form}`} onSubmit={submit} noValidate>
+    <form className={ui.form} onSubmit={submit} noValidate>
       <div className={ui.field}>
         <label className={ui.label} htmlFor="empresa-nome">{c.nome}</label>
         <input id="empresa-nome" className={ui.input} value={nome} onChange={(e) => onNome(e.target.value)} required autoComplete="organization" />

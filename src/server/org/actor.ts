@@ -12,17 +12,25 @@ export type Ator = {
   origem: Origem;
 };
 
-// Formato que as funções SQL esperam em p_ator (rs_fn_registra_evento). Recebe: o ator.
+// Formato que as funções SQL esperam em p_ator (rs_fn_registra_evento). A origem vai junto e
+// vence a da função (formulário, MCP, API ou web). Recebe: o ator.
 export function atorJson(ator: Ator) {
   return {
     tipo: ator.tipo,
+    origem: ator.origem,
     ...(ator.membroId ? { membro_id: ator.membroId } : {}),
     ...(ator.credencialId ? { credencial_id: ator.credencialId } : {}),
     ...(ator.autorizadoPorMembroId ? { autorizado_por_membro_id: ator.autorizadoPorMembroId } : {}),
   };
 }
 
-// Ator de um membro agindo pelo painel. Recebe: id do membro.
-export function atorDoPainel(membroId: string): Ator {
-  return { tipo: "membro", membroId, origem: "painel" };
+// Ator de um membro agindo nas páginas de entrada (consentimento e convite). Recebe: id do membro.
+export function atorDaWeb(membroId: string): Ator {
+  return { tipo: "membro", membroId, origem: "web" };
+}
+
+// Ator de um membro que clicou em Salvar num formulário do chat (11.34): a pessoa grava, então o
+// ator é o membro, com a credencial do conector registrada. Recebe: o ator do token.
+export function atorDoFormulario(ator: Ator): Ator {
+  return { tipo: "membro", membroId: ator.membroId, credencialId: ator.credencialId, origem: "formulario" };
 }
