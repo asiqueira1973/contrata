@@ -92,11 +92,12 @@ ALTER TYPE "public"."rs_origem_candidatura" OWNER TO "postgres";
 
 
 CREATE TYPE "public"."rs_origem_evento" AS ENUM (
-    'painel',
+    'web',
     'api',
     'mcp',
     'publico',
-    'cron'
+    'cron',
+    'formulario'
 );
 
 
@@ -346,7 +347,7 @@ begin
     update public.rs_pessoas set membro_id = p_membro where id = v_pessoa;
   end if;
   perform public.rs_fn_registra_evento(v_m.empresa_id, null, null, 'membro_entrou',
-    pg_catalog.jsonb_build_object('tipo', 'membro', 'membro_id', p_membro), 'painel',
+    pg_catalog.jsonb_build_object('tipo', 'membro', 'membro_id', p_membro), 'web',
     pg_catalog.jsonb_build_object('membro_id', p_membro, 'papel', v_m.papel));
   return true;
 end $$;
@@ -373,7 +374,7 @@ begin
     raise exception 'area_em_uso' using errcode = 'P0001';
   end if;
   update public.rs_areas set arquivada_em = pg_catalog.now() where id = p_area;
-  perform public.rs_fn_registra_evento(p_empresa, null, null, 'area_arquivada', p_ator, 'painel',
+  perform public.rs_fn_registra_evento(p_empresa, null, null, 'area_arquivada', p_ator, 'web',
     pg_catalog.jsonb_build_object('area_id', p_area));
 end $$;
 
@@ -399,7 +400,7 @@ begin
   end if;
   update public.rs_areas set responsavel_pessoa_id = null where responsavel_pessoa_id = p_pessoa;
   update public.rs_pessoas set arquivada_em = pg_catalog.now() where id = p_pessoa;
-  perform public.rs_fn_registra_evento(p_empresa, null, null, 'pessoa_arquivada', p_ator, 'painel',
+  perform public.rs_fn_registra_evento(p_empresa, null, null, 'pessoa_arquivada', p_ator, 'web',
     pg_catalog.jsonb_build_object('pessoa_id', p_pessoa));
 end $$;
 
@@ -419,7 +420,7 @@ begin
   if v_m.id is null then
     raise exception 'convite_invalido' using errcode = 'P0001';
   end if;
-  perform public.rs_fn_registra_evento(v_m.empresa_id, null, null, 'convite_cancelado', p_ator, 'painel',
+  perform public.rs_fn_registra_evento(v_m.empresa_id, null, null, 'convite_cancelado', p_ator, 'web',
     pg_catalog.jsonb_build_object('membro_id', p_membro));
 end $$;
 
@@ -453,7 +454,7 @@ begin
   returning id into v_membro;
   insert into public.rs_membro_areas (membro_id, area_id)
   select v_membro, a from pg_catalog.unnest(coalesce(p_areas, '{}')) a;
-  perform public.rs_fn_registra_evento(p_empresa, null, null, 'membro_convidado', p_ator, 'painel',
+  perform public.rs_fn_registra_evento(p_empresa, null, null, 'membro_convidado', p_ator, 'web',
     pg_catalog.jsonb_build_object('membro_id', v_membro, 'papel', p_papel,
       'areas', coalesce(pg_catalog.cardinality(p_areas), 0)));
   return v_membro;
@@ -461,6 +462,55 @@ end $$;
 
 
 ALTER FUNCTION "public"."rs_fn_convida_membro"("p_empresa" "uuid", "p_email" "text", "p_papel" "public"."rs_papel_membro", "p_todas_areas" boolean, "p_areas" "uuid"[], "p_token_hash" "text", "p_expira_em" timestamp with time zone, "p_max_pendentes" integer, "p_ator" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_cria_chave_api"("p_empresa" "uuid", "p_nome" "text", "p_prefixo" "text", "p_valor_hash" "text", "p_escopos" "public"."rs_escopo"[], "p_max_ativas" integer, "p_ator" "jsonb") RETURNS "uuid"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare v_id uuid;
+begin
+  if (select count(*) from public.rs_credenciais where empresa_id = p_empresa and tipo = 'api' and revogada_em is null)
+     >= p_max_ativas then
+    raise exception 'limite_chaves' using errcode = 'P0001';
+  end if;
+  insert into public.rs_credenciais (empresa_id, tipo, nome, prefixo, valor_hash, escopos, criada_por_membro_id)
+  values (p_empresa, 'api', p_nome, p_prefixo, p_valor_hash, p_escopos, (p_ator ->> 'membro_id')::uuid)
+  returning id into v_id;
+  perform public.rs_fn_registra_evento(p_empresa, null, null, 'credencial_criada', p_ator, 'web',
+    pg_catalog.jsonb_build_object('credencial_id', v_id, 'tipo', 'api', 'escopos', p_escopos));
+  return v_id;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_cria_chave_api"("p_empresa" "uuid", "p_nome" "text", "p_prefixo" "text", "p_valor_hash" "text", "p_escopos" "public"."rs_escopo"[], "p_max_ativas" integer, "p_ator" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_cria_codigo_oauth"("p_codigo_hash" "text", "p_cliente" "uuid", "p_empresa" "uuid", "p_membro" "uuid", "p_escopos" "public"."rs_escopo"[], "p_redirect_uri" "text", "p_code_challenge" "text", "p_validade_s" integer) RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $_$
+begin
+  if not exists (select 1 from public.rs_oauth_clientes where id = p_cliente) then
+    raise exception 'invalid_client' using errcode = 'P0001';
+  end if;
+  if not exists (select 1 from public.rs_oauth_clientes where id = p_cliente and p_redirect_uri = any (redirect_uris))
+     or p_code_challenge !~ '^[A-Za-z0-9_-]{43}$' or coalesce(pg_catalog.cardinality(p_escopos), 0) = 0 then
+    raise exception 'invalid_request' using errcode = 'P0001';
+  end if;
+  if not exists (select 1 from public.rs_membros m join public.rs_empresas e on e.id = m.empresa_id
+                 where m.id = p_membro and m.empresa_id = p_empresa and m.usuario_id is not null
+                   and m.removido_em is null and e.excluida_em is null and e.suspensa_em is null) then
+    raise exception 'membro_invalido' using errcode = 'P0001';
+  end if;
+  insert into public.rs_oauth_codigos (codigo_hash, cliente_id, empresa_id, membro_id, escopos, redirect_uri,
+                                       code_challenge, expira_em)
+  values (p_codigo_hash, p_cliente, p_empresa, p_membro, p_escopos, p_redirect_uri, p_code_challenge,
+          pg_catalog.now() + pg_catalog.make_interval(secs => p_validade_s));
+end $_$;
+
+
+ALTER FUNCTION "public"."rs_fn_cria_codigo_oauth"("p_codigo_hash" "text", "p_cliente" "uuid", "p_empresa" "uuid", "p_membro" "uuid", "p_escopos" "public"."rs_escopo"[], "p_redirect_uri" "text", "p_code_challenge" "text", "p_validade_s" integer) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."rs_fn_cria_empresa"("p_usuario" "uuid", "p_slug" "text", "p_nome" "text", "p_email_contato" "text") RETURNS "uuid"
@@ -485,7 +535,7 @@ begin
   values (v_empresa, p_usuario, v_u.email, 'administrador', pg_catalog.now()) returning id into v_membro;
   insert into public.rs_pessoas (empresa_id, nome, email, membro_id) values (v_empresa, v_u.nome, v_u.email, v_membro);
   perform public.rs_fn_registra_evento(v_empresa, null, null, 'empresa_criada',
-    pg_catalog.jsonb_build_object('tipo', 'membro', 'membro_id', v_membro), 'painel', '{}');
+    pg_catalog.jsonb_build_object('tipo', 'membro', 'membro_id', v_membro), 'web', '{}');
   return v_empresa;
 end $$;
 
@@ -630,7 +680,7 @@ begin
   select p_membro, a from pg_catalog.unnest(coalesce(p_areas, '{}')) a;
   update public.rs_credenciais set revogada_em = pg_catalog.now()
    where membro_id = p_membro and tipo = 'mcp' and revogada_em is null;
-  perform public.rs_fn_registra_evento(v_m.empresa_id, null, null, 'membro_acesso_alterado', p_ator, 'painel',
+  perform public.rs_fn_registra_evento(v_m.empresa_id, null, null, 'membro_acesso_alterado', p_ator, 'web',
     pg_catalog.jsonb_build_object('membro_id', p_membro, 'de', v_m.papel, 'para', p_papel,
       'areas', coalesce(pg_catalog.cardinality(p_areas), 0)));
 end $$;
@@ -651,7 +701,7 @@ begin
   if v_m.id is null then
     raise exception 'convite_invalido' using errcode = 'P0001';
   end if;
-  perform public.rs_fn_registra_evento(v_m.empresa_id, null, null, 'membro_convidado', p_ator, 'painel',
+  perform public.rs_fn_registra_evento(v_m.empresa_id, null, null, 'membro_convidado', p_ator, 'web',
     pg_catalog.jsonb_build_object('membro_id', p_membro, 'papel', v_m.papel, 'reenvio', true));
 end $$;
 
@@ -672,7 +722,8 @@ begin
                                  credencial_id, autorizado_por_membro_id, origem, dados)
   values (p_empresa, p_vaga, p_candidatura, p_tipo, (p_ator ->> 'tipo')::public.rs_tipo_ator,
           (p_ator ->> 'membro_id')::uuid, (p_ator ->> 'credencial_id')::uuid,
-          (p_ator ->> 'autorizado_por_membro_id')::uuid, p_origem, coalesce(p_dados, '{}'))
+          (p_ator ->> 'autorizado_por_membro_id')::uuid,
+          coalesce((p_ator ->> 'origem')::public.rs_origem_evento, p_origem), coalesce(p_dados, '{}'))
   returning id into v_id;
   return v_id;
 end $$;
@@ -697,12 +748,32 @@ begin
   update public.rs_credenciais set revogada_em = pg_catalog.now()
    where membro_id = p_membro and tipo = 'mcp' and revogada_em is null;
   update public.rs_pessoas set membro_id = null where membro_id = p_membro;
-  perform public.rs_fn_registra_evento(v_m.empresa_id, null, null, 'membro_removido', p_ator, 'painel',
+  perform public.rs_fn_registra_evento(v_m.empresa_id, null, null, 'membro_removido', p_ator, 'web',
     pg_catalog.jsonb_build_object('membro_id', p_membro));
 end $$;
 
 
 ALTER FUNCTION "public"."rs_fn_remove_membro"("p_membro" "uuid", "p_ator" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_revoga_credencial"("p_credencial" "uuid", "p_empresa" "uuid", "p_ator" "jsonb") RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare v_c public.rs_credenciais;
+begin
+  update public.rs_credenciais set revogada_em = pg_catalog.now()
+   where id = p_credencial and empresa_id = p_empresa and revogada_em is null
+  returning * into v_c;
+  if v_c.id is null then
+    raise exception 'credencial_invalida' using errcode = 'P0001';
+  end if;
+  perform public.rs_fn_registra_evento(p_empresa, null, null, 'credencial_revogada', p_ator, 'web',
+    pg_catalog.jsonb_build_object('credencial_id', v_c.id, 'tipo', v_c.tipo));
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_revoga_credencial"("p_credencial" "uuid", "p_empresa" "uuid", "p_ator" "jsonb") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."rs_fn_salva_area"("p_empresa" "uuid", "p_id" "uuid", "p_nome" "text", "p_responsavel" "uuid", "p_ator" "jsonb") RETURNS "uuid"
@@ -723,7 +794,7 @@ begin
   if p_id is null then
     insert into public.rs_areas (empresa_id, nome, responsavel_pessoa_id)
     values (p_empresa, p_nome, p_responsavel) returning id into v_id;
-    perform public.rs_fn_registra_evento(p_empresa, null, null, 'area_criada', p_ator, 'painel',
+    perform public.rs_fn_registra_evento(p_empresa, null, null, 'area_criada', p_ator, 'web',
       pg_catalog.jsonb_build_object('area_id', v_id));
   else
     update public.rs_areas set nome = p_nome, responsavel_pessoa_id = p_responsavel
@@ -731,7 +802,7 @@ begin
     if v_id is null then
       raise exception 'area_invalida' using errcode = 'P0001';
     end if;
-    perform public.rs_fn_registra_evento(p_empresa, null, null, 'area_editada', p_ator, 'painel',
+    perform public.rs_fn_registra_evento(p_empresa, null, null, 'area_editada', p_ator, 'web',
       pg_catalog.jsonb_build_object('area_id', v_id));
   end if;
   return v_id;
@@ -761,7 +832,7 @@ begin
   if p_id is null then
     insert into public.rs_pessoas (empresa_id, nome, email, cargo, area_id, recebe_resumo)
     values (p_empresa, p_nome, p_email, p_cargo, p_area, coalesce(p_recebe_resumo, true)) returning id into v_id;
-    perform public.rs_fn_registra_evento(p_empresa, null, null, 'pessoa_cadastrada', p_ator, 'painel',
+    perform public.rs_fn_registra_evento(p_empresa, null, null, 'pessoa_cadastrada', p_ator, 'web',
       pg_catalog.jsonb_build_object('pessoa_id', v_id));
   else
     select * into v_atual from public.rs_pessoas where id = p_id and empresa_id = p_empresa and arquivada_em is null;
@@ -774,7 +845,7 @@ begin
     update public.rs_pessoas set nome = p_nome, email = p_email, cargo = p_cargo, area_id = p_area,
            recebe_resumo = coalesce(p_recebe_resumo, recebe_resumo)
      where id = p_id returning id into v_id;
-    perform public.rs_fn_registra_evento(p_empresa, null, null, 'pessoa_editada', p_ator, 'painel',
+    perform public.rs_fn_registra_evento(p_empresa, null, null, 'pessoa_editada', p_ator, 'web',
       pg_catalog.jsonb_build_object('pessoa_id', v_id));
   end if;
   return v_id;
@@ -782,6 +853,50 @@ end $$;
 
 
 ALTER FUNCTION "public"."rs_fn_salva_pessoa"("p_empresa" "uuid", "p_id" "uuid", "p_nome" "text", "p_email" "text", "p_cargo" "text", "p_area" "uuid", "p_recebe_resumo" boolean, "p_ator" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_troca_codigo_oauth"("p_codigo_hash" "text", "p_cliente" "uuid", "p_redirect_uri" "text", "p_challenge_do_verifier" "text", "p_token_hash" "text", "p_token_prefixo" "text") RETURNS "uuid"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare
+  v_c public.rs_oauth_codigos;
+  v_nome text;
+  v_cred uuid;
+begin
+  select * into v_c from public.rs_oauth_codigos where codigo_hash = p_codigo_hash for update;
+  if v_c.codigo_hash is null then
+    return null;
+  end if;
+  if v_c.usado_em is not null then
+    update public.rs_credenciais set revogada_em = pg_catalog.now()
+     where id = v_c.credencial_id and revogada_em is null;
+    return null;
+  end if;
+  if v_c.expira_em <= pg_catalog.now() or v_c.cliente_id <> p_cliente or v_c.redirect_uri <> p_redirect_uri
+     or v_c.code_challenge <> p_challenge_do_verifier then
+    return null;
+  end if;
+  if not exists (select 1 from public.rs_membros m join public.rs_empresas e on e.id = m.empresa_id
+                 where m.id = v_c.membro_id and m.empresa_id = v_c.empresa_id and m.removido_em is null
+                   and e.excluida_em is null and e.suspensa_em is null) then
+    return null;
+  end if;
+  select nome into v_nome from public.rs_oauth_clientes where id = v_c.cliente_id;
+  insert into public.rs_credenciais (empresa_id, tipo, nome, prefixo, valor_hash, escopos, membro_id,
+                                     oauth_cliente_id, criada_por_membro_id)
+  values (v_c.empresa_id, 'mcp', coalesce(v_nome, 'Cliente MCP'), p_token_prefixo, p_token_hash, v_c.escopos,
+          v_c.membro_id, v_c.cliente_id, v_c.membro_id)
+  returning id into v_cred;
+  update public.rs_oauth_codigos set usado_em = pg_catalog.now(), credencial_id = v_cred where codigo_hash = p_codigo_hash;
+  perform public.rs_fn_registra_evento(v_c.empresa_id, null, null, 'mcp_conectado',
+    pg_catalog.jsonb_build_object('tipo', 'membro', 'membro_id', v_c.membro_id, 'credencial_id', v_cred), 'web',
+    pg_catalog.jsonb_build_object('credencial_id', v_cred, 'cliente_id', v_c.cliente_id, 'escopos', v_c.escopos));
+  return v_cred;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_troca_codigo_oauth"("p_codigo_hash" "text", "p_cliente" "uuid", "p_redirect_uri" "text", "p_challenge_do_verifier" "text", "p_token_hash" "text", "p_token_prefixo" "text") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."rs_fn_valida_areas"("p_empresa" "uuid", "p_papel" "public"."rs_papel_membro", "p_todas" boolean, "p_areas" "uuid"[]) RETURNS "void"
@@ -1321,6 +1436,7 @@ CREATE TABLE IF NOT EXISTS "public"."rs_oauth_codigos" (
     "expira_em" timestamp with time zone DEFAULT ("now"() + '00:10:00'::interval) NOT NULL,
     "usado_em" timestamp with time zone,
     "criado_em" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "credencial_id" "uuid",
     CONSTRAINT "rs_oauth_codigos_escopos" CHECK (("cardinality"("escopos") > 0))
 );
 
@@ -1863,7 +1979,15 @@ CREATE INDEX "rs_oauth_codigos_cliente" ON "public"."rs_oauth_codigos" USING "bt
 
 
 
+CREATE INDEX "rs_oauth_codigos_credencial" ON "public"."rs_oauth_codigos" USING "btree" ("credencial_id");
+
+
+
 CREATE INDEX "rs_oauth_codigos_empresa" ON "public"."rs_oauth_codigos" USING "btree" ("empresa_id");
+
+
+
+CREATE INDEX "rs_oauth_codigos_expira" ON "public"."rs_oauth_codigos" USING "btree" ("expira_em");
 
 
 
@@ -2186,6 +2310,11 @@ ALTER TABLE ONLY "public"."rs_oauth_codigos"
 
 
 ALTER TABLE ONLY "public"."rs_oauth_codigos"
+    ADD CONSTRAINT "rs_oauth_codigos_credencial_id_fkey" FOREIGN KEY ("credencial_id") REFERENCES "public"."rs_credenciais"("id") ON DELETE SET NULL;
+
+
+
+ALTER TABLE ONLY "public"."rs_oauth_codigos"
     ADD CONSTRAINT "rs_oauth_codigos_empresa_id_fkey" FOREIGN KEY ("empresa_id") REFERENCES "public"."rs_empresas"("id") ON DELETE CASCADE;
 
 
@@ -2365,6 +2494,16 @@ GRANT ALL ON FUNCTION "public"."rs_fn_convida_membro"("p_empresa" "uuid", "p_ema
 
 
 
+REVOKE ALL ON FUNCTION "public"."rs_fn_cria_chave_api"("p_empresa" "uuid", "p_nome" "text", "p_prefixo" "text", "p_valor_hash" "text", "p_escopos" "public"."rs_escopo"[], "p_max_ativas" integer, "p_ator" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_cria_chave_api"("p_empresa" "uuid", "p_nome" "text", "p_prefixo" "text", "p_valor_hash" "text", "p_escopos" "public"."rs_escopo"[], "p_max_ativas" integer, "p_ator" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_cria_codigo_oauth"("p_codigo_hash" "text", "p_cliente" "uuid", "p_empresa" "uuid", "p_membro" "uuid", "p_escopos" "public"."rs_escopo"[], "p_redirect_uri" "text", "p_code_challenge" "text", "p_validade_s" integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_cria_codigo_oauth"("p_codigo_hash" "text", "p_cliente" "uuid", "p_empresa" "uuid", "p_membro" "uuid", "p_escopos" "public"."rs_escopo"[], "p_redirect_uri" "text", "p_code_challenge" "text", "p_validade_s" integer) TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."rs_fn_cria_empresa"("p_usuario" "uuid", "p_slug" "text", "p_nome" "text", "p_email_contato" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_cria_empresa"("p_usuario" "uuid", "p_slug" "text", "p_nome" "text", "p_email_contato" "text") TO "service_role";
 
@@ -2410,6 +2549,11 @@ GRANT ALL ON FUNCTION "public"."rs_fn_remove_membro"("p_membro" "uuid", "p_ator"
 
 
 
+REVOKE ALL ON FUNCTION "public"."rs_fn_revoga_credencial"("p_credencial" "uuid", "p_empresa" "uuid", "p_ator" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_revoga_credencial"("p_credencial" "uuid", "p_empresa" "uuid", "p_ator" "jsonb") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."rs_fn_salva_area"("p_empresa" "uuid", "p_id" "uuid", "p_nome" "text", "p_responsavel" "uuid", "p_ator" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_salva_area"("p_empresa" "uuid", "p_id" "uuid", "p_nome" "text", "p_responsavel" "uuid", "p_ator" "jsonb") TO "service_role";
 
@@ -2417,6 +2561,11 @@ GRANT ALL ON FUNCTION "public"."rs_fn_salva_area"("p_empresa" "uuid", "p_id" "uu
 
 REVOKE ALL ON FUNCTION "public"."rs_fn_salva_pessoa"("p_empresa" "uuid", "p_id" "uuid", "p_nome" "text", "p_email" "text", "p_cargo" "text", "p_area" "uuid", "p_recebe_resumo" boolean, "p_ator" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_salva_pessoa"("p_empresa" "uuid", "p_id" "uuid", "p_nome" "text", "p_email" "text", "p_cargo" "text", "p_area" "uuid", "p_recebe_resumo" boolean, "p_ator" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_troca_codigo_oauth"("p_codigo_hash" "text", "p_cliente" "uuid", "p_redirect_uri" "text", "p_challenge_do_verifier" "text", "p_token_hash" "text", "p_token_prefixo" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_troca_codigo_oauth"("p_codigo_hash" "text", "p_cliente" "uuid", "p_redirect_uri" "text", "p_challenge_do_verifier" "text", "p_token_hash" "text", "p_token_prefixo" "text") TO "service_role";
 
 
 

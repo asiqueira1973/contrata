@@ -532,14 +532,14 @@ isOneToOne: false
                   ]
                 },"rs_oauth_codigos": {
                   Row: {
-                    "cliente_id": string,"code_challenge": string,"codigo_hash": string,"criado_em": string,"empresa_id": string,"escopos": (Database["public"]['Enums']["rs_escopo"])[],"expira_em": string,"membro_id": string,"redirect_uri": string,"usado_em": string | null
+                    "cliente_id": string,"code_challenge": string,"codigo_hash": string,"credencial_id": string | null,"criado_em": string,"empresa_id": string,"escopos": (Database["public"]['Enums']["rs_escopo"])[],"expira_em": string,"membro_id": string,"redirect_uri": string,"usado_em": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "cliente_id": string,"code_challenge": string,"codigo_hash": string,"criado_em"?: string,"empresa_id": string,"escopos": (Database["public"]['Enums']["rs_escopo"])[],"expira_em"?: string,"membro_id": string,"redirect_uri": string,"usado_em"?: string | null
+                    "cliente_id": string,"code_challenge": string,"codigo_hash": string,"credencial_id"?: string | null,"criado_em"?: string,"empresa_id": string,"escopos": (Database["public"]['Enums']["rs_escopo"])[],"expira_em"?: string,"membro_id": string,"redirect_uri": string,"usado_em"?: string | null
                   }
                   Update: {
-                    "cliente_id"?: string,"code_challenge"?: string,"codigo_hash"?: string,"criado_em"?: string,"empresa_id"?: string,"escopos"?: (Database["public"]['Enums']["rs_escopo"])[],"expira_em"?: string,"membro_id"?: string,"redirect_uri"?: string,"usado_em"?: string | null
+                    "cliente_id"?: string,"code_challenge"?: string,"codigo_hash"?: string,"credencial_id"?: string | null,"criado_em"?: string,"empresa_id"?: string,"escopos"?: (Database["public"]['Enums']["rs_escopo"])[],"expira_em"?: string,"membro_id"?: string,"redirect_uri"?: string,"usado_em"?: string | null
                   }
                   Relationships: [
                     {
@@ -547,6 +547,12 @@ isOneToOne: false
       columns: ["cliente_id"]
 isOneToOne: false
       referencedRelation: "rs_oauth_clientes"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "rs_oauth_codigos_credencial_id_fkey"
+      columns: ["credencial_id"]
+isOneToOne: false
+      referencedRelation: "rs_credenciais"
       referencedColumns: ["id"]
     },{
       foreignKeyName: "rs_oauth_codigos_empresa_id_fkey"
@@ -753,6 +759,12 @@ isOneToOne: false
 "rs_fn_convida_membro":
 { Args: { "p_areas": (string)[],"p_ator": Json,"p_email": string,"p_empresa": string,"p_expira_em": string,"p_max_pendentes": number,"p_papel": Database["public"]['Enums']["rs_papel_membro"],"p_todas_areas": boolean,"p_token_hash": string }; Returns: string
                            },
+"rs_fn_cria_chave_api":
+{ Args: { "p_ator": Json,"p_empresa": string,"p_escopos": (Database["public"]['Enums']["rs_escopo"])[],"p_max_ativas": number,"p_nome": string,"p_prefixo": string,"p_valor_hash": string }; Returns: string
+                           },
+"rs_fn_cria_codigo_oauth":
+{ Args: { "p_cliente": string,"p_code_challenge": string,"p_codigo_hash": string,"p_empresa": string,"p_escopos": (Database["public"]['Enums']["rs_escopo"])[],"p_membro": string,"p_redirect_uri": string,"p_validade_s": number }; Returns: undefined
+                           },
 "rs_fn_cria_empresa":
 { Args: { "p_email_contato": string,"p_nome": string,"p_slug": string,"p_usuario": string }; Returns: string
                            },
@@ -780,18 +792,24 @@ isOneToOne: false
 "rs_fn_remove_membro":
 { Args: { "p_ator": Json,"p_membro": string }; Returns: undefined
                            },
+"rs_fn_revoga_credencial":
+{ Args: { "p_ator": Json,"p_credencial": string,"p_empresa": string }; Returns: undefined
+                           },
 "rs_fn_salva_area":
 { Args: { "p_ator": Json,"p_empresa": string,"p_id": string,"p_nome": string,"p_responsavel": string }; Returns: string
                            },
 "rs_fn_salva_pessoa":
 { Args: { "p_area": string,"p_ator": Json,"p_cargo": string,"p_email": string,"p_empresa": string,"p_id": string,"p_nome": string,"p_recebe_resumo": boolean }; Returns: string
                            },
+"rs_fn_troca_codigo_oauth":
+{ Args: { "p_challenge_do_verifier": string,"p_cliente": string,"p_codigo_hash": string,"p_redirect_uri": string,"p_token_hash": string,"p_token_prefixo": string }; Returns: string
+                           },
 "rs_fn_valida_areas":
 { Args: { "p_areas": (string)[],"p_empresa": string,"p_papel": Database["public"]['Enums']["rs_papel_membro"],"p_todas": boolean }; Returns: undefined
                            }
           }
           Enums: {
-            "rs_escopo": "leitura"|"escrita"|"decisao","rs_mensagens_agente": "confirmar"|"direto","rs_modelo_trabalho": "presencial"|"hibrido"|"remoto","rs_motivo_encerramento_vaga": "preenchida"|"cancelada"|"outro","rs_motivo_reprovacao": "requisitos"|"experiencia"|"perfil"|"pretensao_salarial"|"localizacao"|"outro_candidato"|"sem_retorno"|"outro","rs_origem_candidatura": "pagina"|"api_publica"|"integracao"|"manual"|"banco_talentos","rs_origem_evento": "painel"|"api"|"mcp"|"publico"|"cron","rs_papel_membro": "administrador"|"recrutador"|"avaliador","rs_papel_na_vaga": "responsavel"|"avaliador","rs_recomendacao": "forte_sim"|"sim"|"nao"|"forte_nao","rs_regime": "clt"|"pj"|"estagio"|"temporario"|"aprendiz"|"trainee"|"freelancer"|"outro","rs_situacao_candidatura": "ativa"|"reprovada"|"desistiu"|"contratada"|"encerrada_vaga","rs_status_decisao": "pendente"|"confirmada"|"descartada"|"expirada","rs_status_entrega": "pendente"|"entregue"|"falhou"|"desistiu","rs_status_extracao": "pendente"|"ok"|"sem_texto"|"falhou","rs_status_notificacao": "pendente"|"enviada"|"falhou"|"descartada","rs_status_vaga": "rascunho"|"publicada"|"pausada"|"encerrada","rs_tipo_arquivo": "curriculo"|"anexo"|"logo","rs_tipo_ator": "membro"|"candidato"|"sistema"|"api"|"agente","rs_tipo_credencial": "api"|"mcp","rs_tipo_decisao": "reprovar"|"contratar"|"encerrar_vaga"|"enviar_mensagem","rs_tipo_etapa": "triagem"|"entrevista"|"avaliacao"|"proposta","rs_tipo_mensagem": "confirmacao"|"devolutiva"|"contato"|"convite_vaga"|"desistencia"|"resposta_revisao","rs_tipo_notificacao": "convite_membro"|"candidatura_recebida"|"mensagem_candidato"|"links_reenviados"|"codigo_exclusao"|"resumo_diario"|"decisoes_pendentes"|"revisao_pedida"|"talentos_expirando"|"resumo_dono_vaga","rs_tipo_pergunta": "texto_curto"|"texto_longo"|"sim_nao"|"escolha_unica"|"numero"
+            "rs_escopo": "leitura"|"escrita"|"decisao","rs_mensagens_agente": "confirmar"|"direto","rs_modelo_trabalho": "presencial"|"hibrido"|"remoto","rs_motivo_encerramento_vaga": "preenchida"|"cancelada"|"outro","rs_motivo_reprovacao": "requisitos"|"experiencia"|"perfil"|"pretensao_salarial"|"localizacao"|"outro_candidato"|"sem_retorno"|"outro","rs_origem_candidatura": "pagina"|"api_publica"|"integracao"|"manual"|"banco_talentos","rs_origem_evento": "web"|"api"|"mcp"|"publico"|"cron"|"formulario","rs_papel_membro": "administrador"|"recrutador"|"avaliador","rs_papel_na_vaga": "responsavel"|"avaliador","rs_recomendacao": "forte_sim"|"sim"|"nao"|"forte_nao","rs_regime": "clt"|"pj"|"estagio"|"temporario"|"aprendiz"|"trainee"|"freelancer"|"outro","rs_situacao_candidatura": "ativa"|"reprovada"|"desistiu"|"contratada"|"encerrada_vaga","rs_status_decisao": "pendente"|"confirmada"|"descartada"|"expirada","rs_status_entrega": "pendente"|"entregue"|"falhou"|"desistiu","rs_status_extracao": "pendente"|"ok"|"sem_texto"|"falhou","rs_status_notificacao": "pendente"|"enviada"|"falhou"|"descartada","rs_status_vaga": "rascunho"|"publicada"|"pausada"|"encerrada","rs_tipo_arquivo": "curriculo"|"anexo"|"logo","rs_tipo_ator": "membro"|"candidato"|"sistema"|"api"|"agente","rs_tipo_credencial": "api"|"mcp","rs_tipo_decisao": "reprovar"|"contratar"|"encerrar_vaga"|"enviar_mensagem","rs_tipo_etapa": "triagem"|"entrevista"|"avaliacao"|"proposta","rs_tipo_mensagem": "confirmacao"|"devolutiva"|"contato"|"convite_vaga"|"desistencia"|"resposta_revisao","rs_tipo_notificacao": "convite_membro"|"candidatura_recebida"|"mensagem_candidato"|"links_reenviados"|"codigo_exclusao"|"resumo_diario"|"decisoes_pendentes"|"revisao_pedida"|"talentos_expirando"|"resumo_dono_vaga","rs_tipo_pergunta": "texto_curto"|"texto_longo"|"sim_nao"|"escolha_unica"|"numero"
           }
           CompositeTypes: {
             [_ in never]: never
@@ -907,7 +925,7 @@ export type CompositeTypes<
 export const Constants = {
   "public": {
           Enums: {
-            "rs_escopo": ["leitura", "escrita", "decisao"],"rs_mensagens_agente": ["confirmar", "direto"],"rs_modelo_trabalho": ["presencial", "hibrido", "remoto"],"rs_motivo_encerramento_vaga": ["preenchida", "cancelada", "outro"],"rs_motivo_reprovacao": ["requisitos", "experiencia", "perfil", "pretensao_salarial", "localizacao", "outro_candidato", "sem_retorno", "outro"],"rs_origem_candidatura": ["pagina", "api_publica", "integracao", "manual", "banco_talentos"],"rs_origem_evento": ["painel", "api", "mcp", "publico", "cron"],"rs_papel_membro": ["administrador", "recrutador", "avaliador"],"rs_papel_na_vaga": ["responsavel", "avaliador"],"rs_recomendacao": ["forte_sim", "sim", "nao", "forte_nao"],"rs_regime": ["clt", "pj", "estagio", "temporario", "aprendiz", "trainee", "freelancer", "outro"],"rs_situacao_candidatura": ["ativa", "reprovada", "desistiu", "contratada", "encerrada_vaga"],"rs_status_decisao": ["pendente", "confirmada", "descartada", "expirada"],"rs_status_entrega": ["pendente", "entregue", "falhou", "desistiu"],"rs_status_extracao": ["pendente", "ok", "sem_texto", "falhou"],"rs_status_notificacao": ["pendente", "enviada", "falhou", "descartada"],"rs_status_vaga": ["rascunho", "publicada", "pausada", "encerrada"],"rs_tipo_arquivo": ["curriculo", "anexo", "logo"],"rs_tipo_ator": ["membro", "candidato", "sistema", "api", "agente"],"rs_tipo_credencial": ["api", "mcp"],"rs_tipo_decisao": ["reprovar", "contratar", "encerrar_vaga", "enviar_mensagem"],"rs_tipo_etapa": ["triagem", "entrevista", "avaliacao", "proposta"],"rs_tipo_mensagem": ["confirmacao", "devolutiva", "contato", "convite_vaga", "desistencia", "resposta_revisao"],"rs_tipo_notificacao": ["convite_membro", "candidatura_recebida", "mensagem_candidato", "links_reenviados", "codigo_exclusao", "resumo_diario", "decisoes_pendentes", "revisao_pedida", "talentos_expirando", "resumo_dono_vaga"],"rs_tipo_pergunta": ["texto_curto", "texto_longo", "sim_nao", "escolha_unica", "numero"]
+            "rs_escopo": ["leitura", "escrita", "decisao"],"rs_mensagens_agente": ["confirmar", "direto"],"rs_modelo_trabalho": ["presencial", "hibrido", "remoto"],"rs_motivo_encerramento_vaga": ["preenchida", "cancelada", "outro"],"rs_motivo_reprovacao": ["requisitos", "experiencia", "perfil", "pretensao_salarial", "localizacao", "outro_candidato", "sem_retorno", "outro"],"rs_origem_candidatura": ["pagina", "api_publica", "integracao", "manual", "banco_talentos"],"rs_origem_evento": ["web", "api", "mcp", "publico", "cron", "formulario"],"rs_papel_membro": ["administrador", "recrutador", "avaliador"],"rs_papel_na_vaga": ["responsavel", "avaliador"],"rs_recomendacao": ["forte_sim", "sim", "nao", "forte_nao"],"rs_regime": ["clt", "pj", "estagio", "temporario", "aprendiz", "trainee", "freelancer", "outro"],"rs_situacao_candidatura": ["ativa", "reprovada", "desistiu", "contratada", "encerrada_vaga"],"rs_status_decisao": ["pendente", "confirmada", "descartada", "expirada"],"rs_status_entrega": ["pendente", "entregue", "falhou", "desistiu"],"rs_status_extracao": ["pendente", "ok", "sem_texto", "falhou"],"rs_status_notificacao": ["pendente", "enviada", "falhou", "descartada"],"rs_status_vaga": ["rascunho", "publicada", "pausada", "encerrada"],"rs_tipo_arquivo": ["curriculo", "anexo", "logo"],"rs_tipo_ator": ["membro", "candidato", "sistema", "api", "agente"],"rs_tipo_credencial": ["api", "mcp"],"rs_tipo_decisao": ["reprovar", "contratar", "encerrar_vaga", "enviar_mensagem"],"rs_tipo_etapa": ["triagem", "entrevista", "avaliacao", "proposta"],"rs_tipo_mensagem": ["confirmacao", "devolutiva", "contato", "convite_vaga", "desistencia", "resposta_revisao"],"rs_tipo_notificacao": ["convite_membro", "candidatura_recebida", "mensagem_candidato", "links_reenviados", "codigo_exclusao", "resumo_diario", "decisoes_pendentes", "revisao_pedida", "talentos_expirando", "resumo_dono_vaga"],"rs_tipo_pergunta": ["texto_curto", "texto_longo", "sim_nao", "escolha_unica", "numero"]
           }
         }
 } as const
