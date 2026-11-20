@@ -37,7 +37,7 @@ Valores de enum em uso: `rs_papel_membro` (administrador, recrutador, avaliador)
 
 ## 3. Lógica no banco
 
-Migration `20261120180100_rs_logica_base.sql`. Todas as funções: `plpgsql`, `SECURITY INVOKER`, `search_path = ''`, `EXECUTE` só para `service_role`. Erros de regra saem como `P0001` com a mensagem igual ao código (ex.: `ultimo_administrador`), que o servidor traduz para a copy.
+Migrations `20261120180100_rs_logica_base.sql` e `20261120190000_rs_ultimo_admin_trava.sql` (esta trava os administradores ativos antes de contar, para a 11.26 valer sob concorrência). Todas as funções: `plpgsql`, `SECURITY INVOKER`, `search_path = ''`, `EXECUTE` só para `service_role`. Erros de regra saem como `P0001` com a mensagem igual ao código (ex.: `ultimo_administrador`), que o servidor traduz para a copy.
 
 | Nome | Tipo | Quando roda | O que faz |
 |---|---|---|---|

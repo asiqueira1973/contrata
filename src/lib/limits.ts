@@ -34,6 +34,9 @@ export const PESSOA_NOME_MAX = 120;
 export const CARGO_MAX = 120;
 export const EMAIL_MAX = 254;
 
+// Áreas por recrutador limitado num pedido (teto de sanidade do schema; a empresa raramente passa de 20).
+export const AREAS_POR_MEMBRO_MAX = 100;
+
 // Papéis em ordem de poder (seção 5): o guardião compara pelo índice.
 export const PAPEIS = ["avaliador", "recrutador", "administrador"] as const;
 export type Papel = (typeof PAPEIS)[number];

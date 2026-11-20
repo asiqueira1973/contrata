@@ -2,7 +2,7 @@
 // porta, na API e no MCP). Limites da seção 7.3 e regras 11.20, 11.24, 11.32 e 11.33.
 import { z } from "zod";
 import {
-  AREA_NOME_MAX, AREA_NOME_MIN, CARGO_MAX, EMAIL_MAX, EMPRESA_NOME_MAX, EMPRESA_NOME_MIN, PAPEIS,
+  AREA_NOME_MAX, AREA_NOME_MIN, AREAS_POR_MEMBRO_MAX, CARGO_MAX, EMAIL_MAX, EMPRESA_NOME_MAX, EMPRESA_NOME_MIN, PAPEIS,
   PESSOA_NOME_MAX, PESSOA_NOME_MIN, SLUG_FORMATO, SLUG_MAX, SLUG_MIN, SLUGS_RESERVADOS,
 } from "@/lib/limits";
 
@@ -39,7 +39,7 @@ export const criarEmpresaSchema = z.object({
 });
 
 const papel = z.enum(PAPEIS);
-const areas = z.array(z.uuid()).max(100).default([]);
+const areas = z.array(z.uuid()).max(AREAS_POR_MEMBRO_MAX).default([]);
 
 // Papel e áreas (11.32): áreas só valem para recrutador limitado; o banco confere de novo.
 export const acessoSchema = z.object({ papel, todas_areas: z.boolean().default(true), areas });
