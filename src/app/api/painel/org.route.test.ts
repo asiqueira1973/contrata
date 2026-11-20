@@ -106,6 +106,17 @@ describe("convites (11.24)", () => {
     const certo = await aceitar(apiRequest(`/api/convite/${token}/aceitar`, { method: "POST", cookie: convidado.cookie }), params({ token }));
     expect(await certo.json()).toEqual({ empresa: empresa.slug });
   });
+  it("depois do envio, o corpo do e-mail (com o token em claro) sai do banco (20.3)", async () => {
+    const convidado = await createTestUser();
+    emails.length = 0;
+    const res = await convidar(apiRequest(`${base()}/convites`, { method: "POST", cookie: admin.cookie, body: { email: convidado.email, papel: "avaliador" } }), e());
+    const { id } = await res.json();
+    const token = emails[0].text.match(/\/convite\/([A-Za-z0-9_-]+)/)![1];
+    const { data } = await db().from("rs_notificacoes").select("status, html, texto").like("chave_idempotencia", `convite_membro:${id}:%`).single();
+    expect(data).toEqual({ status: "enviada", html: "", texto: "" });
+    const { count } = await db().from("rs_notificacoes").select("id", { count: "exact", head: true }).eq("empresa_id", empresa.id).or(`html.like.%${token}%,texto.like.%${token}%`);
+    expect(count).toBe(0);
+  });
   it("reenviar gera token novo e invalida o anterior", async () => {
     const convidado = await createTestUser();
     emails.length = 0;

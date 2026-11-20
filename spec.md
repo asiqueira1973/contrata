@@ -649,7 +649,7 @@ Modelo padrão copiado ao criar a vaga (constante em `src/lib/limits.ts`, não t
 | `dados` | jsonb | não | `'{}'` | **sem dado pessoal**: ids, de/para, contagens, motivo interno |
 | `criado_em` | timestamptz | não | `now()` | índices (`empresa_id`, `candidatura_id`, `id`) e (`empresa_id`, `id`) |
 
-**`rs_notificacoes`** — fila de e-mail idempotente, como `as_notificacoes` do Assina: `id`, `empresa_id`, `candidatura_id` (nulo em notificações de membro; usado para descartar as pendentes na anonimização), `tipo` (`rs_tipo_notificacao`), `destinatario` (citext), `chave_idempotencia` (text, única: ex. `devolutiva:{candidatura_id}`), `assunto`, `html`, `texto`, `reply_to`, `status`, `tentativas`, `ultimo_erro` (sem dado pessoal), `enviar_apos`, `enviada_em`, `resend_id`, `criado_em`.
+**`rs_notificacoes`** — fila de e-mail idempotente, como `as_notificacoes` do Assina: `id`, `empresa_id`, `candidatura_id` (nulo em notificações de membro; usado para descartar as pendentes na anonimização), `tipo` (`rs_tipo_notificacao`), `destinatario` (citext), `chave_idempotencia` (text, única: ex. `devolutiva:{candidatura_id}`), `assunto`, `html`, `texto` (os dois **esvaziados assim que o e-mail é enviado**: o corpo leva links com token em claro, 20.3; decisão de 20/11/2026), `reply_to`, `status`, `tentativas`, `ultimo_erro` (sem dado pessoal), `enviar_apos`, `enviada_em`, `resend_id`, `criado_em`.
 
 **`rs_webhooks`** — `id`, `empresa_id`, `url` (https), `segredo_cifrado` (AES-256-GCM com `CHAVES_ENC_KEY`), `eventos` (text[] do catálogo 13.4), `ativo`, `criado_em`. Até 5 por empresa.
 
@@ -1383,7 +1383,7 @@ Toda mudança de schema, trigger, rota, ferramenta ou lógica de tela atualiza e
 - Segredos só no servidor (18.1). Service role ignora RLS: os helpers de `src/server/db/` exigem `empresaId` e `alcance`, e isso é verificado por teste e pelo `verifier`.
 - **CSRF:** escritas do painel e do candidato conferem `Origin = NEXT_PUBLIC_SITE_URL`; cookies `SameSite=Lax`.
 - **Vínculo conferido a cada requisição:** o guardião do painel e do MCP relê `rs_membros` (removido, papel, áreas) em toda chamada; não há papel guardado em cookie ou token.
-- **Tokens e códigos:** `crypto.randomBytes`/`randomInt`, só hash no banco, comparação em tempo constante.
+- **Tokens e códigos:** `crypto.randomBytes`/`randomInt`, só hash no banco, comparação em tempo constante. O corpo dos e-mails na fila (`rs_notificacoes.html`/`texto`), que leva links com token, é apagado assim que o e-mail sai; até lá, só existe enquanto precisa ser reenviado. Em `rs_mensagens`, o corpo guardado não pode conter o link com token resolvido (8.6).
 - **Uploads:** só por URL assinada para um caminho fixo; tipo conferido pelos bytes no servidor; SVG de logo sanitizado (`DOMPurify` no servidor) ou recusado se não sanitizável; downloads por URL de 5 min.
 - **Markdown da vaga** sanitizado com lista fechada de tags (sem `script`, `iframe`, `style`, atributos `on*`).
 - **Injeção de prompt:** currículos e respostas são texto de terceiros que vai para a IA do recrutador. As ferramentas `ler_curriculo` e `ver_candidatura` devolvem esse texto dentro de um campo marcado como `conteudo_do_candidato` e a descrição da ferramenta diz que ele é dado, não instrução. O princípio 2 limita o estrago: nenhuma instrução escondida num currículo consegue reprovar, contratar ou mudar acessos, porque essas ações exigem confirmação humana ou não têm porta de máquina.

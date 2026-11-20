@@ -1,6 +1,9 @@
 // Fila de e-mail idempotente (rs_notificacoes, seção 7.3) — como no Assina: grava a notificação
 // com uma chave única e tenta enviar logo depois da resposta; o que falhar fica "falhou" para a
 // faxina diária retentar (8.10). Chave repetida não grava nem envia de novo.
+// Seção 20.3 (decisão de 20/11/2026): o corpo (html e texto) carrega links com token em claro
+// (/convite/…, /c/…), então é apagado assim que o e-mail sai. Só fica enquanto precisa ser
+// reenviado (pendente ou falhou).
 import "server-only";
 import { after } from "next/server";
 import { db } from "@/server/db/client";
@@ -29,7 +32,11 @@ export async function deliver(id: string, fromName?: string): Promise<void> {
   if (error || !n || n.status === "enviada" || n.status === "descartada") return;
   try {
     const sent = await mailer().send({ to: n.destinatario, fromName, replyTo: n.reply_to ?? undefined, subject: n.assunto, html: n.html, text: n.texto });
-    await db().from("rs_notificacoes").update({ status: "enviada", enviada_em: new Date().toISOString(), resend_id: sent.id, tentativas: n.tentativas + 1 }).eq("id", id);
+    // Enviado: o corpo sai do banco na mesma escrita que marca o envio (20.3).
+    await db()
+      .from("rs_notificacoes")
+      .update({ status: "enviada", enviada_em: new Date().toISOString(), resend_id: sent.id, tentativas: n.tentativas + 1, html: "", texto: "" })
+      .eq("id", id);
   } catch (e) {
     await db().from("rs_notificacoes").update({ status: "falhou", ultimo_erro: errorCode(e), tentativas: n.tentativas + 1 }).eq("id", id);
   }
