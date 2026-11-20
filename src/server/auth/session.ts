@@ -1,6 +1,7 @@
 // Sessão do membro em cookie — seção 6.1.
 // Cookie "rs_sessao" com JWT HS256 assinado com SESSION_SECRET; conteúdo: usuario_id e iat.
-// A empresa NÃO vai na sessão: vem da URL e é conferida a cada requisição por requireMembro.
+// Serve só às páginas de entrada (consentimento do conector e convite); quem opera é o token do
+// conector, que relê o vínculo a cada chamada.
 // Validade de 30 dias, renovado a cada uso quando tem mais de 7 dias (feito no proxy).
 import "server-only";
 import { SignJWT, jwtVerify } from "jose";

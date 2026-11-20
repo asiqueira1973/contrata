@@ -26,7 +26,7 @@ Spec **v0.4: um sistema para agentes, não para humanos** (20/11/2026). Quem rec
 - Nenhum dado pessoal em log, evento, webhook de erro, analytics ou corpo de erro.
 
 ## Comandos
-- `npm run verify`: typecheck, lint, `test` (guardrails 42/42 + varredura do repositório pelos hooks + pgTAP + Vitest), build e `npm audit`. Saída saudável: `42 de 42 casos ok`, `N de N verificações ok`, `Result: PASS`, `Tests N passed`, tabela de rotas, `found 0 vulnerabilities`.
+- `npm run verify`: typecheck, lint, `test` (guardrails 42/42 + varredura do repositório pelos hooks + pgTAP + Vitest), build e `npm audit`. Saída saudável: `46 de 46 casos ok`, `N de N verificações ok`, `Result: PASS`, `Tests N passed`, tabela de rotas, `found 0 vulnerabilities`.
 - `npm run dev` em `http://localhost:3050` · `supabase start` (portas **557xx**; o seed cria a Padaria Exemplo) · `npm run db:types` · `npm run db:schema`.
 - Sem cliente Google, em dev: `node scripts/dev-session.mjs carla@padaria.exemplo` imprime um cookie de sessão de um usuário do seed.
 

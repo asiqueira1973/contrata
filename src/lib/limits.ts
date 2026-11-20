@@ -19,8 +19,8 @@ export const EMPRESA_NOME_MAX = 80;
 export const SLUG_MIN = 3;
 export const SLUG_MAX = 40;
 export const SLUG_FORMATO = /^[a-z0-9](-?[a-z0-9])*$/;
-// Regra 11.20 (endereços públicos) e, além dela, as rotas fixas de /painel/{slug} que colidiriam
-// com uma empresa de mesmo nome (nova, conta, boas-vindas): divergência registrada no plano 8.1.
+// Regra 11.20 (endereços públicos), mais convite, nova, conta e boas-vindas (reservados no 8.1,
+// quando havia painel; ficam reservados para não liberar endereços já recusados).
 export const SLUGS_RESERVADOS = [
   "painel", "entrar", "sair", "api", "mcp", "oauth", "docs", "c", "privacidade", "termos", ".well-known", "admin",
   "sitemap.xml", "robots.txt", "convite", "nova", "conta", "boas-vindas",

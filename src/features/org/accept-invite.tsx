@@ -1,6 +1,6 @@
 "use client";
 // Botão "Aceitar convite" para quem já está logado com o e-mail convidado (6.1, 11.24). Aceita pela
-// rota e vai para o painel da empresa; erro aparece no lugar.
+// rota e mostra como conectar o conector (/convite/aceito); erro aparece no lugar.
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { copy } from "@/lib/copy";
@@ -20,7 +20,7 @@ export function AcceptInvite({ token }: { token: string }) {
       setBusy(false);
       return setError(r.mensagem);
     }
-    router.push(`/painel/${r.data.empresa}`);
+    router.push("/convite/aceito");
   }
 
   return (

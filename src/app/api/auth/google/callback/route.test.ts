@@ -28,7 +28,7 @@ function mockGoogle(identity: { sub: string; email: string } | string) {
     return { ...identity, name: "Pessoa Teste", picture: null };
   };
 }
-function callback(volta = "/painel") {
+function callback(volta = "/oauth/autorizar") {
   return new NextRequest(`${SITE}/api/auth/google/callback?code=c&state=s1`, {
     headers: { cookie: `rs_oauth_google=${encodeOAuthCookie({ state: "s1", verifier: "v", volta })}` },
   });
@@ -42,7 +42,7 @@ afterAll(async () => {
 describe("GET /api/auth/google/callback", () => {
   it("state diferente do cookie: volta com erro e não grava nada", async () => {
     const req = new NextRequest(`${SITE}/api/auth/google/callback?code=c&state=outro`, {
-      headers: { cookie: `rs_oauth_google=${encodeOAuthCookie({ state: "s1", verifier: "v", volta: "/painel" })}` },
+      headers: { cookie: `rs_oauth_google=${encodeOAuthCookie({ state: "s1", verifier: "v", volta: "/oauth/autorizar" })}` },
     });
     const res = await GET(req);
     expect(res.headers.get("location")).toContain("/entrar?erro=falha");
@@ -68,8 +68,8 @@ describe("GET /api/auth/google/callback", () => {
     const sub = `sub-${randomUUID()}`;
     const email = `novo-${randomUUID().slice(0, 6)}@teste.dev`;
     mockGoogle({ sub, email });
-    const res = await GET(callback("/painel/x"));
-    expect(res.headers.get("location")).toBe(`${SITE}/painel/x`);
+    const res = await GET(callback("/oauth/autorizar?client_id=x"));
+    expect(res.headers.get("location")).toBe(`${SITE}/oauth/autorizar?client_id=x`);
     const session = await verifySession(res.cookies.get("rs_sessao")?.value);
     expect(session?.usuarioId).toBeTruthy();
     await GET(callback());
@@ -84,7 +84,7 @@ describe("GET /api/auth/google/callback", () => {
     expect(res.headers.get("location")).toContain("erro=email_em_uso");
   });
 
-  it("aceita no login os convites pendentes do e-mail e volta para o painel em vez do convite usado (11.24)", async () => {
+  it("aceita no login os convites pendentes do e-mail e volta para a tela de convite aceito em vez do convite usado (11.24)", async () => {
     const dono = await createTestUser();
     const empresa = await createTestCompany(dono);
     const email = `convidado-${randomUUID().slice(0, 6)}@teste.dev`;
@@ -96,7 +96,7 @@ describe("GET /api/auth/google/callback", () => {
     expect(error).toBeNull();
     mockGoogle({ sub: `sub-${randomUUID()}`, email });
     const res = await GET(callback("/convite/token-que-nao-existe-mais"));
-    expect(res.headers.get("location")).toBe(`${SITE}/painel`);
+    expect(res.headers.get("location")).toBe(`${SITE}/convite/aceito`);
     const { data } = await db().from("rs_membros").select("usuario_id, aceito_em").eq("empresa_id", empresa.id).eq("email", email).single();
     expect(data?.aceito_em).toBeTruthy();
   });

@@ -24,14 +24,14 @@ describe("sessão (6.1)", () => {
 });
 
 describe("rota de volta do login", () => {
-  it("aceita painel, convite e autorização do MCP; recusa o resto", () => {
-    expect(safeReturnPath("/painel/padaria/equipe")).toBe("/painel/padaria/equipe");
+  it("aceita convite e autorização do conector; recusa o resto (não há painel)", () => {
+    expect(safeReturnPath("/painel/padaria/equipe")).toBe("/");
     expect(safeReturnPath("/convite/abc_DEF-1")).toBe("/convite/abc_DEF-1");
     expect(safeReturnPath("/oauth/autorizar?x=1")).toBe("/oauth/autorizar?x=1");
-    expect(safeReturnPath("https://outro.site/painel")).toBe("/painel");
-    expect(safeReturnPath("//outro.site")).toBe("/painel");
-    expect(safeReturnPath("/painel//outro")).toBe("/painel");
-    expect(safeReturnPath(null)).toBe("/painel");
+    expect(safeReturnPath("https://outro.site/painel")).toBe("/");
+    expect(safeReturnPath("//outro.site")).toBe("/");
+    expect(safeReturnPath("/convite//outro")).toBe("/");
+    expect(safeReturnPath(null)).toBe("/");
   });
 });
 

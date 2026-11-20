@@ -1,5 +1,5 @@
-// Guardiões do usuário logado, sem empresa (seções 6.1 e 20.3): telas /painel, /painel/nova,
-// /painel/conta e as rotas /api/painel/conta/*, /api/painel/empresas e /api/convite/*.
+// Guardiões do usuário logado na web (seções 6.1, 6.4 e 20.3): consentimento do conector
+// (/oauth/autorizar e as rotas /oauth/*), convite (/convite e /api/convite/*).
 import "server-only";
 import { cookies } from "next/headers";
 import type { NextRequest } from "next/server";

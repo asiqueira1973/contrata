@@ -41,9 +41,9 @@ export async function GET(req: NextRequest) {
       throw e;
     }
     // Volta do convite (6.1): se o login já aceitou esse convite, o token deixou de existir e a
-    // tela diria "Convite vencido"; nesse caso vai para /painel, que leva à empresa.
+    // tela diria "Convite vencido"; nesse caso vai para /convite/aceito, que ensina a conectar.
     let volta = saved.volta;
-    if (volta.startsWith("/convite/") && !(await getInviteByToken(volta.slice("/convite/".length)))) volta = "/painel";
+    if (volta.startsWith("/convite/") && !(await getInviteByToken(volta.slice("/convite/".length)))) volta = "/convite/aceito";
     const res = NextResponse.redirect(new URL(volta, req.url), 302);
     res.cookies.set(SESSION_COOKIE, await signSession(entered.usuarioId), sessionCookieOptions());
     res.cookies.delete({ name: OAUTH_COOKIE, path: OAUTH_COOKIE_PATH });

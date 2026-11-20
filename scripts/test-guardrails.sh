@@ -62,6 +62,10 @@ caso "chamada quebrada em linhas no MCP" guard-decisoes.sh 2 "$P/src/server/mcp/
 caso "API v1 criando proposta (permitido)" guard-decisoes.sh 0 "$P/src/app/api/v1/candidaturas/[id]/reprovar/route.ts" 'return proposeDecision(ator, alcance, dados)'
 caso "rota de confirmação do painel (permitido)" guard-decisoes.sh 0 "$P/src/app/api/painel/[empresa]/decisoes/confirmar/route.ts" 'await confirmDecision(ids, membro)'
 caso "domínio encerrando candidatura (permitido)" guard-decisoes.sh 0 "$P/src/server/recruiting/applications.ts" "db.rpc('rs_fn_encerra_candidatura', {})"
+caso "save.ts de formulário confirmando decisão (permitido, v0.4)" guard-decisoes.sh 0 "$P/src/server/mcp/forms/decisoes/save.ts" 'await confirmDecision(ids, ctx)'
+caso "abrir_formulario (index.ts) confirmando decisão" guard-decisoes.sh 2 "$P/src/server/mcp/forms/decisoes/index.ts" 'await confirmDecision(ids, ctx)'
+caso "fallback do formulário confirmando decisão" guard-decisoes.sh 2 "$P/src/server/mcp/forms/decisoes/fallback.ts" "db.rpc('rs_fn_confirma_decisao', {})"
+caso "save.ts fora de forms/ não é exceção" guard-decisoes.sh 2 "$P/src/server/mcp/save.ts" 'await confirmDecision(ids, ctx)'
 
 # --- guard-copy (princípio 2, seção 15.3) ---
 caso "algoritmo no copy.ts" guard-copy.sh 2 "$P/src/lib/copy.ts" 'export const copy = { x: "Nosso algoritmo analisa você" }'

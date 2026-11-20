@@ -7,7 +7,7 @@ export default function NotFound() {
   return (
     <main className={ui.narrow}>
       <h1 className={ui.narrowTitle}>{ERROS.nao_encontrado}</h1>
-      <Link href="/painel">{NOME_PRODUTO}</Link>
+      <Link href="/">{NOME_PRODUTO}</Link>
     </main>
   );
 }

@@ -11,7 +11,7 @@ import { DomainError } from "@/server/http";
 
 export type EmpresaDoUsuario = { slug: string; nome: string; papel: Papel };
 
-// Empresas em que o usuário é membro ativo (tela /painel). Recebe: id do usuário.
+// Empresas em que o usuário é membro ativo (consentimento do conector, 6.4). Recebe: id do usuário.
 export async function listCompaniesForUser(usuarioId: string): Promise<EmpresaDoUsuario[]> {
   const { data, error } = await db()
     .from("rs_membros")

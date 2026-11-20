@@ -9,14 +9,14 @@ export const OAUTH_COOKIE_MAX_AGE_S = OAUTH_GOOGLE_MINUTOS * 60;
 
 export type OAuthCookie = { state: string; verifier: string; volta: string };
 
-// Rotas para onde o login pode voltar: o painel, o convite (6.1) e a autorização do MCP (6.4).
-// Qualquer outra coisa (inclusive URL de outro site) volta para /painel: impede redirecionamento
+// Rotas para onde o login pode voltar: o convite (6.1) e a autorização do conector (6.4). Qualquer
+// outra coisa (inclusive URL de outro site) volta para a página inicial: impede redirecionamento
 // aberto. O "*" entra porque o URLSearchParams não o codifica.
-const SAFE_RETURN = /^\/(painel|convite|oauth\/autorizar)(\/[A-Za-z0-9\-._~/]*)?(\?[A-Za-z0-9\-._~%&=+*]*)?$/;
+const SAFE_RETURN = /^\/(convite|oauth\/autorizar)(\/[A-Za-z0-9\-._~/]*)?(\?[A-Za-z0-9\-._~%&=+*]*)?$/;
 
 // Saneia a rota de volta. Recebe: valor do ?volta=. Devolve: rota segura.
 export function safeReturnPath(raw: string | null | undefined): string {
-  return raw && SAFE_RETURN.test(raw) && !raw.includes("//") ? raw : "/painel";
+  return raw && SAFE_RETURN.test(raw) && !raw.includes("//") ? raw : "/";
 }
 
 // Serializa o cookie. Recebe: state, verifier e volta. Devolve: texto base64url.
