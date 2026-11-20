@@ -1,4 +1,4 @@
-// Contrata (nome de trabalho) — modelo de dados (spec.md v0.3, seção 7)
+// Contrata (nome de trabalho) — modelo de dados (spec.md v0.4, seção 7)
 // ATS aberto de recrutamento e seleção. Banco em português, snake_case, prefixo rs_.
 // RLS ligado e sem política em todas as tabelas (seção 6.5). Acesso só pelo servidor.
 
@@ -139,9 +139,10 @@ enum rs_tipo_ator {
 }
 
 enum rs_origem_evento {
-  painel
+  formulario [note: 'clique no salvar_* de um formulário do chat']
+  mcp [note: 'consulta, operação ou propor_decisao']
   api
-  mcp
+  web [note: 'consentimento e convite (era painel até o 8.1; renomeado no 8.2)']
   publico
   cron
 }

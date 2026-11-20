@@ -1,11 +1,13 @@
 # Contrata
 
-Sistema de recrutamento e seleção (ATS) de código aberto e gratuito, para várias empresas, com API REST e servidor MCP como portas principais de quem recruta. **Clone e use:** cada empresa hospeda a própria instância; não há serviço aberto a terceiros. "Contrata" é nome de trabalho (spec, pergunta 25.1). Licença MIT.
+**O sistema de recrutamento e seleção para agentes.** É um ATS de código aberto e gratuito, sem painel: quem recruta opera pelo Claude ou pelo ChatGPT com o conector do Contrata. Consultas são em linguagem natural; cadastro e decisões abrem um formulário dentro do chat, que a pessoa confere e confirma. Candidatos usam páginas web simples. Para automação, há API REST e webhooks.
+
+**Clone e use:** cada empresa hospeda a própria instância; não há serviço aberto a terceiros. "Contrata" é nome de trabalho (spec, pergunta 25.1). Licença MIT.
 
 A especificação completa está em [`spec.md`](spec.md); os planos de cada épico, em [`plans/`](plans/); o que existe de fato, em [`DOCUMENTACAO-TECNICA.md`](DOCUMENTACAO-TECNICA.md).
 
 ## Estado
-Em implementação. Prontos: guardrails (8.0) e fundação (8.1): login com Google, criação de empresa, equipe, convites, áreas e pessoas. O guia completo de auto-hospedagem entra no épico 8.12.
+Em implementação. Prontos: guardrails (8.0) e fundação (8.1): banco, login com Google e o domínio de empresa, equipe, convites, áreas e pessoas. As telas web provisórias do 8.1 saem no 8.2, quando o conector MCP com formulários chegar. O guia completo de auto-hospedagem entra no épico 8.12.
 
 ## Rodar localmente
 

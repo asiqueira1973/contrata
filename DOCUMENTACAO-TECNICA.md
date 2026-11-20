@@ -1,9 +1,9 @@
 # Documentação técnica — Contrata
 
-Descreve o que está **de fato** implementado, na ordem da seção 19 do `spec.md` (v0.3). Toda mudança de schema, trigger, rota, ferramenta ou lógica de tela atualiza este documento no mesmo commit.
+Descreve o que está **de fato** implementado, na ordem da seção 19 do `spec.md` (v0.4). Toda mudança de schema, trigger, rota, ferramenta ou lógica de tela atualiza este documento no mesmo commit.
 
 ## Estado (20/11/2026)
-Épicos 8.0 (guardrails) e 8.1 (fundação) concluídos **no local**. Pendentes do 8.1: migrations no remoto e login real com o cliente Google (ver `plans/8.1-fundacao.md`). Vagas, candidaturas, API v1 e MCP chegam a partir do 8.2.
+Épicos 8.0 (guardrails) e 8.1 (fundação) concluídos **no local**. Pendentes do 8.1: migrations no remoto e login real com o cliente Google (ver `plans/8.1-fundacao.md`). **Spec v0.4 (20/11/2026): sistema para agentes, sem painel.** As telas web do 8.1 (seção 4, mapa "Tela → tabelas") são provisórias: saem no 8.2, substituídas por formulários MCP sobre as mesmas funções de domínio. Vagas, candidaturas, API v1 e MCP chegam a partir do 8.2.
 
 ---
 
@@ -114,4 +114,6 @@ Todas já refletidas no `spec.md` v0.3.
 3. **Funções novas:** `rs_fn_aceita_convite`, `rs_fn_reenvia_convite`, `rs_fn_cancela_convite`, `rs_fn_valida_areas`, `rs_fn_garante_administrador` (seção 7.5 atualizada).
 4. **Slugs reservados a mais:** `convite`, `nova`, `conta`, `boas-vindas`, que colidiriam com rotas fixas (11.20 atualizada).
 5. **Arquivar pessoa responsável de área** deixa a área sem responsável (o spec não dizia).
+7. **Painel web provisório (v0.4):** as telas do 8.1 seguem no código até o 8.2, que as troca por formulários no chat; o domínio (`src/server/org/`) e os testes ficam.
+8. **Corpo do e-mail apagado depois do envio** (20.3): `rs_notificacoes.html` e `.texto` são esvaziados quando o e-mail sai.
 6. **`citext` com `search_path = ''`:** o `=` cai no operador de `text`; toda comparação de e-mail nas funções usa `operator(extensions.=)`. O pgTAP pegou isso.

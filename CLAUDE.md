@@ -7,14 +7,15 @@ Se um teste falhar, corrija o código, não o teste; nunca pule nem apague teste
 Bug: teste que reproduz → ver falhar → commit → `touch .claude/fix-mode` → corrigir → `rm .claude/fix-mode`.
 
 ## Estado
-Spec v0.3 (**clone e use**, não SaaS: sem pedido de convite; quem cria empresa é `CRIACAO_EMPRESA_EMAILS`, 11.33). Épicos 8.0 e 8.1 concluídos no local (20/11/2026). Pendentes do 8.1, com o Alexandre: migrations no remoto, cliente OAuth do Google (`plans/8.1-fundacao.md`). Próximo: 8.2 (credenciais, API v1 e MCP), em plan mode. 25.1 (nome e domínio) decide-se antes do 8.12.
+Spec **v0.4: um sistema para agentes, não para humanos** (20/11/2026). Quem recruta opera pelo Claude ou pelo ChatGPT; não há painel. Também da v0.3: clone e use, quem cria empresa é `CRIACAO_EMPRESA_EMAILS` (11.33). Épicos 8.0 e 8.1 concluídos no local; as telas de painel do 8.1 ainda existem e **saem no 8.2**. Pendentes do 8.1, com o Alexandre: migrations no remoto, cliente OAuth do Google. Próximo: 8.2 (o conector: OAuth, MCP, formulários e administração pelo chat), em plan mode, de preferência numa sessão aberta em `~/contrata`. 25.1 (nome e domínio) decide-se antes do 8.12.
 
 ## Regras que não se quebram
-- **Princípio 1:** cada ação nasce como função de domínio em `src/server/`, depois rota da API v1, depois ferramenta MCP, depois tela. Sem porta → está na lista "sem porta" da seção 13.2.
-- **Princípio 2 / regra 11.7:** API e MCP nunca reprovam, contratam nem encerram vaga com candidatos ativos: criam proposta. Só membro recrutador ou administrador, com sessão no painel, confirma. Nenhuma credencial confirma.
-- **Regra 11.5:** nenhuma candidatura sai de `ativa` para `reprovada`/`encerrada_vaga` sem devolutiva enviada na mesma transação.
-- Login de membros só pelo Google (6.1). Candidato nunca tem conta.
-- **Alcance (11.32):** administrador tudo; recrutador as áreas dele (ou todas); avaliador só a equipe da vaga. Toda consulta filtra por `empresa_id` e alcance; o vínculo é relido a cada requisição.
+- **Princípio 1, agente primeiro:** cada ação nasce como função de domínio em `src/server/`, depois como ferramenta MCP, depois como rota da API v1 quando houver porta. **Nenhuma tela de painel nova.** Na web ficam só entrar, consentir e convite, o candidato e as páginas públicas.
+- **Princípio 6, o modelo propõe e a pessoa grava** (padrão de `~/agenda-psi/mcp-server`). Escrita por formulário: `abrir_formulario_*` é `visibility ["model"]`; opções e `salvar_*` são `["app"]`. O servidor revalida tudo. Classes da 11.34: C consulta, O operação direta (mover etapa, nota), F formulário, D decisão.
+- **Princípio 2 e regra 11.7:** decisão (reprovar, contratar, encerrar com ativas, reabrir) só pelo clique no formulário (`salvar_decisoes`, `salvar_propostas`). API v1 e `propor_decisao` criam proposta. Decisão não tem fallback com prévia. Nenhuma credencial confirma por chamada direta.
+- **Regra 11.5:** nenhuma candidatura sai de `ativa` para `reprovada` ou `encerrada_vaga` sem devolutiva enviada na mesma transação.
+- **Login só pelo Google**, dentro do OAuth do conector e do convite. O candidato nunca tem conta.
+- **Alcance (11.32):** administrador vê tudo; recrutador, as áreas dele (ou todas); avaliador, só a equipe da vaga. Toda consulta filtra por `empresa_id` e alcance; o vínculo é relido a cada chamada.
 
 ## Convenções (seção 18)
 - Banco em português `snake_case`, **sempre com prefixo `rs_`** (projeto Supabase compartilhado `jeesdmfcrmhyufwzwzwt`). Código, variáveis e arquivos em inglês; fronteira em `src/server/db/`.
