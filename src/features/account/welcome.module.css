@@ -1,0 +1,40 @@
+/* Boas-vindas (critério 8.1): cartão central, mesma família da tela Entrar. */
+.page {
+  min-height: 100dvh;
+  display: grid;
+  place-items: center;
+  padding: 24px 16px;
+  background: var(--surface);
+}
+.card {
+  width: 100%;
+  max-width: 440px;
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 40px 28px;
+  border-radius: var(--radius-card);
+  background: var(--bg);
+}
+.title { margin: 0; font-size: 28px; font-weight: 700; letter-spacing: -0.02em; }
+.accept { display: flex; gap: 12px; align-items: flex-start; font-size: 16px; line-height: 1.4; cursor: pointer; }
+.accept input { width: 22px; height: 22px; margin: 0; flex-shrink: 0; accent-color: var(--accent); }
+.error {
+  margin: 0;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--red) 12%, transparent);
+  color: var(--red);
+  font-size: 15px;
+}
+.button {
+  min-height: var(--tap);
+  border: 0;
+  border-radius: 999px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 16px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.button:disabled { opacity: 0.4; cursor: default; }
