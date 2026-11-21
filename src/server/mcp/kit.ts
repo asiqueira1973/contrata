@@ -9,7 +9,7 @@ import type { Escopo, Papel } from "@/lib/limits";
 import type { ContextoCredencial } from "@/server/auth/credential";
 import { papelAtende } from "@/server/auth/require-membro";
 import { errorCode } from "@/server/error-code";
-import { DomainError } from "@/server/http";
+import { CamposInvalidos, DomainError } from "@/server/http";
 import type { SuporteAUi } from "./client-capabilities";
 
 export type ToolContext = ContextoCredencial & { ui: SuporteAUi };
@@ -32,6 +32,7 @@ export function comoResultado(r: RespostaSalvar): CallToolResult {
 
 // Erro do domínio (DomainError ou P0001 do banco) vira a mensagem da copy; o resto, a genérica.
 export function erroDoDominio(e: unknown): ErroDeCampo[] {
+  if (e instanceof CamposInvalidos) return e.campos.map((c) => ({ campo: c.campo, mensagem: ERROS[c.codigo] ?? ERROS.campo_invalido }));
   const codigo = e instanceof DomainError ? e.codigo : errorCode(e);
   if (codigo in ERROS) return [{ campo: null, mensagem: ERROS[codigo] }];
   console.error("erro_interno_mcp", codigo);

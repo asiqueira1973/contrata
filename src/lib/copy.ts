@@ -2,7 +2,7 @@
 // e-mails e, nos próximos épicos, as descrições das ferramentas MCP e do OpenAPI).
 // Os textos marcados "15.x" são literais do spec; os demais são rótulos de interface no mesmo tom:
 // direto, respeitoso, sem jargão de RH.
-import { CONVITE_DIAS, CONVITES_PENDENTES_MAX } from "./limits";
+import { CONVITE_DIAS, CONVITES_PENDENTES_MAX, ETAPAS_MAX, ETAPAS_MIN, PERGUNTA_OPCOES_MAX, PERGUNTA_OPCOES_MIN, PERGUNTAS_MAX, VAGAS_PUBLICADAS_MAX } from "./limits";
 import type { Papel } from "./limits";
 
 // Nome exibido (pergunta 25.1): troca-se por variável, sem mexer no código.
@@ -58,6 +58,30 @@ export const ERROS: Record<string, string> = {
   papel_insuficiente: "Seu papel na empresa não permite isso.",
   limite_chaves: "A empresa já tem 10 chaves de API ativas. Revogue alguma antes de criar outra.",
   termos_pendentes: "Aceite os Termos de uso e a Política de privacidade para continuar.",
+  // Vagas (8.3; 11.1, 11.14, 11.22, 11.32, 12.1)
+  fora_do_alcance: "Essa área está fora das áreas em que você recruta. Escolha outra.",
+  slug_vaga_em_uso: "Outra vaga da empresa já usa esse endereço. Escolha outro.",
+  vaga_encerrada: "Esta vaga está encerrada e não muda mais.",
+  perguntas_congeladas: "As perguntas não mudam depois da primeira publicação: quem já se candidatou respondeu a elas.",
+  vaga_incompleta: "Falta completar a vaga antes de publicar: descrição com pelo menos 50 caracteres, uma etapa e, fora do remoto, cidade e UF.",
+  descricao_curta: "Escreva uma descrição com pelo menos 50 caracteres para publicar.",
+  encerra_em_passada: "A data-limite já passou. Escolha uma data de hoje em diante.",
+  limite_publicadas: `A empresa já tem ${VAGAS_PUBLICADAS_MAX} vagas publicadas. Pause ou encerre alguma antes.`,
+  transicao_vaga_proibida: "Esta vaga não pode ir para esse status agora.",
+  vaga_com_ativas: "Esta vaga tem candidaturas em andamento. Encerrar é uma decisão: use o formulário de decisões, que manda a devolutiva a cada pessoa.",
+  motivo_obrigatorio: "Escolha o motivo do encerramento.",
+  etapas_invalidas: `A vaga precisa de ${ETAPAS_MIN} a ${ETAPAS_MAX} etapas.`,
+  perguntas_invalidas: `A vaga pode ter até ${PERGUNTAS_MAX} perguntas.`,
+  etapa_com_candidaturas: "Uma etapa que você tirou tem candidaturas. Mova as candidaturas antes de excluir a etapa.",
+  responsavel_invalido: "O responsável precisa ser um recrutador ou administrador da equipe.",
+  cidade_obrigatoria: "Informe a cidade (vaga presencial ou híbrida).",
+  uf_obrigatoria: "Informe a UF (vaga presencial ou híbrida).",
+  salario_invertido: "O salário máximo não pode ser menor que o mínimo.",
+  salario_sem_periodo: "Diga se o salário é por mês ou por hora.",
+  salario_ausente: "Para mostrar o salário, informe pelo menos um valor.",
+  opcoes_invalidas: `Escolha única precisa de ${PERGUNTA_OPCOES_MIN} a ${PERGUNTA_OPCOES_MAX} opções diferentes; os outros tipos não têm opções.`,
+  resposta_esperada_invalida: "A resposta esperada precisa ser uma das respostas possíveis.",
+  idempotencia_conflito: "Essa Idempotency-Key já foi usada para criar outra coisa.",
 };
 
 export const copy = {
@@ -378,6 +402,40 @@ export const copy = {
   inicioPublico: {
     titulo: `${NOME_PRODUTO}: recrutamento e seleção para agentes`,
     texto: "Quem recruta usa o Contrata pelo Claude ou pelo ChatGPT. Para conectar, adicione um conector personalizado com este endereço:",
+  },
+  // Página de carreiras e página da vaga (10.1, 15.2, 16).
+  carreiras: {
+    vagasAbertas: "Vagas abertas",
+    nenhumaVaga: "Nenhuma vaga aberta no momento.",
+    nenhumaNoFiltro: "Nenhuma vaga com esses filtros.",
+    filtroArea: "Área",
+    filtroModelo: "Modelo",
+    todas: "Todas",
+    todos: "Todos",
+    filtrar: "Filtrar",
+    semArea: "Outras",
+    requisitos: "Requisitos",
+    sobre: "Sobre a vaga",
+    local: "Local",
+    regimeRotulo: "Regime",
+    salarioRotulo: "Salário",
+    dataLimite: "Candidaturas até",
+    voltar: (empresa: string) => `Vagas da ${empresa}`,
+    // 15.2 "Vaga fechada"
+    fechada: "Esta vaga não recebe mais candidaturas.",
+    verOutras: (empresa: string) => `Ver outras vagas da ${empresa}`,
+    rodape: `Página de carreiras feita com o ${NOME_PRODUTO}`,
+    previa: "Página ainda não publicada. Só quem tem este link vê, por 10 minutos.",
+    site: "Site da empresa",
+    modelo: { presencial: "Presencial", hibrido: "Híbrido", remoto: "Remoto" } as Record<string, string>,
+    regime: { clt: "CLT", pj: "PJ", estagio: "Estágio", temporario: "Temporário", aprendiz: "Aprendiz", trainee: "Trainee", freelancer: "Freelancer", outro: "Outro" } as Record<string, string>,
+    salario: (s: { min: number | null; max: number | null; periodo: "mes" | "hora" }) => {
+      const brl = (n: number) => new Intl.NumberFormat("pt-BR", { style: "currency", currency: "BRL", maximumFractionDigits: n % 1 ? 2 : 0 }).format(n);
+      const faixa = s.min !== null && s.max !== null && s.min !== s.max ? `${brl(s.min)} a ${brl(s.max)}` : brl((s.min ?? s.max) as number);
+      return `${faixa} por ${s.periodo === "hora" ? "hora" : "mês"}`;
+    },
+    tituloPagina: (empresa: string) => `Vagas — ${empresa}`,
+    tituloVaga: (vaga: string, empresa: string) => `${vaga} — ${empresa}`,
   },
   docsApi: {
     titulo: "API v1",

@@ -13,6 +13,14 @@ export class DomainError extends Error {
   }
 }
 
+// Dados que não passaram na validação, campo por campo (caminho com pontos, ex.: etapas.2.nome),
+// cada um com o código da copy. O formulário marca os campos; a API devolve a lista (13.2).
+export class CamposInvalidos extends DomainError {
+  constructor(public campos: { campo: string; codigo: string }[]) {
+    super("dados_invalidos", 400);
+  }
+}
+
 // Status HTTP de cada código de regra que o banco levanta (P0001) ou o domínio lança.
 const STATUS: Record<string, number> = {
   nao_autenticado: 401,
@@ -27,6 +35,15 @@ const STATUS: Record<string, number> = {
   pessoa_email_em_uso: 409,
   email_em_uso: 409,
   convite_vencido: 410,
+  fora_do_alcance: 403,
+  slug_vaga_em_uso: 409,
+  vaga_com_ativas: 409,
+  limite_publicadas: 409,
+  transicao_vaga_proibida: 409,
+  vaga_encerrada: 409,
+  perguntas_congeladas: 409,
+  etapa_com_candidaturas: 409,
+  idempotencia_conflito: 409,
 };
 
 // Resposta de erro padrão. Recebe: código e status (opcional). Devolve: Response JSON.
@@ -38,6 +55,9 @@ export function jsonError(codigo: string, status?: number, extra?: Record<string
 // com mensagem na copy) vira 4xx com a copy; o resto é 500, com só o código no log (nunca a
 // mensagem livre, que pode trazer dado pessoal, seção 20.2).
 export function errorResponse(e: unknown): Response {
+  if (e instanceof CamposInvalidos) {
+    return jsonError("dados_invalidos", 400, { campos: e.campos.map((c) => ({ campo: c.campo, codigo: c.codigo, mensagem: mensagemDeErro(c.codigo) })) });
+  }
   if (e instanceof DomainError) return jsonError(e.codigo, e.status);
   const codigo = errorCode(e);
   if (codigo in ERROS) return jsonError(codigo);

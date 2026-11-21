@@ -70,3 +70,64 @@ export type Escopo = (typeof ESCOPOS)[number];
 export const PREVIA_SEGUNDOS = 600;
 // Formulários MCP Apps (seção 17): cada HTML até 300 KB.
 export const FORMULARIO_HTML_MAX_BYTES = 300 * 1024;
+
+// Vagas (7.3, 11.1, 11.14, 11.22): título 3–120; descrição até 20.000 (50+ para publicar);
+// requisitos até 5.000; 1–15 etapas de 2–40 caracteres; 0–10 perguntas de 3–300, com 2–10 opções
+// na escolha única; até 50 vagas publicadas ao mesmo tempo por empresa. O banco confere de novo.
+export const VAGA_TITULO_MIN = 3;
+export const VAGA_TITULO_MAX = 120;
+export const VAGA_DESCRICAO_MAX = 20_000;
+export const VAGA_DESCRICAO_PUBLICAR_MIN = 50;
+export const VAGA_REQUISITOS_MAX = 5_000;
+export const VAGA_SLUG_MAX = 140;
+export const VAGA_CIDADE_MAX = 120;
+export const VAGA_SALARIO_MAX = 9_999_999_999.99; // numeric(12, 2)
+export const ETAPAS_MIN = 1;
+export const ETAPAS_MAX = 15;
+export const ETAPA_NOME_MIN = 2;
+export const ETAPA_NOME_MAX = 40;
+export const PERGUNTAS_MAX = 10;
+export const PERGUNTA_TEXTO_MIN = 3;
+export const PERGUNTA_TEXTO_MAX = 300;
+export const PERGUNTA_OPCOES_MIN = 2;
+export const PERGUNTA_OPCOES_MAX = 10;
+export const PERGUNTA_OPCAO_MAX = 100;
+export const VAGAS_PUBLICADAS_MAX = 50;
+export const AVALIADORES_POR_VAGA_MAX = 50;
+
+// Enums do banco (7.2), na ordem em que aparecem nos formulários.
+export const STATUS_VAGA = ["rascunho", "publicada", "pausada", "encerrada"] as const;
+export const MODELOS_TRABALHO = ["presencial", "hibrido", "remoto"] as const;
+export const REGIMES = ["clt", "pj", "estagio", "temporario", "aprendiz", "trainee", "freelancer", "outro"] as const;
+export const TIPOS_ETAPA = ["triagem", "entrevista", "avaliacao", "proposta"] as const;
+export const TIPOS_PERGUNTA = ["texto_curto", "texto_longo", "sim_nao", "escolha_unica", "numero"] as const;
+export const MOTIVOS_ENCERRAMENTO = ["preenchida", "cancelada", "outro"] as const;
+export const PERIODOS_SALARIO = ["mes", "hora"] as const;
+export const UFS = [
+  "AC", "AL", "AP", "AM", "BA", "CE", "DF", "ES", "GO", "MA", "MT", "MS", "MG", "PA", "PB", "PR", "PE", "PI",
+  "RJ", "RN", "RS", "RO", "RR", "SC", "SP", "SE", "TO",
+] as const;
+
+// Etapas padrão de toda vaga nova (7.3): constante, não tabela.
+export const ETAPAS_PADRAO: { nome: string; tipo: (typeof TIPOS_ETAPA)[number] }[] = [
+  { nome: "Triagem", tipo: "triagem" },
+  { nome: "Entrevista com RH", tipo: "entrevista" },
+  { nome: "Entrevista com a gestão", tipo: "entrevista" },
+  { nome: "Proposta", tipo: "proposta" },
+];
+
+// Listas da API e do MCP (13.2, 13.3): cursor, 50 por página, até 200.
+export const LISTA_PADRAO = 50;
+export const LISTA_MAX = 200;
+// Candidatura parada (11.11): 14 dias sem mudar de etapa.
+export const CANDIDATURA_PARADA_DIAS = 14;
+// Faxina (8.10, 11.11): lotes de 200.
+export const FAXINA_LOTE = 200;
+// Pré-visualização da página de carreiras não publicada (8.3): link assinado de 10 min.
+export const PREVIA_PAGINA_SEGUNDOS = 600;
+// Página de carreiras e de vaga (seção 17): cache de 60 s, revalidado ao editar.
+export const PAGINA_PUBLICA_CACHE_S = 60;
+// Idempotency-Key (13.2): 1 a 100 caracteres.
+export const IDEMPOTENCIA_MAX = 100;
+// Fuso de "hoje" (11.19).
+export const FUSO = "America/Sao_Paulo";
