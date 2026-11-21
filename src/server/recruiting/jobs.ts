@@ -215,7 +215,15 @@ export async function createJob(ctx: ContextoVagas, dados: VagaEntrada, chave: s
     p_ator: atorJson(ctx.ator),
     p_chave: chave as string,
   });
-  if (error) erroDoBanco(error);
+  if (error) {
+    // Dois POST simultâneos com a mesma Idempotency-Key: o segundo bate no índice único e devolve
+    // a vaga do primeiro (13.2), em vez de erro.
+    if (chave && (error as { code?: string }).code === "23505") {
+      const { data: v } = await db().from("rs_vagas").select("id").eq("empresa_id", ctx.empresa.id).eq("chave_idempotencia", chave).maybeSingle();
+      if (v) return { id: v.id, criada: false };
+    }
+    erroDoBanco(error);
+  }
   invalidarPaginas(ctx.empresa.slug);
   return data as { id: string; criada: boolean };
 }

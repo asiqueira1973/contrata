@@ -6,15 +6,22 @@ import { LISTA_MAX } from "@/lib/limits";
 import { linkDePrevia } from "@/server/careers/preview";
 import { empresaPorSlug } from "@/server/careers/public";
 import { siteOrigin } from "@/server/oauth/server";
-import { listJobs, type ContextoVagas, type VagaNaLista } from "@/server/recruiting/jobs";
+import { getJob, listJobs, type ContextoVagas, type VagaNaLista } from "@/server/recruiting/jobs";
 import { acharPorNome } from "./forms/comum";
 
-// Acha a vaga pelo id ou pelo título (exato, ou um só que contenha o texto), só no alcance.
-// Devolve: a vaga ou null (nenhuma ou mais de uma).
-export async function acharVaga(ctx: ContextoVagas, texto: unknown): Promise<VagaNaLista | null> {
+// Acha a vaga pelo id (qualquer uma do alcance) ou pelo título (exato, ou uma só que contenha o
+// texto, entre as 200 mais novas). Devolve: a vaga ou null (nenhuma ou mais de uma).
+export async function acharVaga(ctx: ContextoVagas, texto: unknown): Promise<Pick<VagaNaLista, "id" | "titulo" | "status"> | null> {
   if (typeof texto !== "string" || !texto.trim()) return null;
+  if (z.uuid().safeParse(texto.trim()).success) {
+    try {
+      const v = await getJob(ctx, texto.trim());
+      return { id: v.id, titulo: v.titulo, status: v.status };
+    } catch {
+      return null;
+    }
+  }
   const { itens } = await listJobs(ctx, {}, { inicio: 0, limite: LISTA_MAX });
-  if (z.uuid().safeParse(texto.trim()).success) return itens.find((v) => v.id === texto.trim()) ?? null;
   return acharPorNome(itens.map((v) => ({ ...v, nome: v.titulo })), texto);
 }
 

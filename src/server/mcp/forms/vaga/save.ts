@@ -5,7 +5,7 @@ import "server-only";
 import type { z } from "zod";
 import { copy } from "@/lib/copy";
 import { CamposInvalidos } from "@/server/http";
-import { createJob, getJob, saveJob, validarVaga } from "@/server/recruiting/jobs";
+import { createJob, entradaDaVaga, etapasPadrao, getJob, saveJob, validarVaga } from "@/server/recruiting/jobs";
 import type { ContextoFormulario } from "../registrar";
 import type { schemaVaga } from "./index";
 
@@ -26,33 +26,41 @@ function numero(v: string | number | undefined): number | null {
 
 export async function gravarVaga(dados: z.infer<typeof schemaVaga>, ctx: ContextoFormulario) {
   const r = copy.mcp.form.vaga;
-  const entrada = {
+  // Só o que veio. O formulário manda todos os campos visíveis; o fallback, só o que muda: na
+  // edição, o que não veio fica como está (achado do verifier do 8.3).
+  const veio = <T>(v: T | undefined, f: (x: T) => unknown) => (v === undefined ? undefined : f(v));
+  const modelo = dados.modelo_trabalho;
+  const informado: Record<string, unknown> = {
     titulo: dados.titulo,
-    ...(dados.vaga && dados.slug ? { slug: dados.slug } : {}),
-    descricao: dados.descricao ?? "",
-    requisitos: dados.requisitos ?? null,
-    area_id: dados.area || null,
-    dono_pessoa_id: dados.dono || null,
-    modelo_trabalho: dados.modelo_trabalho,
-    cidade: dados.modelo_trabalho === "remoto" ? null : dados.cidade || null,
-    uf: dados.modelo_trabalho === "remoto" ? null : dados.uf || null,
+    slug: dados.vaga ? veio(dados.slug, (x) => x || undefined) : undefined,
+    descricao: veio(dados.descricao, (x) => x),
+    requisitos: veio(dados.requisitos, (x) => x || null),
+    area_id: veio(dados.area, (x) => x || null),
+    dono_pessoa_id: veio(dados.dono, (x) => x || null),
+    modelo_trabalho: modelo,
+    cidade: modelo === "remoto" ? null : veio(dados.cidade, (x) => x || null),
+    uf: modelo === "remoto" ? null : veio(dados.uf, (x) => x || null),
     regime: dados.regime,
-    salario_min: numero(dados.salario_min),
-    salario_max: numero(dados.salario_max),
-    salario_periodo: dados.salario_periodo || null,
-    mostrar_salario: dados.mostrar_salario ?? false,
-    curriculo_obrigatorio: dados.curriculo_obrigatorio ?? true,
-    encerra_em: dados.encerra_em || null,
-    etapas: dados.etapas.map((e) => ({ ...(e.id ? { id: e.id } : {}), nome: e.nome, tipo: e.tipo })),
-    perguntas: (dados.perguntas ?? []).map((p) => ({
+    salario_min: veio(dados.salario_min, numero),
+    salario_max: veio(dados.salario_max, numero),
+    salario_periodo: veio(dados.salario_periodo, (x) => x || null),
+    mostrar_salario: dados.mostrar_salario,
+    curriculo_obrigatorio: dados.curriculo_obrigatorio,
+    encerra_em: veio(dados.encerra_em, (x) => x || null),
+    etapas: veio(dados.etapas, (l) => l.map((e) => ({ ...(e.id ? { id: e.id } : {}), nome: e.nome, tipo: e.tipo }))),
+    perguntas: veio(dados.perguntas, (l) => l.map((p) => ({
       texto: p.texto,
       tipo: p.tipo,
       opcoes: p.tipo === "escolha_unica" ? p.opcoes ?? [] : [],
       obrigatoria: p.obrigatoria ?? true,
       resposta_esperada: p.resposta_esperada || null,
-    })),
-    equipe: { responsavel: dados.responsavel || null, avaliadores: dados.avaliadores ?? [] },
+    }))),
   };
+  const mudaEquipe = dados.responsavel !== undefined || dados.avaliadores !== undefined;
+  if (mudaEquipe) informado.equipe = { responsavel: dados.responsavel || null, avaliadores: dados.avaliadores ?? [] };
+  const definido = Object.fromEntries(Object.entries(informado).filter(([, v]) => v !== undefined));
+  const atual = dados.vaga ? await getJob(ctx, dados.vaga) : null;
+  const entrada = atual ? { ...entradaDaVaga(atual), ...definido } : { etapas: etapasPadrao(), ...definido };
   let valida;
   try {
     valida = validarVaga(entrada);
@@ -60,10 +68,10 @@ export async function gravarVaga(dados: z.infer<typeof schemaVaga>, ctx: Context
     if (e instanceof CamposInvalidos) throw new CamposInvalidos(e.campos.map((x) => ({ ...x, campo: campoDoFormulario(x.campo) })));
     throw e;
   }
-  if (dados.vaga) {
-    const atual = await getJob(ctx, dados.vaga);
-    await saveJob(ctx, dados.vaga, valida, { etapas: true, perguntas: !atual.publicada_em, equipe: true });
-    return { ok: true as const, ids: [dados.vaga], resumo: r.resumoEditada(valida.titulo) };
+  if (atual) {
+    // Perguntas de vaga já publicada não são regravadas (11.1); listas que não vieram ficam.
+    await saveJob(ctx, atual.id, valida, { etapas: "etapas" in definido, perguntas: "perguntas" in definido && !atual.publicada_em, equipe: mudaEquipe });
+    return { ok: true as const, ids: [atual.id], resumo: r.resumoEditada(valida.titulo) };
   }
   const { id } = await createJob(ctx, valida);
   return { ok: true as const, ids: [id], resumo: r.resumoCriada(valida.titulo) };

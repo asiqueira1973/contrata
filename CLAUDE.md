@@ -65,5 +65,6 @@ Spec **v0.4.3: um sistema para agentes, não para humanos**. Quem recruta opera 
 - O build renderiza a amostra (`padaria-exemplo`) contra o banco configurado: sem banco no ar, o build falha. Local: `supabase start` antes do `verify`.
 - `notFound()` dentro de `Suspense` dá a página 404 com status 200 (o cabeçalho já saiu). Para 404 de verdade, decida antes do `Suspense`.
 - Erro de campo do domínio: lance `CamposInvalidos([{campo, codigo}])` (`src/server/http.ts`). Caminho com pontos ("etapas.2.nome") marca o subcampo do item no formulário; campo vazio vira erro geral; na API v1 vira `400 dados_invalidos` com `campos`.
+- Fallback de edição (`registrar_*` de um formulário que edita): o modelo manda só o que muda. O `save.ts` junta com o registro atual e não regrava lista que não veio (ver `forms/vaga/save.ts`); senão, o que faltou some.
 - Campo `lista` do formulário: o item guarda chaves que não desenha (o `id` da etapa) e as devolve no salvar; `mostrarSe` de subcampo compara com o próprio item.
 - Faxina: `src/server/cron.ts` (`runDailyCleanup`) cresce a cada épico, na ordem da seção 9; `/api/cron/diario` exige `Bearer CRON_SECRET`.

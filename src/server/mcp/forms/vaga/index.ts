@@ -30,10 +30,10 @@ export const schemaVaga = z.object({
   slug: textoOuVazio(VAGA_SLUG_MAX),
   area: idOuVazio,
   dono: idOuVazio,
-  modelo_trabalho: z.enum(MODELOS_TRABALHO),
+  modelo_trabalho: z.enum(MODELOS_TRABALHO).optional(),
   cidade: textoOuVazio(VAGA_CIDADE_MAX),
   uf: z.union([z.enum(UFS), z.literal("")]).optional(),
-  regime: z.enum(REGIMES),
+  regime: z.enum(REGIMES).optional(),
   salario_min: z.union([z.string().max(20), z.number()]).optional(),
   salario_max: z.union([z.string().max(20), z.number()]).optional(),
   salario_periodo: z.union([z.enum(PERIODOS_SALARIO), z.literal("")]).optional(),
@@ -42,7 +42,8 @@ export const schemaVaga = z.object({
   encerra_em: textoOuVazio(10),
   descricao: textoOuVazio(VAGA_DESCRICAO_MAX),
   requisitos: textoOuVazio(VAGA_REQUISITOS_MAX),
-  etapas: z.array(z.object({ id: z.string().max(36).optional(), nome: z.string().max(ETAPA_NOME_MAX), tipo: z.enum(TIPOS_ETAPA) })).max(ETAPAS_MAX),
+  // Opcionais para o fallback editar só o que muda (o formulário manda sempre).
+  etapas: z.array(z.object({ id: z.string().max(36).optional(), nome: z.string().max(ETAPA_NOME_MAX), tipo: z.enum(TIPOS_ETAPA) })).max(ETAPAS_MAX).optional(),
   perguntas: z
     .array(z.object({
       texto: z.string().max(PERGUNTA_TEXTO_MAX),
@@ -211,4 +212,6 @@ export const formularioVaga: DefinicaoFormulario<typeof schemaVaga> = {
   schema: schemaVaga,
   gravar: gravarVaga,
   fallback: true,
+  // Equipe dá acesso às candidaturas da vaga: sem formulário, não muda (13.5, v0.4.2).
+  soNoFormulario: (d) => d.responsavel !== undefined || d.avaliadores !== undefined,
 };

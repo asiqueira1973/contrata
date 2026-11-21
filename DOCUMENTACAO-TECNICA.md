@@ -3,7 +3,7 @@
 Descreve o que está **de fato** implementado, na ordem da seção 19 do `spec.md` (v0.4). Toda mudança de schema, trigger, rota, ferramenta ou lógica de tela atualiza este documento no mesmo commit.
 
 ## Estado (21/11/2026)
-Épicos 8.0 (guardrails), 8.1 (fundação), 8.2 (o conector) e **8.3 (vagas e página de carreiras)** concluídos no local, com as migrations no remoto (pelo `apply_migration`, mesmo SQL dos arquivos; 26 tabelas e 38 funções `rs_`, nenhuma exposta a `anon`/`authenticated`). **Spec v0.4.2: sistema para agentes, sem painel.** Quem recruta conecta o Contrata no Claude ou no ChatGPT (`{site}/mcp`) e, pelo chat, administra a equipe e cria, edita, publica, pausa e encerra vagas; a vaga publicada aparece na página de carreiras, no feed, no sitemap e na API pública. Pendentes, com o Alexandre: nome e domínio (25.1), DNS na Vercel, cliente OAuth do Google e, com eles, o teste no Claude, no ChatGPT e no Teste de Pesquisa Aprimorada do Google. Candidaturas chegam no 8.4.
+Épicos 8.0 (guardrails), 8.1 (fundação), 8.2 (o conector) e **8.3 (vagas e página de carreiras)** concluídos no local, com as migrations no remoto (pelo `apply_migration`, mesmo SQL dos arquivos; 26 tabelas e 38 funções `rs_`, nenhuma exposta a `anon`/`authenticated`). **Spec v0.4.3: sistema para agentes, sem painel.** Quem recruta conecta o Contrata no Claude ou no ChatGPT (`{site}/mcp`) e, pelo chat, administra a equipe e cria, edita, publica, pausa e encerra vagas; a vaga publicada aparece na página de carreiras, no feed, no sitemap e na API pública. Pendentes, com o Alexandre: nome e domínio (25.1), DNS na Vercel, cliente OAuth do Google e, com eles, o teste no Claude, no ChatGPT e no Teste de Pesquisa Aprimorada do Google. Candidaturas chegam no 8.4.
 
 ---
 
@@ -198,3 +198,7 @@ Todas já refletidas no `spec.md` (v0.4.3).
 23. **`Idempotency-Key` só no `POST /api/v1/vagas`**, guardada na própria vaga (`rs_vagas.chave_idempotencia`, única por empresa, como no Assina); as outras escritas são idempotentes por natureza.
 24. **Página não publicada sem pré-visualização** responde a página 404 do Next com `noindex`, mas com status 200: decidir depende do `?previa=` (dado de requisição), que fica dentro do `Suspense`. Empresa ou vaga inexistente e vaga em rascunho dão 404 de verdade. Os metadados da página não publicada não levam nada da empresa.
 25. **`robots.txt` também bloqueia `/dev/`** (host de formulários, que só existe em desenvolvimento).
+26. **Markdown, JSON-LD e feed em `src/server/careers/`** (não em `src/server/jobs/`, como na tabela da 11.20): `jobs` já é o nome do domínio de vagas (`src/server/recruiting/jobs.ts`), e a parte pública ficou junta. O sitemap é uma rota (`src/app/sitemap.xml/route.ts`), não `sitemap.ts`, para não consultar o banco no build.
+27. **`hiringOrganization` sem `logo`** até o 8.9, quando a empresa ganha logo.
+28. **Fallback de vaga (`registrar_vaga`) edita só o que vier e não mexe na equipe** (achado do verifier do 8.3): responsável e avaliadores dão acesso às candidaturas, então seguem a regra da v0.4.2 (nada que mexe em acesso sem formulário; `soNoFormulario`).
+29. **Pendente para a próxima migration:** o limite de 50 vagas publicadas (11.14) conta sem travar a empresa; duas publicações simultâneas podem passar de 50. O 8.4 trava a linha da empresa antes de contar.

@@ -5,6 +5,7 @@
 import { createHash, timingSafeEqual } from "node:crypto";
 import type { NextRequest } from "next/server";
 import { runDailyCleanup } from "@/server/cron";
+import { jsonError } from "@/server/http";
 
 export const maxDuration = 60;
 
@@ -18,6 +19,6 @@ function autorizado(req: NextRequest): boolean {
 }
 
 export async function GET(req: NextRequest) {
-  if (!autorizado(req)) return Response.json({ codigo: "nao_autorizado", mensagem: "Não autorizado." }, { status: 401 });
+  if (!autorizado(req)) return jsonError("nao_autorizado", 401);
   return Response.json(await runDailyCleanup(), { headers: { "cache-control": "no-store" } });
 }

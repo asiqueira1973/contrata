@@ -82,6 +82,7 @@ export const ERROS: Record<string, string> = {
   opcoes_invalidas: `Escolha única precisa de ${PERGUNTA_OPCOES_MIN} a ${PERGUNTA_OPCOES_MAX} opções diferentes; os outros tipos não têm opções.`,
   resposta_esperada_invalida: "A resposta esperada precisa ser uma das respostas possíveis.",
   idempotencia_conflito: "Essa Idempotency-Key já foi usada para criar outra coisa.",
+  nao_autorizado: "Não autorizado.",
   vaga_nao_encontrada: "Não achei essa vaga entre as que você enxerga. Use listar_vagas para ver os títulos.",
 };
 
