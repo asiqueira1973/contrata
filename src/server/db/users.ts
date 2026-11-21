@@ -1,4 +1,4 @@
-// Usuários do painel (rs_usuarios) — seção 6.1. Fronteira com o banco: nomes em português nos
+// Usuários (rs_usuarios) — seção 6.1. Fronteira com o banco: nomes em português nos
 // campos, como nos tipos gerados (seção 18).
 import "server-only";
 import { db } from "./client";

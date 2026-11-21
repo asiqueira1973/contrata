@@ -19,6 +19,10 @@ import { bloqueio, comoResultado, erro, erroDoDominio, resposta, type ToolContex
 import { conferirTokenDePrevia, emitirTokenDePrevia } from "../preview-token";
 import { FORMULARIO_URI } from "../ui";
 
+// Contexto de um formulário: o membro (8.1) mais os escopos efetivos da conexão (11.16). O papel
+// não basta: um administrador conectado só com leitura não pode o que exige escrita.
+export type ContextoFormulario = ContextoMembro & { escopos: Escopo[] };
+
 export type DefinicaoFormulario<S extends z.ZodObject> = {
   acao: string;
   titulo: string;
@@ -27,11 +31,11 @@ export type DefinicaoFormulario<S extends z.ZodObject> = {
   papel: Papel;
   // Entrada de abrir_formulario_*: o que o modelo já sabe, tudo opcional.
   entrada: z.ZodObject;
-  montar: (args: Record<string, unknown>, ctx: ContextoMembro) => Promise<Omit<Formulario, "formulario_id" | "acao" | "titulo" | "ferramentaOpcoes">>;
-  opcoes: (ctx: ContextoMembro) => Promise<Record<string, Opcao[]>>;
+  montar: (args: Record<string, unknown>, ctx: ContextoFormulario) => Promise<Omit<Formulario, "formulario_id" | "acao" | "titulo" | "ferramentaOpcoes">>;
+  opcoes: (ctx: ContextoFormulario) => Promise<Record<string, Opcao[]>>;
   schema: S;
   // Grava com o ator recebido (formulário: o membro; fallback: o agente). Lança erro de domínio.
-  gravar: (dados: z.infer<S>, ctx: ContextoMembro) => Promise<RespostaSalvar & { ok: true }>;
+  gravar: (dados: z.infer<S>, ctx: ContextoFormulario) => Promise<RespostaSalvar & { ok: true }>;
   fallback: boolean;
 };
 
@@ -43,7 +47,7 @@ function validar<S extends z.ZodObject>(schema: S, args: unknown): { ok: true; d
   return { ok: false, r: { ok: false, erros: campos.map((c) => ({ campo: c || null, mensagem: ERROS.campo_invalido })) } };
 }
 
-async function gravarComTratamento<S extends z.ZodObject>(def: DefinicaoFormulario<S>, dados: z.infer<S>, ctx: ContextoMembro): Promise<RespostaSalvar> {
+async function gravarComTratamento<S extends z.ZodObject>(def: DefinicaoFormulario<S>, dados: z.infer<S>, ctx: ContextoFormulario): Promise<RespostaSalvar> {
   try {
     return await def.gravar(dados, ctx);
   } catch (e) {
@@ -53,7 +57,7 @@ async function gravarComTratamento<S extends z.ZodObject>(def: DefinicaoFormular
 
 export function registrarFormulario<S extends z.ZodObject>(server: McpServer, ctx: ToolContext, def: DefinicaoFormulario<S>): void {
   if (bloqueio(ctx, def.escopo, def.papel)) return; // sem permissão, a ferramenta nem aparece
-  const membro = ctx.membro!;
+  const membro: ContextoFormulario = { ...ctx.membro!, escopos: ctx.escopos };
   const guarda = () => bloqueio(ctx, def.escopo, def.papel);
   const c = copy.mcp;
   const opcoesNome = `opcoes_${def.acao}`;

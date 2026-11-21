@@ -1,6 +1,6 @@
 // POST /api/convite/{token}/aceitar — aceita o convite com a conta logada (6.1, regra 11.24: só
 // se o e-mail da conta Google for igual ao convidado). Devolve {empresa: slug}. Não exige o
-// aceite dos Termos: as boas-vindas aparecem no painel logo depois (6.1).
+// aceite dos Termos: as boas-vindas aparecem no consentimento do conector (6.1).
 import type { NextRequest } from "next/server";
 import { requireUsuario } from "@/server/auth/require-usuario";
 import { errorResponse } from "@/server/http";

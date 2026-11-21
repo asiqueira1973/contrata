@@ -1,5 +1,5 @@
 // Utilidades das rotas HTTP — convenções da seção 13: erros {codigo, mensagem} em português, sem
-// dado pessoal; escrita do painel só com Origin = NEXT_PUBLIC_SITE_URL (20.3).
+// dado pessoal; escrita pela web só com Origin = NEXT_PUBLIC_SITE_URL (20.3).
 import "server-only";
 import type { NextRequest } from "next/server";
 import type { z } from "zod";

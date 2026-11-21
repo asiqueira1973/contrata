@@ -1,4 +1,4 @@
-// Schemas zod da administração da empresa (princípio 1: o mesmo schema no painel e, quando houver
+// Schemas zod da administração da empresa (princípio 1: o mesmo schema no formulário e, quando houver
 // porta, na API e no MCP). Limites da seção 7.3 e regras 11.20, 11.24, 11.32 e 11.33.
 import { z } from "zod";
 import {

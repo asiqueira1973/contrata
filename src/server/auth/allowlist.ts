@@ -1,5 +1,5 @@
 // Listas de e-mail da instância, lidas das variáveis de ambiente (seção 18).
-// - EMAILS_BLOQUEADOS: quem não entra no painel (moderação de quem hospeda).
+// - EMAILS_BLOQUEADOS: quem não entra (nem conecta o conector) (moderação de quem hospeda).
 // - CRIACAO_EMPRESA_EMAILS: quem pode criar empresa (regra 11.33). Vazia = ninguém cria, para
 //   que um deploy público nunca vire cadastro aberto.
 // Cada item é um endereço exato ou "@dominio", separados por vírgula, sem diferenciar maiúsculas.

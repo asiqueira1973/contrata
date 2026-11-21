@@ -1,4 +1,4 @@
-/* Peças visuais do painel (seção 16): cartões cinza sem borda, linhas, campos, pílulas e botões.
+/* Peças visuais das páginas web (seção 16): cartões cinza sem borda, linhas, campos, pílulas e botões.
    Azul só para ação, link, foco e item ativo; status em pílula com fundo a 12% da cor. */
 
 .stack { display: flex; flex-direction: column; gap: 12px; }

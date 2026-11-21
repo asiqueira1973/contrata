@@ -1,4 +1,4 @@
-// Chamada às rotas do painel a partir do cliente. Devolve ok ou o código e a mensagem de erro da
+// Chamada às rotas web (convite, consentimento) a partir do cliente. Devolve ok ou o código e a mensagem de erro da
 // rota (13.2: {codigo, mensagem}); falha de rede vira a mensagem genérica. Nunca mostra sucesso
 // quando a escrita falhou: quem chama só dá router.refresh() depois de ok.
 import { mensagemDeErro } from "@/lib/copy";

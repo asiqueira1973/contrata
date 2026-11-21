@@ -1,6 +1,6 @@
 // Números do produto, cada um com a regra que o define (seção 18: números só aqui).
 
-// Sessão do painel (6.1): 30 dias, renovada depois de 7.
+// Sessão web (6.1: entrar, consentir, convite): 30 dias, renovada depois de 7.
 export const SESSAO_DIAS = 30;
 export const SESSAO_RENOVAR_DEPOIS_DIAS = 7;
 // Cookie curto do login com Google (6.1).

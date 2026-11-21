@@ -10,7 +10,7 @@ import { getCurrentUser } from "@/server/auth/require-usuario";
 import { getInviteByToken } from "@/server/org/members";
 
 // Lê o cookie de sessão: fora da casca estática da navegação instantânea do Next 16.4, como as
-// páginas do painel (sem isto, o conteúdo chega por streaming e não substitui o fallback).
+// páginas com sessão (sem isto, o conteúdo chega por streaming e não substitui o fallback).
 export const instant = false;
 
 async function Body({ params }: { params: PageProps<"/convite/[token]">["params"] }) {

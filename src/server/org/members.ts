@@ -1,5 +1,5 @@
 // Equipe e convites — seções 5 e 6.1, regras 11.24, 11.26 e 11.32. Sem porta de API nem MCP
-// (13.2: quem dá acesso é sempre uma pessoa no painel). Toda função recebe a empresa do guardião
+// (13.2: quem dá acesso é sempre uma pessoa, pelo clique no formulário). Toda função recebe a empresa do guardião
 // e confere que o membro alvo é dela antes de chamar o banco (a service role ignora RLS, 6.5).
 import "server-only";
 import type { z } from "zod";
