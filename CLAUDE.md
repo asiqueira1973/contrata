@@ -2,14 +2,14 @@
 
 Nome público: **Vaga Aberta** (vagaaberta.app.br, spec 25.1), sempre pela variável `NEXT_PUBLIC_NOME_PRODUTO` / `NOME_PRODUTO` do `copy.ts`, nunca escrito à mão. Repositório, pasta, bucket, banco (`rs_*`), prefixos das chaves, eventos `contrata_*` e cabeçalhos `X-Contrata-*` mantêm o nome de trabalho de propósito.
 
-Fonte única de verdade: `spec.md` (v0.4.6). Planos aprovados: `plans/`. Os princípios da seção 0 desempatam dúvidas. Itens da seção 25 → **pare e pergunte**. Referências: `~/assina` (login, R2, Resend, webhooks, OAuth) e `~/agenda-psi/mcp-server` (MCP Apps, formulários, fallback com prévia). Leia antes de reinventar. Mudou schema, rota, ferramenta ou tela → atualize `DOCUMENTACAO-TECNICA.md`, este arquivo e o README no mesmo commit.
+Fonte única de verdade: `spec.md` (v0.4.7). Planos aprovados: `plans/`. Os princípios da seção 0 desempatam dúvidas. Itens da seção 25 → **pare e pergunte**. Referências: `~/assina` (login, R2, Resend, webhooks, OAuth) e `~/agenda-psi/mcp-server` (MCP Apps, formulários, fallback com prévia). Leia antes de reinventar. Mudou schema, rota, ferramenta ou tela → atualize `DOCUMENTACAO-TECNICA.md`, este arquivo e o README no mesmo commit.
 
 ## Regra de ouro
 Se um teste falhar, corrija o código, não o teste; nunca pule nem apague teste que falha.
 Bug: teste que reproduz → ver falhar → commit → `touch .claude/fix-mode` → corrigir → `rm .claude/fix-mode`.
 
 ## Estado
-Spec **v0.4.6: um sistema para agentes, não para humanos**. Quem recruta opera pelo Claude ou pelo ChatGPT; não há painel. Clone e use: quem cria empresa é `CRIACAO_EMPRESA_EMAILS` (11.33). Épicos 8.0, 8.1, 8.2 (o conector), 8.3 (vagas e página de carreiras), 8.4 (candidatura e link `/c`) e 8.5 (funil) concluídos no local, com as migrations no remoto (21/11/2026). Pendentes, com o Alexandre: projeto e DNS de vagaaberta.app.br na Vercel, cliente OAuth do Google, bucket R2 e, com eles, o teste no Claude, no ChatGPT, no Teste de Pesquisa Aprimorada e o e-mail real pelo Resend. Próximo: 8.6 (decisões, devolutivas e mensagens), em plan mode.
+Spec **v0.4.7: um sistema para agentes, não para humanos**. Quem recruta opera pelo Claude ou pelo ChatGPT; não há painel. Clone e use: quem cria empresa é `CRIACAO_EMPRESA_EMAILS` (11.33). Épicos 8.0, 8.1, 8.2 (o conector), 8.3 (vagas e página de carreiras), 8.4 (candidatura e link `/c`), 8.5 (funil) e 8.6 (decisões, devolutivas e mensagens) concluídos no local, com as migrations no remoto (21/11/2026). Pendentes, com o Alexandre: projeto e DNS de vagaaberta.app.br na Vercel, cliente OAuth do Google, bucket R2 e, com eles, o teste no Claude, no ChatGPT, no Teste de Pesquisa Aprimorada e o e-mail real pelo Resend. Próximo: 8.7 (banco de talentos), em plan mode.
 
 ## Como uma ação nova entra (padrão do 8.2)
 1. Função de domínio em `src/server/<área>/` com `ator` e, se lê candidaturas, `alcance`.
@@ -84,3 +84,8 @@ Spec **v0.4.6: um sistema para agentes, não para humanos**. Quem recruta opera 
 - Avaliação é da equipe da vaga, não do papel: o banco recusa com `fora_da_equipe`. Para testar com o seed, ponha o membro em `rs_vaga_equipe` (as vagas do seed não têm equipe).
 - O `TextDecoder` tira o BOM: para conferir o CSV da 14.1, olhe os três primeiros bytes.
 - `rs_tg_atualizado_em` sobrescreve `atualizado_em` em todo `update`: num teste, para mudar a data, faça a ação de verdade (anotar, mover) depois do corte.
+- **Decisões (8.6):** reprovar, contratar, encerrar com ativas e reabrir só por `rs_fn_decide` / `rs_fn_confirma_decisao`, que recusam ator que não seja membro. Pela API e sem formulário, `proposeDecision()`. Teste que precisa simular desistência usa `withdraw(tokenDoLink(id, 0))`, porque o `guard-decisoes` barra a função de encerrar nos arquivos de `src/server/mcp/`, testes inclusive.
+- **Link do candidato:** nunca gere token aleatório para `/c`. Use `messages/link.ts` (`hashDoLink`, `urlDoLink`, `giraLink`, `linkVigente`). Em teste, `createReceivedApplication` já grava o hash derivado.
+- Mensagem ao candidato só por `recruiting/messages.montarMensagem`: ele confere as variáveis, guarda o corpo sem o link e põe o link só no e-mail.
+- O formulário do chat importa só `COPY_FORMULARIO` do `copy.ts`. Não importe `copy` em `ui/formulario`, senão o HTML passa dos 300 KB.
+- Relógio: o Postgres no Docker pode estar à frente do Node. Em teste que compara datas, tire o corte do próprio banco.
