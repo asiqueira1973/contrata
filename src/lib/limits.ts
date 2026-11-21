@@ -130,6 +130,16 @@ export const EXPORTACAO_MAX = 10_000;
 export const NOTA_MAX = 10_000;
 // Busca (11.28): até 50 resultados por página.
 export const BUSCA_POR_PAGINA = 50;
+// Decisões (11.7): até 50 por confirmação; encerrar vaga com mais de 1.000 ativas é recusado.
+export const DECISOES_LOTE_MAX = 50;
+export const ENCERRAR_VAGA_ATIVAS_MAX = 1000;
+// Devolutiva (11.5): de 20 a 3.000 caracteres.
+export const DEVOLUTIVA_MIN = 20;
+export const DEVOLUTIVA_MAX = 3000;
+// Mensagens diretas pela API (11.8): até 200 por empresa por dia.
+export const MENSAGENS_API_POR_DIA = 200;
+// Pedido de revisão (11.13): texto opcional de até 1.000.
+export const REVISAO_TEXTO_MAX = 1000;
 // Faxina (8.10, 11.11): lotes de 200.
 export const FAXINA_LOTE = 200;
 // Pré-visualização da página de carreiras não publicada (8.3): link assinado de 10 min.

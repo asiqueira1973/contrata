@@ -60,6 +60,18 @@ const STATUS: Record<string, number> = {
   nota_invalida: 400,
   fora_da_equipe: 403,
   comentario_invalido: 400,
+  decisao_so_por_pessoa: 403,
+  proposta_existente: 409,
+  proposta_invalida: 409,
+  lote_grande_demais: 409,
+  lote_decisoes: 400,
+  limite_mensagens: 429,
+  mensagem_invalida: 400,
+  variavel_desconhecida: 400,
+  modelo_nao_encontrado: 404,
+  revisao_indisponivel: 409,
+  revisao_texto_longo: 400,
+  devolutiva_obrigatoria: 400,
 };
 
 // Resposta de erro padrão. Recebe: código e status (opcional). Devolve: Response JSON.

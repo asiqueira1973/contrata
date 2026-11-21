@@ -96,3 +96,37 @@ export function codigoExclusao(p: { empresa: string; codigo: string }) {
     texto: `${c.corpo(p.empresa, p.codigo)}\n\n${rodape}`,
   };
 }
+
+// Mensagem da empresa ao candidato (mensagem_candidato, 15.4): o texto já com as variáveis, o
+// botão do link de acompanhamento e, na devolutiva, o rodapé de revisão. Recebe: empresa, cor,
+// assunto, corpo (com o link resolvido), link e se é devolutiva.
+export function mensagemCandidato(p: { empresa: string; cor?: string | null; assunto: string; corpo: string; url: string | null; devolutiva: boolean }) {
+  const c = copy.emailCandidato.mensagem;
+  const paragrafos = p.corpo.split(/\n{2,}/).map((x) => x.trim()).filter(Boolean);
+  const depois = p.devolutiva ? [c.revisao] : [];
+  const rodape = copy.emailCandidato.rodape(p.empresa);
+  return {
+    html: layout(p.assunto, paragrafos, p.url ? { texto: c.botao, url: p.url } : null, corDe(p.cor), depois, rodape),
+    texto: [p.corpo, p.url ? `${c.botao}: ${p.url}` : "", ...depois, rodape].filter(Boolean).join("\n\n"),
+  };
+}
+
+// revisao_pedida (15.4), à equipe. Recebe: empresa, nome do candidato, vaga e o texto do pedido.
+export function revisaoPedida(p: { empresa: string; nome: string; vaga: string; texto: string | null }) {
+  const c = copy.emailEquipe.revisao;
+  const assunto = c.assunto(p.nome, p.vaga);
+  const corpo = c.corpo(p.nome, p.vaga);
+  const meio = p.texto ? [c.texto, p.texto] : [];
+  return {
+    assunto,
+    html: layout(assunto, [corpo, ...meio], null, "#0071e3", [c.depois(NOME_PRODUTO)]),
+    texto: [corpo, ...meio, c.depois(NOME_PRODUTO)].join("\n\n"),
+  };
+}
+
+// decisoes_pendentes (8.6), à equipe. Recebe: empresa e quantas propostas esperam há mais de 24 h.
+export function decisoesPendentes(p: { empresa: string; n: number }) {
+  const c = copy.emailEquipe.pendentes;
+  const assunto = c.assunto(p.empresa, p.n);
+  return { assunto, html: layout(assunto, [c.corpo(p.n)], null, "#0071e3", [c.depois]), texto: `${c.corpo(p.n)}\n\n${c.depois}` };
+}

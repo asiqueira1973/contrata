@@ -12,21 +12,21 @@ import { copy } from "@/lib/copy";
 import {
   AVISO_PRIVACIDADE_VERSAO, CANDIDATURAS_POR_IP_HORA, CANDIDATURAS_POR_VAGA_MAX, CODIGO_DIGITOS, CODIGO_INTERVALO_S, CODIGO_TENTATIVAS,
   CODIGO_VALIDADE_S, CODIGOS_POR_HORA, CONCLUIR_TOKEN_SEGUNDOS, CURRICULO_MAX_BYTES, CURRICULO_TIPOS, DOWNLOAD_URL_SEGUNDOS,
-  LINKS_POR_EMAIL_HORA, LINKS_POR_IP_HORA, UPLOAD_URL_SEGUNDOS, USO_EMPRESA_MAX_BYTES,
+  LINKS_POR_EMAIL_HORA, LINKS_POR_IP_HORA, REVISAO_TEXTO_MAX, UPLOAD_URL_SEGUNDOS, USO_EMPRESA_MAX_BYTES,
 } from "@/lib/limits";
 import {
   camposDaCandidatura, candidaturaSchema, dadosDoCandidatoSchema, validarRespostas, type PerguntaDaVaga,
 } from "@/lib/schemas/applications";
 import { generateToken, hashToken } from "@/server/auth/tokens";
+import { giraLink, hashDoLink, urlDoLink, urlDoToken } from "@/server/messages/link";
 import { db } from "@/server/db/client";
 import type { Database } from "@/server/db/types";
 import { afterResponse, deliverLater, enqueue } from "@/server/email/outbox";
-import { candidaturaRecebida, candidaturaRetirada, codigoExclusao, linksReenviados } from "@/server/email/templates";
+import { candidaturaRecebida, candidaturaRetirada, codigoExclusao, linksReenviados, revisaoPedida } from "@/server/email/templates";
 import { extrairTexto } from "@/server/files/extract";
 import { caminhoDoCurriculo, pastaDaCandidatura, storage } from "@/server/files/storage";
 import { confereCurriculo, type TipoCurriculo } from "@/server/files/verifica";
 import { CamposInvalidos, DomainError } from "@/server/http";
-import { siteOrigin } from "@/server/oauth/server";
 import { atorJson, type Ator } from "@/server/org/actor";
 
 type Origem = Database["public"]["Enums"]["rs_origem_candidatura"];
@@ -89,7 +89,14 @@ export function versaoDoAviso(extra: string | null): string {
   return extra?.trim() ? `${AVISO_PRIVACIDADE_VERSAO}+${createHash("sha256").update(extra.trim()).digest("hex").slice(0, 8)}` : AVISO_PRIVACIDADE_VERSAO;
 }
 
-const linkDoCandidato = (token: string) => `${siteOrigin()}/c/${token}`;
+const linkDoCandidato = (token: string) => urlDoToken(token);
+
+// Versão atual do link de uma candidatura (0 até alguém girar).
+async function versaoDoLink(empresaId: string, candidaturaId: string): Promise<number> {
+  const { data, error } = await db().from("rs_candidaturas").select("link_versao").eq("empresa_id", empresaId).eq("id", candidaturaId).single();
+  if (error) throw error;
+  return data.link_versao;
+}
 const extensaoDoTipo = (tipo: string): TipoCurriculo => (tipo === CURRICULO_TIPOS.docx ? "docx" : "pdf");
 
 // ---------------------------------------------------------------- criar (11.2, 11.3, 11.14)
@@ -145,11 +152,12 @@ export async function applyToJob(p: {
   if (vaga.curriculo_obrigatorio && !e.curriculo) r.campos.push({ campo: "curriculo", codigo: "curriculo_obrigatorio" });
   if (r.campos.length) throw new CamposInvalidos(r.campos);
   if (e.curriculo && (await usoDaEmpresa(p.empresa.id)) + e.curriculo.bytes > USO_EMPRESA_MAX_BYTES) throw new DomainError("armazenamento_cheio", 409);
-  const token = generateToken();
-  const criada = await chamaCria(p.empresa, vaga.id, e, r.respostas, p.origem, p.ator, versaoDoAviso(p.empresa.aviso_privacidade_extra), e.talentos, token.hash);
+  // Hash provisório (não é link de ninguém): o link de verdade nasce na conclusão (link.ts).
+  const criada = await chamaCria(p.empresa, vaga.id, e, r.respostas, p.origem, p.ator, versaoDoAviso(p.empresa.aviso_privacidade_extra), e.talentos, generateToken().hash);
   if (criada.existente && criada.recebida) {
-    // 11.3: não muda nada; manda o link (o token novo, que o banco acabou de gravar) de novo.
-    await mandaLinks(p.empresa, e.email, [{ vaga: vaga.titulo, url: linkDoCandidato(token.token) }], `duplicada:${criada.id}:${token.hash.slice(0, 16)}`);
+    // 11.3: não muda nada; gira o link e manda de novo.
+    const url = await giraLink(p.empresa.id, criada.id);
+    if (url) await mandaLinks(p.empresa, e.email, [{ vaga: vaga.titulo, url }], `duplicada:${criada.id}:${Date.now()}`);
     return { duplicada: true, id: criada.id };
   }
   const ext = e.curriculo ? extensaoDoTipo(e.curriculo.tipo) : null;
@@ -233,9 +241,10 @@ export async function completeApplication(p: { empresa: EmpresaDaCandidatura; id
 
 async function conclui(empresa: EmpresaDaCandidatura, c: CandidaturaParaConcluir,
   arquivo: { path: string; nome_original: string; mime: string; bytes: number; sha256: string } | null, bytes: Uint8Array | null, ator: Ator) {
-  const link = generateToken();
+  // Link derivado da versão atual (decisão 1 do 8.6): o hash vai ao banco na mesma chamada.
+  const versao = await versaoDoLink(empresa.id, c.id);
   const email = candidaturaRecebida({
-    empresa: empresa.nome, cor: empresa.cor_destaque, vaga: c.vaga.titulo, nome: c.candidato.nome, url: linkDoCandidato(link.token), manual: c.origem === "manual",
+    empresa: empresa.nome, cor: empresa.cor_destaque, vaga: c.vaga.titulo, nome: c.candidato.nome, url: urlDoLink(c.id, versao), manual: c.origem === "manual",
   });
   const { data, error } = await db().rpc("rs_fn_conclui_candidatura", {
     p_candidatura: c.id,
@@ -247,7 +256,7 @@ async function conclui(empresa: EmpresaDaCandidatura, c: CandidaturaParaConcluir
       assunto: email.assunto, html: email.html, texto: email.texto, reply_to: empresa.email_contato,
     } as never,
     p_ator: atorJson(ator),
-    p_token_hash: link.hash,
+    p_token_hash: hashDoLink(c.id, versao),
   });
   if (error) throw error;
   const r = data as { ja_recebida?: boolean; notificacao_id?: string; arquivo_id?: string | null };
@@ -299,6 +308,7 @@ export async function addCandidateManually(p: {
 // ---------------------------------------------------------------- link do candidato (6.2, 11.4)
 export type CandidaturaDoToken = {
   id: string; situacao: Situacao; recebida_em: string; criado_em: string; candidato_id: string; empresa: EmpresaDaCandidatura;
+  revisao_pedida_em: string | null; expurgar_em: string | null;
   vaga: { id: string; titulo: string; slug: string }; etapa_tipo: string | null;
   candidato: { nome: string; email: string | null; telefone: string | null; linkedin_url: string | null; cidade: string | null; talentos_consentido_em: string | null; talentos_expira_em: string | null; anonimizado_em: string | null };
 };
@@ -308,7 +318,7 @@ export type CandidaturaDoToken = {
 export async function requireCandidaturaPorToken(token: string): Promise<CandidaturaDoToken | null> {
   if (!/^[A-Za-z0-9_-]{43}$/.test(token)) return null;
   const { data, error } = await db().from("rs_candidaturas")
-    .select(`id, situacao, recebida_em, criado_em, candidato_id, etapa:etapa_id(tipo), vaga:vaga_id(id, titulo, slug),
+    .select(`id, situacao, recebida_em, criado_em, candidato_id, revisao_pedida_em, expurgar_em, etapa:etapa_id(tipo), vaga:vaga_id(id, titulo, slug),
       empresa:empresa_id(${CAMPOS_EMPRESA}, excluida_em, suspensa_em),
       candidato:candidato_id(nome, email, telefone, linkedin_url, cidade, talentos_consentido_em, talentos_expira_em, anonimizado_em)`)
     .eq("token_hash", hashToken(token)).not("recebida_em", "is", null).maybeSingle();
@@ -336,6 +346,35 @@ export async function mensagensRecebidas(candidaturaId: string) {
   if (error) throw error;
   // O link guardado como variável não aparece na página (a pessoa já está nele).
   return (data ?? []).map((m) => ({ data: m.criado_em, assunto: m.assunto, corpo: m.corpo.replace(/\{\{link_acompanhamento\}\}/g, copy.acompanhamento.esteLink) }));
+}
+
+// Pedir revisão (11.13; 8.6): uma vez, só para reprovada ou encerrada com a vaga, antes do
+// expurgo, com texto opcional de até 1.000. Avisa o responsável da vaga (ou, sem responsável, os
+// administradores) pelo e-mail revisao_pedida. Recebe: o token e o texto.
+export async function requestReview(token: string, texto: unknown): Promise<void> {
+  const c = await requireCandidaturaPorToken(token);
+  if (!c) throw new DomainError("link_invalido", 404);
+  if (texto !== undefined && texto !== null && typeof texto !== "string") throw new CamposInvalidos([{ campo: "texto", codigo: "campo_invalido" }]);
+  const t = typeof texto === "string" ? texto.trim() : "";
+  if (t.length > REVISAO_TEXTO_MAX) throw new CamposInvalidos([{ campo: "texto", codigo: "revisao_texto_longo" }]);
+  const { data: vagaId, error } = await db().rpc("rs_fn_pede_revisao", { p_candidatura: c.id, p_texto: t || (null as never) });
+  if (error) throw error;
+  // Quem recebe: o responsável da vaga; sem ele, os administradores ativos.
+  const { data: resp } = await db().from("rs_vaga_equipe").select("membro_id").eq("vaga_id", vagaId as string).eq("papel_na_vaga", "responsavel");
+  let membros = (resp ?? []).map((r) => r.membro_id);
+  if (!membros.length) {
+    const { data: adms } = await db().from("rs_membros").select("id").eq("empresa_id", c.empresa.id).eq("papel", "administrador").is("removido_em", null).not("usuario_id", "is", null);
+    membros = (adms ?? []).map((m) => m.id);
+  }
+  const { data: usuarios } = membros.length
+    ? await db().from("rs_membros").select("id, usuario:usuario_id(email)").in("id", membros).is("removido_em", null)
+    : { data: [] };
+  const email = revisaoPedida({ empresa: c.empresa.nome, nome: c.candidato.nome, vaga: c.vaga.titulo, texto: t || null });
+  for (const u of (usuarios ?? []) as unknown as { id: string; usuario: { email: string } | null }[]) {
+    if (!u.usuario) continue;
+    await enqueue({ empresaId: c.empresa.id, candidaturaId: c.id, tipo: "revisao_pedida", destinatario: u.usuario.email, chave: `revisao:${c.id}:${u.id}`,
+      assunto: email.assunto, html: email.html, texto: email.texto });
+  }
 }
 
 // Retirar (12.2): ativa → desistiu, com a confirmação por e-mail (11.5) e expurgar_em (11.12).
@@ -490,10 +529,8 @@ export async function resendLinks(p: { email: unknown; empresaId?: string; ip: s
     const { data: cands } = await db().from("rs_candidaturas").select("id, vaga:vaga_id(titulo)").eq("candidato_id", pessoa.id).not("recebida_em", "is", null);
     const links: { vaga: string; url: string }[] = [];
     for (const cand of (cands ?? []) as unknown as { id: string; vaga: { titulo: string } }[]) {
-      const t = generateToken();
-      const { error: e } = await db().from("rs_candidaturas").update({ token_hash: t.hash }).eq("id", cand.id).eq("empresa_id", empresa.id);
-      if (e) throw e;
-      links.push({ vaga: cand.vaga.titulo, url: linkDoCandidato(t.token) });
+      const url = await giraLink(empresa.id, cand.id);
+      if (url) links.push({ vaga: cand.vaga.titulo, url });
     }
     if (links.length) await mandaLinks(empresa, email.data, links, `links:${pessoa.id}:${Date.now()}`);
   }

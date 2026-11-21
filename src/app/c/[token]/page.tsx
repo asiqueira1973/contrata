@@ -64,10 +64,18 @@ async function Corpo({ params }: { params: PageProps<"/c/[token]">["params"] }) 
           </article>
         )) : <p className={s.dica}>{c.semMensagens}</p>}
       </section>
-      <TrackingActions token={token} ativa={cand.situacao === "ativa"} vaga={cand.vaga.titulo} empresa={cand.empresa.nome} />
+      <TrackingActions token={token} ativa={cand.situacao === "ativa"} vaga={cand.vaga.titulo} empresa={cand.empresa.nome}
+        revisao={revisao(cand)} />
       <p className={s.rodape}>{copy.carreiras.rodape}</p>
     </main>
   );
+}
+
+// Pedir revisão (11.13): reprovada ou encerrada com a vaga, ainda não expurgada; uma vez só.
+function revisao(c: { situacao: string; revisao_pedida_em: string | null; expurgar_em: string | null }): "pode" | "pedida" | null {
+  if (c.situacao !== "reprovada" && c.situacao !== "encerrada_vaga") return null;
+  if (c.revisao_pedida_em) return "pedida";
+  return !c.expurgar_em || new Date(c.expurgar_em) > new Date() ? "pode" : null;
 }
 
 export default function AcompanhamentoPage({ params }: PageProps<"/c/[token]">) {

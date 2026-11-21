@@ -312,9 +312,15 @@ export async function history(ctx: ContextoVagas, id: string) {
     .eq("empresa_id", ctx.empresa.id).eq("candidatura_id", c.id).order("id");
   if (error) throw error;
   const eventos = data ?? [];
-  const membros = await nomesDeMembros(ctx.empresa.id, [...new Set(eventos.map((e) => e.membro_id).filter((x): x is string => !!x))]);
-  const credenciais = await rotulosDeCredenciais(ctx.empresa.id, eventos.map((e) => e.credencial_id).filter((x): x is string => !!x));
+  // Quem propôs (decisao_confirmada guarda a credencial e o membro do proponente, 8.6).
+  const prop = (e: (typeof eventos)[number]) => (e.dados ?? {}) as { proposta_por_credencial_id?: string; proposta_por_membro_id?: string; proposta_por_tipo?: string };
+  const membros = await nomesDeMembros(ctx.empresa.id, [...new Set([...eventos.map((e) => e.membro_id), ...eventos.map((e) => prop(e).proposta_por_membro_id)].filter((x): x is string => !!x))]);
+  const credenciais = await rotulosDeCredenciais(ctx.empresa.id, [...eventos.map((e) => e.credencial_id), ...eventos.map((e) => prop(e).proposta_por_credencial_id)].filter((x): x is string => !!x));
   const etapa = (x: unknown) => (typeof x === "string" ? vaga.etapas.find((e) => e.id === x)?.nome : undefined);
+  // Assunto das mensagens (mensagem_enviada guarda só o id, 11.6).
+  const idsMsg = eventos.map((e) => (e.dados as { mensagem_id?: string } | null)?.mensagem_id).filter((x): x is string => !!x);
+  const { data: msgs } = idsMsg.length ? await db().from("rs_mensagens").select("id, assunto").in("id", idsMsg) : { data: [] };
+  const assuntos = new Map((msgs ?? []).map((m) => [m.id as string, m.assunto as string]));
   return {
     candidatura_id: c.id,
     eventos: eventos.map((e) => {
@@ -323,16 +329,21 @@ export async function history(ctx: ContextoVagas, id: string) {
         de: etapa(d.de), para: etapa(d.para), etapa: etapa(d.etapa_id),
         origem: typeof d.origem === "string" ? copy.funil.origens[d.origem] ?? d.origem : undefined,
         n: d.n !== undefined ? String(d.n) : undefined,
-        tipo: typeof d.tipo === "string" ? d.tipo : undefined,
+        tipo: typeof d.tipo === "string" ? copy.decisoes.tipos[d.tipo] ?? d.tipo : undefined,
+        assunto: typeof d.mensagem_id === "string" ? assuntos.get(d.mensagem_id) : undefined,
         vaga: vaga.titulo,
       };
       const rotulo = copy.historico.eventos[e.tipo]?.(valores) ?? e.tipo;
-      return {
-        em: e.criado_em,
-        tipo: e.tipo,
-        rotulo,
-        por: rotuloDeAutor(e.ator_tipo, e.membro_id ? membros.get(e.membro_id) : undefined, e.credencial_id ? credenciais.get(e.credencial_id) : undefined, e.origem),
-      };
+      const por = rotuloDeAutor(e.ator_tipo, e.membro_id ? membros.get(e.membro_id) : undefined, e.credencial_id ? credenciais.get(e.credencial_id) : undefined, e.origem);
+      const p = prop(e);
+      // "proposto por Claude · em nome de Ana · confirmado por Bruno" (8.6, 15.3).
+      const proposto = e.tipo === "decisao_confirmada" && p.proposta_por_tipo
+        ? copy.historico.atores.confirmado(
+          rotuloDeAutor(p.proposta_por_tipo, p.proposta_por_membro_id ? membros.get(p.proposta_por_membro_id) : undefined,
+            p.proposta_por_credencial_id ? credenciais.get(p.proposta_por_credencial_id) : undefined, null),
+          e.membro_id ? membros.get(e.membro_id) ?? copy.historico.atores.semNome : copy.historico.atores.semNome)
+        : null;
+      return { em: e.criado_em, tipo: e.tipo, rotulo, por: proposto ?? por };
     }),
   };
 }

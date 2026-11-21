@@ -121,6 +121,18 @@ export const ERROS: Record<string, string> = {
   fora_da_equipe: "Só quem está na equipe da vaga avalia. Peça ao responsável para incluir você.",
   comentario_invalido: "Escreva um comentário de 10 a 5.000 caracteres.",
   ator_invalido: "Não autorizado.",
+  // Decisões e mensagens (8.6; 11.5, 11.7, 11.8, 11.13, 11.23, 11.29)
+  decisao_so_por_pessoa: "Decisões só acontecem com o clique de alguém da equipe no formulário. Sem formulário, use propor_decisao: a proposta espera a confirmação.",
+  proposta_existente: "Já existe uma proposta igual esperando confirmação para esta candidatura ou vaga.",
+  proposta_invalida: "Esta proposta já foi confirmada, descartada ou venceu.",
+  lote_grande_demais: "A vaga tem mais de 1.000 candidaturas em andamento. Encerre em partes: reprove em lotes antes de encerrar a vaga.",
+  lote_decisoes: "Confirme de 1 a 50 decisões por vez.",
+  limite_mensagens: "A empresa já mandou 200 mensagens por integração hoje. Tente amanhã ou mande pelo chat.",
+  mensagem_invalida: "Escreva o assunto (2 a 200 caracteres) e a mensagem (2 a 5.000).",
+  variavel_desconhecida: "Há uma variável que não existe. Use só {{nome}}, {{nome_completo}}, {{vaga}}, {{empresa}}, {{link_acompanhamento}}, {{link_vaga}}, {{recrutador}} e {{link_agenda}}.",
+  modelo_nao_encontrado: "Não achei esse modelo. Use listar_modelos_mensagem para ver as chaves.",
+  revisao_indisponivel: "Esta candidatura não tem pedido de revisão para responder (ou já foi respondido).",
+  revisao_texto_longo: "Escreva até 1.000 caracteres.",
 };
 
 export const copy = {
@@ -714,6 +726,15 @@ export const copy = {
     confirmarRetirar: (vaga: string, empresa: string) => `Retirar sua candidatura para ${vaga}? A ${empresa} não vai mais considerar você nesta vaga.`,
     retirarBotao: "Retirar",
     retirada: "Candidatura retirada. Mandamos uma confirmação para o seu e-mail.",
+    // Pedir revisão (11.13; 8.6).
+    revisao: {
+      botao: "Pedir revisão",
+      explicacao: "Se você acha que a decisão merece uma segunda análise, pode pedir uma revisão. A empresa recebe o seu pedido e responde por e-mail.",
+      rotulo: "Quer contar algo? (opcional, até 1.000 caracteres)",
+      confirmar: "Enviar pedido",
+      enviada: "Pedido enviado. A empresa vai analisar e responder por e-mail.",
+      jaPedida: "Você já pediu uma revisão desta decisão.",
+    },
     excluirTexto: (email: string) => `Para excluir seus dados, enviamos um código para ${email}. Isso apaga seu currículo, suas respostas e suas mensagens nesta empresa, e encerra as candidaturas em andamento. Não dá para desfazer.`,
     enviarCodigo: "Enviar código",
     codigoEnviado: "Código enviado. Ele vale por 10 minutos.",
@@ -736,7 +757,68 @@ export const copy = {
     resposta: "Se o e-mail estiver certo, os links chegam em instantes.",
   },
   // E-mails ao candidato (15.4). Rodapé de todo e-mail a candidato.
+  // Modelos de mensagem padrão (15.4, 11.29). A empresa personaliza pelo formulário modelos_mensagem
+  // (rs_modelos_mensagem guarda só o que mudou; "Voltar ao padrão" apaga a linha).
+  modelos: {
+    devolutiva_padrao: {
+      nome: "Devolutiva padrão",
+      assunto: "Sobre sua candidatura para {{vaga}}",
+      corpo: "Olá, {{nome}}. Obrigado pelo interesse na vaga de {{vaga}} e pelo tempo que você dedicou ao processo. Depois de analisar as candidaturas, decidimos seguir com outras pessoas nesta etapa. Desejamos sucesso na sua busca. {{recrutador}}, {{empresa}}",
+    },
+    devolutiva_vaga_preenchida: {
+      nome: "Devolutiva — vaga preenchida",
+      assunto: "Sobre sua candidatura para {{vaga}}",
+      corpo: "Olá, {{nome}}. A vaga de {{vaga}} foi preenchida e o processo foi encerrado. Obrigado por ter participado. {{empresa}}",
+    },
+    devolutiva_vaga_cancelada: {
+      nome: "Devolutiva — vaga cancelada",
+      assunto: "Sobre sua candidatura para {{vaga}}",
+      corpo: "Olá, {{nome}}. A {{empresa}} cancelou a vaga de {{vaga}} e o processo foi encerrado. Obrigado por ter participado.",
+    },
+    contratacao: {
+      nome: "Contratação",
+      assunto: "Sobre sua candidatura para {{vaga}}",
+      corpo: "Olá, {{nome}}. A {{empresa}} quer seguir com você na vaga de {{vaga}}. Em breve {{recrutador}} entra em contato com os próximos passos.",
+    },
+    convite_entrevista: {
+      nome: "Convite para entrevista",
+      assunto: "Entrevista para {{vaga}}",
+      corpo: "Olá, {{nome}}. Gostaríamos de conversar com você sobre a vaga de {{vaga}}. Escolha um horário por aqui: {{link_agenda}}. {{recrutador}}",
+    },
+    convite_vaga: {
+      nome: "Convite para uma vaga",
+      assunto: "Uma vaga na {{empresa}} que pode interessar a você",
+      corpo: "Olá, {{nome}}. Você está no nosso banco de talentos e abrimos a vaga de {{vaga}}. Se tiver interesse, candidate-se: {{link_vaga}}",
+    },
+  } as Record<string, { nome: string; assunto: string; corpo: string }>,
+  // Dados fictícios da pré-visualização dos modelos (decisão 6 do 8.6).
+  modeloFicticio: { nome: "Marina", nome_completo: "Marina Duarte", vaga: "Analista financeiro", recrutador: "Carla Souza" },
+
+  // E-mails à equipe do 8.6 (15.4): pedido de revisão e propostas esperando confirmação.
+  emailEquipe: {
+    revisao: {
+      assunto: (nome: string, vaga: string) => `${nome} pediu revisão — ${vaga}`,
+      corpo: (nome: string, vaga: string) => `${nome} pediu uma segunda análise da decisão sobre a candidatura para ${vaga}.`,
+      texto: "O que a pessoa escreveu:",
+      depois: (produto: string) => `Para responder, peça ao Claude ou ao ChatGPT, com o ${produto} conectado: "responda o pedido de revisão de" e o nome da pessoa. O prazo sugerido para responder é de 15 dias.`,
+    },
+    pendentes: {
+      assunto: (empresa: string, n: number) => (n === 1 ? `${empresa}: 1 proposta espera confirmação` : `${empresa}: ${n} propostas esperam confirmação`),
+      corpo: (n: number) =>
+        n === 1
+          ? "Há 1 proposta de decisão (reprovar, contratar, encerrar vaga ou mensagem) esperando há mais de um dia. Ela só acontece quando alguém da equipe confirmar."
+          : `Há ${n} propostas de decisão (reprovar, contratar, encerrar vaga ou mensagem) esperando há mais de um dia. Elas só acontecem quando alguém da equipe confirmar.`,
+      depois: "Para ver e confirmar, peça ao Claude: mostre as propostas. Propostas vencem em 7 dias.",
+    },
+  },
+
   emailCandidato: {
+    // Mensagem da empresa ao candidato (mensagem_candidato, 15.4): o texto, o botão do link e, na
+    // devolutiva, o rodapé de revisão.
+    mensagem: {
+      botao: "Acompanhar candidatura",
+      revisao: "Se você acha que a decisão merece uma segunda análise, pode pedir uma revisão pelo seu link de acompanhamento.",
+    },
     rodape: (empresa: string) => `Enviado pelo ${NOME_PRODUTO} a pedido da ${empresa}. Responda este e-mail para falar com a ${empresa}.`,
     recebida: {
       assunto: (vaga: string) => `Recebemos sua candidatura para ${vaga}`,
@@ -766,6 +848,34 @@ export const copy = {
       corpo: (empresa: string, codigo: string) => `Use o código ${codigo} para excluir seus dados na ${empresa}. Ele vale por 10 minutos. Se não foi você que pediu, ignore este e-mail: nada será apagado sem o código.`,
     },
   },
+  // Decisões e propostas (8.6; 15.2, 11.7).
+  decisoes: {
+    propostaCriada:
+      "Proposta criada. Ela só acontece quando um recrutador ou administrador confirmar no formulário de propostas: peça ao Claude ou ao ChatGPT \"mostre as propostas\".",
+    invalida: {
+      candidatura: "Esta proposta não vale mais: a candidatura já foi encerrada.",
+      vaga: "Esta proposta não vale mais: a vaga já foi encerrada.",
+      venceu: (data: string) => `Esta proposta não vale mais: venceu em ${data}.`,
+    },
+    motivosExpirada: {
+      candidatura_encerrada: "a candidatura já foi encerrada",
+      vaga_encerrada: "a vaga já foi encerrada",
+      venceu: "venceu",
+    } as Record<string, string>,
+    tipos: { reprovar: "Reprovar", contratar: "Contratar", encerrar_vaga: "Encerrar vaga", enviar_mensagem: "Enviar mensagem", reabrir: "Reabrir" } as Record<string, string>,
+    motivos: {
+      requisitos: "Não atende aos requisitos",
+      experiencia: "Experiência insuficiente",
+      perfil: "Perfil diferente do buscado",
+      pretensao_salarial: "Pretensão salarial",
+      localizacao: "Localização",
+      outro_candidato: "Seguimos com outra pessoa",
+      sem_retorno: "Sem retorno do candidato",
+      outro: "Outro",
+    } as Record<string, string>,
+    motivosEncerramento: { preenchida: "Vaga preenchida", cancelada: "Vaga cancelada", outro: "Outro" } as Record<string, string>,
+  },
+
   // Funil (8.5; 15.2, 15.3): rótulos para o modelo, para a API e para o CSV (14.1).
   funil: {
     vazio: "Nenhuma candidatura nesta etapa.",
@@ -839,6 +949,7 @@ export const copy = {
       candidato: "Candidato",
       membro: (nome: string) => nome,
       semNome: "Alguém da equipe",
+      confirmado: (proponente: string, quem: string) => `proposto por ${proponente} · confirmado por ${quem}`,
     },
   },
 

@@ -1,14 +1,15 @@
 "use client";
-// Ações do titular no link de acompanhamento (8.4; 11.13, 15.1): retirar (com confirmação no
-// lugar), baixar os dados (download do JSON) e excluir com o código de 6 dígitos por e-mail.
+// Ações do titular no link de acompanhamento (8.4, 8.6; 11.13, 15.1): retirar (com confirmação no
+// lugar), pedir revisão (uma vez, com texto opcional), baixar os dados (download do JSON) e excluir
+// com o código de 6 dígitos por e-mail.
 // Fala só com /api/c/{token} do próprio site (Origin conferido no servidor).
 import { useId, useState } from "react";
 import { ERROS, copy } from "@/lib/copy";
 import s from "./candidate.module.css";
 
 const c = copy.acompanhamento;
-type Props = { token: string; ativa: boolean; vaga: string; empresa: string };
-type Modo = "nada" | "retirar" | "excluir" | "codigo" | "excluido" | "retirado";
+type Props = { token: string; ativa: boolean; vaga: string; empresa: string; revisao: "pode" | "pedida" | null };
+type Modo = "nada" | "retirar" | "excluir" | "codigo" | "excluido" | "retirado" | "revisao";
 
 async function post(url: string, body?: unknown) {
   const r = await fetch(url, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body ?? {}) });
@@ -24,6 +25,8 @@ export function TrackingActions(p: Props) {
   const [erro, setErro] = useState<string | null>(null);
   const [ocupado, setOcupado] = useState(false);
   const [mensagem, setMensagem] = useState<string | null>(null);
+  const [texto, setTexto] = useState("");
+  const [revisaoPedida, setRevisaoPedida] = useState(p.revisao === "pedida");
   const api = `/api/c/${p.token}`;
 
   async function rodar(fn: () => Promise<void>) {
@@ -45,7 +48,29 @@ export function TrackingActions(p: Props) {
 
   return (
     <section className={s.cartao} aria-label={c.retirar}>
-      {modo === "retirar" ? (
+      {modo === "revisao" ? (
+        <form className={s.form} onSubmit={(e) => {
+          e.preventDefault();
+          void rodar(async () => {
+            const r = await post(`${api}/revisao`, { texto });
+            if (!r.ok) return setErro(r.b.campos?.[0]?.mensagem ?? r.b.mensagem ?? ERROS.generico);
+            setRevisaoPedida(true);
+            setMensagem(r.b.mensagem ?? c.revisao.enviada);
+            setModo("nada");
+          });
+        }}>
+          <p style={{ margin: 0 }}>{c.revisao.explicacao}</p>
+          <div className={s.campo}>
+            <label className={s.rotulo} htmlFor={`${base}-revisao`}>{c.revisao.rotulo}</label>
+            <textarea id={`${base}-revisao`} className={s.input} rows={4} maxLength={1000} value={texto} onChange={(e) => setTexto(e.target.value)}
+              aria-invalid={!!erro} aria-describedby={erro ? `${base}-erro` : undefined} />
+          </div>
+          <div className={s.acoes}>
+            <button className={s.botao} type="submit" disabled={ocupado}>{c.revisao.confirmar}</button>
+            <button className={s.secundario} type="button" onClick={() => setModo("nada")}>{c.cancelar}</button>
+          </div>
+        </form>
+      ) : modo === "retirar" ? (
         <>
           <p style={{ margin: 0 }}>{c.confirmarRetirar(p.vaga, p.empresa)}</p>
           <div className={s.acoes}>
@@ -97,10 +122,12 @@ export function TrackingActions(p: Props) {
       ) : (
         <div className={s.acoes}>
           {p.ativa && <button className={s.secundario} onClick={() => setModo("retirar")}>{c.retirar}</button>}
+          {p.revisao && !revisaoPedida && <button className={s.secundario} onClick={() => setModo("revisao")}>{c.revisao.botao}</button>}
           <a className={s.secundario} href={`${api}/exportar`} download rel="noreferrer">{c.baixar}</a>
           <button className={`${s.secundario} ${s.perigo}`} onClick={() => setModo("excluir")}>{c.excluir}</button>
         </div>
       )}
+      {revisaoPedida && modo === "nada" && <p className={s.dica} role="status" aria-live="polite">{mensagem ?? c.revisao.jaPedida}</p>}
       {erro && <p id={`${base}-erro`} className={s.erro} role="alert">{erro}</p>}
     </section>
   );
