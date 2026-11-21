@@ -87,7 +87,8 @@ export function linksReenviados(p: { empresa: string; cor?: string | null; links
 // codigo_exclusao (11.13). Recebe: empresa e o código.
 export function codigoExclusao(p: { empresa: string; codigo: string }) {
   const c = copy.emailCandidato.codigo;
-  const assunto = c.assunto(p.codigo);
+  // O assunto fica na fila depois do envio (só html e texto são apagados): o código vai só no corpo (20.3).
+  const assunto = c.assunto(p.empresa);
   const rodape = copy.emailCandidato.rodape(p.empresa);
   return {
     assunto,

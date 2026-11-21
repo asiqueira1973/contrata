@@ -173,6 +173,8 @@ async function chamaCria(empresa: EmpresaDaCandidatura, vagaId: string, e: z.inf
     p_token_hash: tokenHash,
     p_max_por_vaga: CANDIDATURAS_POR_VAGA_MAX,
   });
+  // 11.14: o teto por vaga recusa como os outros limites, sem dizer qual foi.
+  if (error?.message === "limite_candidaturas_vaga") throw new DomainError("envio_recusado", 429);
   if (error) throw error;
   return data as { id: string; existente: boolean; recebida: boolean };
 }
@@ -383,10 +385,11 @@ export async function exportData(token: string) {
         .map((m) => ({ data: m.criado_em, assunto: m.assunto, corpo: m.corpo.replace(/\{\{link_acompanhamento\}\}/g, copy.acompanhamento.esteLink) })),
     };
   }));
-  await db().rpc("rs_fn_registra_evento", {
+  const { error: eEvento } = await db().rpc("rs_fn_registra_evento", {
     p_empresa: c.empresa.id, p_vaga: c.vaga.id, p_candidatura: c.id, p_tipo: "dados_exportados",
     p_ator: atorJson(ATOR_CANDIDATO), p_origem: "publico", p_dados: { candidatura_id: c.id } as never,
   });
+  if (eEvento) throw eEvento;
   const hoje = new Date().toISOString().slice(0, 10);
   return {
     arquivo: `dados-${c.empresa.slug}-${hoje}.json`,
@@ -431,8 +434,10 @@ export async function requestDeletionCode(token: string): Promise<{ email: strin
 }
 
 // Exclui os dados com o código (11.13; rs_fn_exclui_dados_candidato): encerra as ativas como
-// desistiu (sem e-mail), anonimiza tudo da pessoa na empresa e apaga os arquivos depois do commit
-// (a faxina repassa os que falharem). Devolve o nome da empresa para a tela final.
+// desistiu (sem e-mail), anonimiza tudo da pessoa na empresa e apaga os arquivos depois do commit.
+// Arquivo que falhar fica no bucket sem linha no banco; o log diz só "arquivo_nao_apagado", sem o
+// caminho. A varredura de arquivos órfãos fica pendente (registrada para o expurgo do 8.10).
+// Devolve o nome da empresa.
 export async function deleteData(token: string, codigo: unknown): Promise<{ empresa: string }> {
   const c = await requireCandidaturaPorToken(token);
   if (!c) throw new DomainError("link_invalido", 404);

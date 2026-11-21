@@ -134,6 +134,9 @@ export const FUSO = "America/Sao_Paulo";
 
 // Candidatura (11.2, 11.4, 11.13, 11.14; 8.4).
 export const CURRICULO_MAX_BYTES = 5 * 1024 * 1024;
+// Currículo pelo chat (adicionar_candidato): vai em base64 no corpo do /mcp, e a Vercel recusa corpo
+// acima de 4,5 MB; 3 MB viram ~4 MB em base64 (divergência da 11.2 registrada na v0.4.4).
+export const CURRICULO_CHAT_MAX_BYTES = 3 * 1024 * 1024;
 export const CURRICULO_TIPOS = {
   pdf: "application/pdf",
   docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",

@@ -167,7 +167,9 @@ describe("candidatar (9.2, 11.2)", () => {
     it("excluir: código por e-mail, errado conta, certo anonimiza e apaga o arquivo", async () => {
       const pedido = await (await codigoPost(apiRequest(`/api/c/${token}/excluir/codigo`, { method: "POST" }), params({ token }))).json();
       expect(pedido.email).toBe("b••••@t••••.exemplo");
-      const codigo = emails.at(-1)!.subject.match(/(\d{6})$/)![1];
+      // O código vem no corpo; o assunto, que fica guardado na fila, não o leva (20.3).
+      const codigo = emails.at(-1)!.text.match(/código (\d{6})/)![1];
+      expect(emails.at(-1)!.subject).not.toContain(codigo);
       const errado = await excluirPost(apiRequest(`/api/c/${token}/excluir`, { method: "POST", body: { codigo: codigo === "000000" ? "111111" : "000000" } }), params({ token }));
       expect(errado.status).toBe(400);
       const c = await requireCandidaturaPorToken(token);

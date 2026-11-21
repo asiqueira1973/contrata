@@ -503,6 +503,7 @@ declare
   v_obrigatorio boolean;
   v_arquivo uuid;
   v_notificacao uuid;
+  v_vaga public.rs_vagas;
 begin
   select * into v from public.rs_candidaturas where id = p_candidatura and empresa_id = p_empresa for update;
   if v.id is null then
@@ -511,7 +512,13 @@ begin
   if v.recebida_em is not null then
     return pg_catalog.jsonb_build_object('ja_recebida', true);
   end if;
-  select curriculo_obrigatorio into v_obrigatorio from public.rs_vagas where id = v.vaga_id;
+  -- A vaga pode ter saído do ar entre criar e concluir (até 1 h): não entra candidatura ativa em
+  -- vaga pausada ou encerrada (12.1, 11.5; achado do verifier do 8.4).
+  select * into v_vaga from public.rs_vagas where id = v.vaga_id for share;
+  if v_vaga.status <> 'publicada' then
+    raise exception 'vaga_fechada' using errcode = 'P0001';
+  end if;
+  v_obrigatorio := v_vaga.curriculo_obrigatorio;
   if v_obrigatorio and p_arquivo is null and v.origem <> 'manual' then
     raise exception 'curriculo_obrigatorio' using errcode = 'P0001';
   end if;
@@ -531,6 +538,16 @@ begin
   returning id into v_notificacao;
   insert into public.rs_mensagens (empresa_id, candidatura_id, tipo, assunto, corpo, ator_tipo, notificacao_id)
   values (p_empresa, p_candidatura, 'confirmacao', p_mensagem ->> 'assunto', p_mensagem ->> 'corpo', 'sistema', v_notificacao);
+  -- Banco de talentos (11.29): o pedido feito no formulário só vira consentimento aqui, com a
+  -- candidatura enviada; a abandonada não deixa a pessoa no banco.
+  if v.talentos_pedido then
+    update public.rs_candidatos set talentos_consentido_em = pg_catalog.now(),
+           talentos_expira_em = pg_catalog.now() + pg_catalog.make_interval(months => e.talentos_meses)
+      from public.rs_empresas e
+     where rs_candidatos.id = v.candidato_id and e.id = p_empresa;
+    perform public.rs_fn_registra_evento(p_empresa, v.vaga_id, p_candidatura, 'talentos_consentido', p_ator, 'publico',
+      pg_catalog.jsonb_build_object('candidatura_id', p_candidatura));
+  end if;
   perform public.rs_fn_atualiza_busca(p_candidatura);
   perform public.rs_fn_registra_evento(p_empresa, v.vaga_id, p_candidatura, 'candidatura_criada', p_ator, 'publico',
     pg_catalog.jsonb_build_object('candidatura_id', p_candidatura, 'origem', v.origem, 'com_curriculo', p_arquivo is not null,
@@ -660,23 +677,13 @@ begin
     values (p_empresa, v_email, p_candidato ->> 'nome', nullif(p_candidato ->> 'telefone', ''),
             nullif(p_candidato ->> 'linkedin_url', ''), nullif(p_candidato ->> 'cidade', ''))
     returning id into v_candidato;
-  else
-    -- A pessoa manda os dados mais novos; campos opcionais vazios não apagam o que já existe.
-    update public.rs_candidatos set nome = p_candidato ->> 'nome',
-           telefone = coalesce(nullif(p_candidato ->> 'telefone', ''), telefone),
-           linkedin_url = coalesce(nullif(p_candidato ->> 'linkedin_url', ''), linkedin_url),
-           cidade = coalesce(nullif(p_candidato ->> 'cidade', ''), cidade)
-     where id = v_candidato;
   end if;
-  if p_talentos then
-    update public.rs_candidatos set talentos_consentido_em = pg_catalog.now(),
-           talentos_expira_em = pg_catalog.now() + pg_catalog.make_interval(months => v_empresa.talentos_meses)
-     where id = v_candidato;
-  end if;
+  -- Cadastro que já existe não muda: o e-mail não é verificado, então quem o souber não pode
+  -- trocar o nome nem preencher o telefone de outra pessoa (achado do verifier do 8.4).
   select id into v_etapa from public.rs_etapas where vaga_id = p_vaga order by ordem limit 1;
   insert into public.rs_candidaturas (empresa_id, vaga_id, candidato_id, etapa_id, origem, token_hash,
-                                      consentimento_versao, consentimento_em)
-  values (p_empresa, p_vaga, v_candidato, v_etapa, p_origem, p_token_hash, p_consentimento, pg_catalog.now())
+                                      consentimento_versao, consentimento_em, talentos_pedido)
+  values (p_empresa, p_vaga, v_candidato, v_etapa, p_origem, p_token_hash, p_consentimento, pg_catalog.now(), coalesce(p_talentos, false))
   returning id into v_id;
   for v_item in select * from pg_catalog.jsonb_array_elements(coalesce(p_respostas, '[]')) loop
     select * into v_pergunta from public.rs_perguntas where id = (v_item ->> 'pergunta_id')::uuid and vaga_id = p_vaga;
@@ -699,10 +706,6 @@ begin
     raise exception 'resposta_obrigatoria' using errcode = 'P0001';
   end if;
   update public.rs_candidaturas set sinalizada = v_sinalizada where id = v_id;
-  if p_talentos then
-    perform public.rs_fn_registra_evento(p_empresa, p_vaga, v_id, 'talentos_consentido', p_ator, 'publico',
-      pg_catalog.jsonb_build_object('candidatura_id', v_id));
-  end if;
   return pg_catalog.jsonb_build_object('id', v_id, 'existente', false, 'recebida', false);
 end $$;
 
@@ -1980,6 +1983,7 @@ CREATE TABLE IF NOT EXISTS "public"."rs_candidaturas" (
     "exclusao_tentativas" smallint DEFAULT 0 NOT NULL,
     "exclusao_codigos_hora" smallint DEFAULT 0 NOT NULL,
     "exclusao_janela_desde" timestamp with time zone,
+    "talentos_pedido" boolean DEFAULT false NOT NULL,
     CONSTRAINT "rs_candidaturas_encerramento" CHECK ((("situacao" = 'ativa'::"public"."rs_situacao_candidatura") = ("encerrada_em" IS NULL))),
     CONSTRAINT "rs_candidaturas_expurgo" CHECK ((("situacao" <> 'ativa'::"public"."rs_situacao_candidatura") OR ("expurgar_em" IS NULL))),
     CONSTRAINT "rs_candidaturas_motivo" CHECK ((("motivo_reprovacao" IS NULL) OR ("situacao" = 'reprovada'::"public"."rs_situacao_candidatura")))

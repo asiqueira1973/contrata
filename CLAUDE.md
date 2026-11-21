@@ -72,5 +72,7 @@ Spec **v0.4.4: um sistema para agentes, não para humanos**. Quem recruta opera 
 - O token `/c` nunca sai para a empresa (nem na API) e nunca é guardado em claro: no banco, só o hash; na mensagem guardada, só `{{link_acompanhamento}}`. Reenviar o link gera token novo.
 - IP e e-mail dos limites públicos só como HMAC (`chaveDoIp`, com `SESSION_SECRET`), em `rs_tentativas_publicas`. `ipDaRequisicao` lê `x-forwarded-for`.
 - Sem `S3_*`, o currículo vai para `.armazenamento-local/` e a URL de upload é `/api/dev/arquivos/…` assinada; nos testes (`tests/setup.ts` apaga as `S3_*`) use `uploadTo` de `tests/helpers.ts`. Para conferir o tipo do arquivo, sempre os bytes (`confereCurriculo`), nunca a extensão nem o `content-type`.
-- Campo `arquivo` do formulário: o valor é `{nome, tipo, base64}` ou `""`; o `save.ts` decodifica e passa os bytes ao domínio. Sem formulário não há arquivo: use `soNoFormulario`.
+- Campo `arquivo` do formulário: o valor é `{nome, tipo, base64}` ou `""`; o `save.ts` decodifica e passa os bytes ao domínio. Sem formulário não há arquivo: use `soNoFormulario`. Teto de 3 MB (`CURRICULO_CHAT_MAX_BYTES`): o corpo do `/mcp` na Vercel vai até 4,5 MB.
+- Nada secreto no **assunto** de e-mail: depois do envio a fila apaga só `html` e `texto`.
+- O e-mail do candidato não é verificado: a candidatura nunca altera um cadastro que já existe, e consentimento (talentos) só vale na conclusão.
 - O servidor de desenvolvimento às vezes fica com um módulo velho depois de muitas edições (ex.: `copy.mcp.form.<acao>` indefinido no `/mcp` com o `tsc` e os testes verdes): reinicie o `npm run dev`.

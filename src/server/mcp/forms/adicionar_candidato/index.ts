@@ -5,15 +5,15 @@
 import "server-only";
 import { z } from "zod";
 import { ERROS, copy } from "@/lib/copy";
-import { CANDIDATO_NOME_MAX, CURRICULO_MAX_BYTES, CURRICULO_TIPOS, EMAIL_MAX, NOME_ARQUIVO_MAX } from "@/lib/limits";
+import { CANDIDATO_NOME_MAX, CURRICULO_CHAT_MAX_BYTES, CURRICULO_TIPOS, EMAIL_MAX, NOME_ARQUIVO_MAX } from "@/lib/limits";
 import { listJobs } from "@/server/recruiting/jobs";
 import { acharVaga } from "../../vagas";
 import type { DefinicaoFormulario } from "../registrar";
 import { gravarCandidatoManual } from "./save";
 
 const c = copy.mcp.form.adicionar_candidato;
-// base64 de 5 MB: 4/3 do tamanho, com folga.
-const BASE64_MAX = Math.ceil((CURRICULO_MAX_BYTES * 4) / 3) + 16;
+// base64 do teto do chat (3 MB): 4/3 do tamanho, com folga. Acima disso, o save dá o erro do campo.
+export const BASE64_MAX = Math.ceil((CURRICULO_CHAT_MAX_BYTES * 4) / 3) + 16;
 
 export const schemaCandidatoManual = z.object({
   vaga: z.uuid(),
@@ -22,7 +22,7 @@ export const schemaCandidatoManual = z.object({
   telefone: z.string().trim().max(20).optional(),
   linkedin_url: z.string().trim().max(300).optional(),
   curriculo: z.union([
-    z.object({ nome: z.string().max(NOME_ARQUIVO_MAX), tipo: z.string().max(120), base64: z.string().max(BASE64_MAX) }),
+    z.object({ nome: z.string().max(NOME_ARQUIVO_MAX), tipo: z.string().max(120), base64: z.string() }),
     z.literal(""),
   ]).optional(),
 });
@@ -52,7 +52,7 @@ export const formularioAdicionarCandidato: DefinicaoFormulario<typeof schemaCand
         { tipo: "texto", nome: "linkedin_url", rotulo: c.linkedin, max: 300 },
         {
           tipo: "arquivo", nome: "curriculo", rotulo: c.curriculo, aceita: ".pdf,.docx,application/pdf,application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-          tipos: [CURRICULO_TIPOS.pdf, CURRICULO_TIPOS.docx], maxBytes: CURRICULO_MAX_BYTES, erroTipo: ERROS.curriculo_invalido, remover: c.removerArquivo,
+          tipos: [CURRICULO_TIPOS.pdf, CURRICULO_TIPOS.docx], maxBytes: CURRICULO_CHAT_MAX_BYTES, erroTipo: ERROS.curriculo_grande_chat, remover: c.removerArquivo,
         },
       ],
       valores: { vaga: achada?.status === "publicada" ? achada.id : "", nome: str("nome"), email: str("email"), telefone: str("telefone"), linkedin_url: str("linkedin_url"), curriculo: "" },
