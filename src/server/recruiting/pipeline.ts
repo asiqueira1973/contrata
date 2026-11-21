@@ -82,6 +82,7 @@ export async function listApplications(ctx: ContextoVagas, filtros: FiltrosCandi
   return { itens, mais };
 }
 
+// Título de cada vaga da empresa. Recebe: empresa e ids. Devolve: id → título.
 async function nomesDeVagas(empresaId: string, ids: string[]): Promise<Map<string, string>> {
   if (!ids.length) return new Map();
   const { data, error } = await db().from("rs_vagas").select("id, titulo").eq("empresa_id", empresaId).in("id", ids);
@@ -89,6 +90,7 @@ async function nomesDeVagas(empresaId: string, ids: string[]): Promise<Map<strin
   return new Map((data ?? []).map((v) => [v.id, v.titulo]));
 }
 
+// Nome de cada etapa (os ids já passaram pelo alcance). Devolve: id → nome.
 async function nomesDeEtapas(ids: string[]): Promise<Map<string, string>> {
   if (!ids.length) return new Map();
   const { data, error } = await db().from("rs_etapas").select("id, nome").in("id", ids);
@@ -280,6 +282,7 @@ function traduz(error: { message?: string }) {
 // ---------------------------------------------------------------- histórico (15.3)
 type Credencial = { tipo: string; nome: string; cliente: string | null };
 
+// Tipo, nome e cliente OAuth de cada credencial da empresa, para o rótulo do ator (15.3).
 async function rotulosDeCredenciais(empresaId: string, ids: string[]): Promise<Map<string, Credencial>> {
   if (!ids.length) return new Map();
   const { data, error } = await db().from("rs_credenciais").select("id, tipo, nome, cliente:oauth_cliente_id(nome)")
@@ -336,9 +339,11 @@ export async function history(ctx: ContextoVagas, id: string) {
 
 // ---------------------------------------------------------------- exportar (14.1)
 const DATA_BR = new Intl.DateTimeFormat("pt-BR", { timeZone: FUSO, day: "2-digit", month: "2-digit", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+// Data e hora de Brasília no formato da 14.1 (dd/mm/aaaa hh:mm); vazio sem data.
 function dataBr(iso: string | null): string {
   return iso ? DATA_BR.format(new Date(iso)).replace(",", "") : "";
 }
+// Hoje em Brasília, como aaaa-mm-dd (nome do arquivo e pasta da exportação).
 function hojeBr(): string {
   const [d, m, a] = new Intl.DateTimeFormat("pt-BR", { timeZone: FUSO, day: "2-digit", month: "2-digit", year: "numeric" }).format(new Date()).split("/");
   return `${a}-${m}-${d}`;

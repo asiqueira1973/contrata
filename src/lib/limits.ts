@@ -128,6 +128,8 @@ export const MOVER_LOTE_MAX = 100;
 export const EXPORTACAO_MAX = 10_000;
 // Nota interna (11.34): até 10.000 caracteres, como o check de rs_notas.
 export const NOTA_MAX = 10_000;
+// Busca (11.28): até 50 resultados por página.
+export const BUSCA_POR_PAGINA = 50;
 // Faxina (8.10, 11.11): lotes de 200.
 export const FAXINA_LOTE = 200;
 // Pré-visualização da página de carreiras não publicada (8.3): link assinado de 10 min.

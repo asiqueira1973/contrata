@@ -283,3 +283,5 @@ Todas já refletidas no `spec.md` (v0.4.5).
 52. **Ator no histórico:** "{nome} (formulário)", "{cliente OAuth} · em nome de {nome}" ("Agente" sem cliente), "Integração · {chave}", "Sistema", "Candidato". Rótulos dos eventos da 15.3 em `copy.historico`.
 53. **Operações são escrita, não destrutivas:** `mover_etapa` e `adicionar_nota` têm `readOnlyHint: false` e `destructiveHint: false` (a 13.3 reserva o destrutivo para arquivar e excluir).
 54. **Pendente:** candidatura não recebida (upload parado) segura a etapa até a faxina de 24 h; tirar essa etapa antes disso dá `etapa_com_candidaturas`, mesmo sem candidatura visível.
+55. **Busca da API com 50 por página** (11.28), mesmo com `limite` maior (achado do verifier do 8.5).
+56. **O avaliador vê quantas avaliações ficaram ocultas** (`avaliacoes_ocultas`) e, no histórico, quem já avaliou ou anotou, mas nunca o conteúdo antes de registrar a dele (11.9).

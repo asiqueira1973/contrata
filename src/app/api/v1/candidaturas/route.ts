@@ -6,6 +6,7 @@
 // Duplicada já recebida: 200 {id, duplicada: true} (11.3). Sem limite por IP (a chave já identifica).
 import type { NextRequest } from "next/server";
 import { z } from "zod";
+import { BUSCA_POR_PAGINA } from "@/lib/limits";
 import { corpo } from "@/server/api/jobs";
 import { filtrosDaQuery } from "@/server/api/applications";
 import { ListaCandidaturas, apiRoute, pagina, proximoCursor } from "@/server/api/v1";
@@ -17,7 +18,9 @@ import { listApplications } from "@/server/recruiting/pipeline";
 export function GET(req: NextRequest) {
   return apiRoute(req, "leitura", async (ctx) => {
     const filtros = filtrosDaQuery(req.nextUrl.searchParams);
-    const p = pagina(req);
+    // 11.28: a busca devolve até 50 por página, mesmo que o limite pedido seja maior.
+    const p0 = pagina(req);
+    const p = filtros.q ? { ...p0, limite: Math.min(p0.limite, BUSCA_POR_PAGINA) } : p0;
     const r = await listApplications(ctx, filtros, p);
     return Response.json(ListaCandidaturas.parse({ itens: r.itens, proximo_cursor: proximoCursor(p.inicio, p.limite, r.mais) }));
   });
