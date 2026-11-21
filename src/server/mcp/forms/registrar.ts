@@ -46,7 +46,8 @@ export type DefinicaoFormulario<S extends z.ZodObject> = {
 function validar<S extends z.ZodObject>(schema: S, args: unknown): { ok: true; dados: z.infer<S> } | { ok: false; r: RespostaSalvar } {
   const p = schema.safeParse(args);
   if (p.success) return { ok: true, dados: p.data };
-  const campos = [...new Set(p.error.issues.map((i) => String(i.path[0] ?? "")))];
+  // Caminho inteiro (ex.: etapas.2.nome): o formulário marca o subcampo do item certo.
+  const campos = [...new Set(p.error.issues.map((i) => i.path.map(String).join(".")))];
   return { ok: false, r: { ok: false, erros: campos.map((c) => ({ campo: c || null, mensagem: ERROS.campo_invalido })) } };
 }
 

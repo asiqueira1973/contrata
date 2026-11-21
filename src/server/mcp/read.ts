@@ -9,15 +9,20 @@ import { listTeam } from "@/server/org/members";
 import { listPeople } from "@/server/org/people";
 import { bloqueio, consultar, erro, type ToolContext } from "./kit";
 
-// Registra uma consulta com título e descrição da copy e a guarda de escopo leitura.
-function consulta(server: McpServer, ctx: ToolContext, nome: string, fn: () => Promise<Record<string, unknown>>) {
+// Registra uma consulta com título e descrição da copy e a guarda de escopo leitura. `entrada`:
+// os filtros que o modelo pode passar (zod com .describe() em português, 13.3).
+export function consulta<E extends z.ZodObject>(
+  server: McpServer, ctx: ToolContext, nome: string, fn: (args: z.infer<E>) => Promise<Record<string, unknown>>, entrada?: E,
+) {
   if (bloqueio(ctx, "leitura")) return;
+  // O SDK não infere o tipo de um schema genérico (como em forms/registrar.ts).
+  const schema = (entrada ?? z.object({})) as unknown as z.ZodObject<z.ZodRawShape>;
   server.registerTool(
     nome,
-    { title: copy.mcp.titulos[nome], description: copy.mcp.descricoes[nome], inputSchema: z.object({}), _meta: { ui: { visibility: ["model"] } } },
-    async () => {
+    { title: copy.mcp.titulos[nome], description: copy.mcp.descricoes[nome], inputSchema: schema, _meta: { ui: { visibility: ["model"] } } },
+    async (args: unknown) => {
       const b = bloqueio(ctx, "leitura");
-      return b ? erro(b) : consultar(fn);
+      return b ? erro(b) : consultar(() => fn((args ?? {}) as z.infer<E>));
     },
   );
 }

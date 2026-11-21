@@ -4,7 +4,7 @@
 // Sem rede própria: tudo passa por callServerTool (CSP connect-src 'none').
 import type { App } from "@modelcontextprotocol/ext-apps";
 import { copy } from "@/lib/copy";
-import { campoVisivel, valoresVisiveis, type Campo, type Formulario, type Opcao, type RespostaSalvar, type Valor } from "@/lib/formularios";
+import { campoVisivel, valoresVisiveis, type Campo, type Formulario, type ItemLista, type Opcao, type RespostaSalvar, type SubCampo, type Valor } from "@/lib/formularios";
 import { $, criarFormulario, el } from "../shared/app";
 import { lembrar, lerLembranca, storageDaPagina } from "../shared/memoria";
 import { errosLocais, inicial, reduzir, type Estado, type Evento } from "./state";
@@ -16,7 +16,8 @@ let estado: Estado = inicial();
 const ref: { app?: App } = {};
 const obterApp = () => ref.app;
 // Campos já montados no DOM (montados uma vez; depois só se atualiza o que muda, sem perder o foco).
-const montados = new Map<string, { bloco: HTMLElement; erro: HTMLElement; preencher: (v: Valor | undefined) => void; opcoes?: (lista: Opcao[]) => void }>();
+// `atualizar`: campos com partes internas (lista) atualizam visibilidade, erros e travas sozinhos.
+const montados = new Map<string, { bloco: HTMLElement; erro: HTMLElement; preencher: (v: Valor | undefined) => void; opcoes?: (lista: Opcao[]) => void; atualizar?: (travado: boolean) => void }>();
 
 function despachar(e: Evento): void {
   estado = reduzir(estado, e);
@@ -71,7 +72,7 @@ function montarCampo(c: Campo): void {
       lista.replaceChildren(
         ...itens.map((o) => {
           const input = el("input", { type: c.tipo === "radio" ? "radio" : "checkbox", name: c.nome, value: o.valor });
-          input.checked = Array.isArray(atual) ? atual.includes(o.valor) : atual === o.valor;
+          input.checked = Array.isArray(atual) ? (atual as string[]).includes(o.valor) : atual === o.valor;
           input.addEventListener("change", () => {
             if (c.tipo === "radio") return aoEscolher(c, o.valor);
             const marcados = [...lista.querySelectorAll<HTMLInputElement>("input:checked")].map((i) => i.value);
@@ -83,6 +84,22 @@ function montarCampo(c: Campo): void {
     };
     preencher = () => opcoes?.(opcoesDe(c));
     bloco.append(grupo);
+  } else if (c.tipo === "numero" || c.tipo === "data") {
+    const input = el("input", { id, type: c.tipo === "data" ? "date" : "number", "aria-describedby": erro.id });
+    if (c.tipo === "numero") {
+      input.inputMode = "decimal";
+      input.step = String(c.passo ?? "any");
+      if (c.min !== undefined) input.min = String(c.min);
+      if (c.max !== undefined) input.max = String(c.max);
+    }
+    input.addEventListener("input", () => despachar({ tipo: "valor", nome: c.nome, valor: input.value }));
+    preencher = (v) => (input.value = typeof v === "string" ? v : "");
+    bloco.append(el("label", { for: id }, c.rotulo), input);
+  } else if (c.tipo === "lista") {
+    const lista = montarLista(c, erro);
+    preencher = lista.preencher;
+    bloco.append(lista.grupo);
+    montados.set(c.nome, { bloco, erro, preencher, atualizar: lista.atualizar });
   } else {
     // marcar (caixa única) e confirmar (frase a digitar fica para formulários de exclusão)
     const input = el("input", { id, type: "checkbox", "aria-describedby": erro.id });
@@ -94,7 +111,110 @@ function montarCampo(c: Campo): void {
   if (dica) bloco.append(dica);
   bloco.append(erro);
   $<HTMLFormElement>("form").append(bloco);
-  montados.set(c.nome, { bloco, erro, preencher, opcoes });
+  if (!montados.has(c.nome)) montados.set(c.nome, { bloco, erro, preencher, opcoes });
+}
+
+// Lista de itens que se repetem (etapas, perguntas). Digitar só atualiza o estado (o foco fica);
+// adicionar, remover, subir e descer redesenham os itens. Erros de item: "<lista>.<i>.<subcampo>".
+function montarLista(c: Extract<Campo, { tipo: "lista" }>, erro: HTMLElement) {
+  const grupo = el("fieldset", { className: "lista", "aria-describedby": erro.id }, el("legend", {}, c.rotulo));
+  const itensEl = el("div", { className: "itens" });
+  const adicionar = el("button", { type: "button", className: "texto" }, c.adicionar);
+  grupo.append(itensEl);
+  if (c.somenteLeitura) grupo.append(el("p", { className: "rodape" }, t.somenteLeitura));
+  else grupo.append(adicionar);
+  let partes: { i: number; sc: SubCampo; bloco: HTMLElement; erro: HTMLElement }[] = [];
+  const itens = () => (Array.isArray(estado.valores[c.nome]) ? (estado.valores[c.nome] as ItemLista[]) : []);
+  const mudar = (novos: ItemLista[]) => despachar({ tipo: "valor", nome: c.nome, valor: novos });
+
+  function desenharItens(): void {
+    partes = [];
+    const lista = itens();
+    itensEl.replaceChildren(
+      ...lista.map((item, i) => {
+        const nomeItem = `${c.rotuloItem} ${i + 1}`;
+        const cab = el("div", { className: "item-cab" }, el("strong", {}, nomeItem));
+        if (!c.somenteLeitura) {
+          const botao = (texto: string, rotulo: string, acao: () => ItemLista[]) => {
+            const b = el("button", { type: "button", className: "texto mini", "aria-label": rotulo }, texto);
+            b.addEventListener("click", () => {
+              mudar(acao());
+              desenharItens();
+            });
+            return b;
+          };
+          const troca = (a: number, b: number) => {
+            const novos = [...itens()];
+            [novos[a], novos[b]] = [novos[b], novos[a]];
+            return novos;
+          };
+          if (i > 0) cab.append(botao("↑", t.subir(nomeItem), () => troca(i, i - 1)));
+          if (i < lista.length - 1) cab.append(botao("↓", t.descer(nomeItem), () => troca(i, i + 1)));
+          if (lista.length > (c.min ?? 0)) cab.append(botao("✕", t.remover(nomeItem), () => itens().filter((_, j) => j !== i)));
+        }
+        const card = el("div", { className: "item" }, cab);
+        for (const sc of c.subcampos) card.append(montarSubcampo(c, sc, i, item));
+        return card;
+      }),
+    );
+    adicionar.hidden = c.max !== undefined && lista.length >= c.max;
+    atualizar(estado.fase !== "pronto");
+  }
+
+  function montarSubcampo(lista: typeof c, sc: SubCampo, i: number, item: ItemLista): HTMLElement {
+    const id = `campo-${lista.nome}-${i}-${sc.nome}`;
+    const serro = el("p", { id: `erro-${lista.nome}-${i}-${sc.nome}`, className: "erro", hidden: true });
+    const sbloco = el("div", { className: "campo" });
+    const set = (v: string | boolean | string[]) => mudar(itens().map((it, j) => (j === i ? { ...it, [sc.nome]: v } : it)));
+    const atual = item[sc.nome];
+    if (sc.tipo === "marcar") {
+      const input = el("input", { id, type: "checkbox", "aria-describedby": serro.id });
+      input.checked = atual === true;
+      input.addEventListener("change", () => set(input.checked));
+      sbloco.className = "campo marcar";
+      sbloco.append(input, el("label", { for: id }, sc.rotulo));
+    } else if (sc.tipo === "select") {
+      const select = el("select", { id, "aria-describedby": serro.id }, new Option(sc.vazio ?? t.escolha, ""), ...sc.opcoes.map((o) => new Option(o.rotulo, o.valor)));
+      select.value = typeof atual === "string" ? atual : "";
+      select.addEventListener("change", () => set(select.value));
+      sbloco.append(el("label", { for: id }, sc.rotulo), select);
+    } else {
+      const input = sc.tipo === "linhas" ? el("textarea", { id, rows: 3 }) : el("input", { id, type: "text", autocomplete: "off" });
+      if (sc.max) input.maxLength = sc.max;
+      input.setAttribute("aria-describedby", serro.id);
+      input.value = Array.isArray(atual) ? atual.join("\n") : typeof atual === "string" ? atual : "";
+      input.addEventListener("input", () =>
+        set(sc.tipo === "linhas" ? input.value.split("\n").map((l) => l.trim()).filter(Boolean) : input.value),
+      );
+      sbloco.append(el("label", { for: id }, sc.rotulo), input);
+    }
+    if (sc.dica) sbloco.append(el("p", { className: "rodape" }, sc.dica));
+    sbloco.append(serro);
+    partes.push({ i, sc, bloco: sbloco, erro: serro });
+    return sbloco;
+  }
+
+  // Visibilidade dos subcampos (condições do item), erros por item e travas.
+  function atualizar(travado: boolean): void {
+    const lista = itens();
+    for (const p of partes) {
+      p.bloco.hidden = !lista[p.i] || !campoVisivel(p.sc, lista[p.i]);
+      const msg = estado.erros[`${c.nome}.${p.i}.${p.sc.nome}`];
+      p.erro.textContent = msg ?? "";
+      p.erro.hidden = !msg;
+      p.bloco.querySelectorAll("input, select, textarea").forEach((x) => {
+        (x as HTMLInputElement).disabled = travado || !!c.somenteLeitura;
+        x.setAttribute("aria-invalid", String(!!msg));
+      });
+    }
+    grupo.querySelectorAll("button").forEach((b) => ((b as HTMLButtonElement).disabled = travado));
+  }
+
+  adicionar.addEventListener("click", () => {
+    mudar([...itens(), { ...c.novo }]);
+    desenharItens();
+  });
+  return { grupo, preencher: () => desenharItens(), atualizar };
 }
 
 // Monta o formulário inteiro na chegada da descrição.
@@ -136,6 +256,10 @@ function desenhar(): void {
     const msg = s.erros[c.nome];
     m.erro.textContent = msg ?? "";
     m.erro.hidden = !msg;
+    if (m.atualizar) {
+      m.atualizar(travado);
+      continue;
+    }
     m.bloco.querySelectorAll("input, select, textarea").forEach((x) => {
       (x as HTMLInputElement).disabled = travado;
       x.setAttribute("aria-invalid", String(!!msg));

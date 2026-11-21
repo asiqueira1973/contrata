@@ -1,6 +1,7 @@
 // Empresas — regra 11.33 (quem cria), 11.20 (slug) e 7.5 (rs_fn_cria_empresa). Sem porta de API
 // nem MCP: criar empresa é administração da instância (lista "sem porta" da 13.2).
 import "server-only";
+import { invalidarPaginas } from "@/server/recruiting/jobs";
 import type { z } from "zod";
 import { slugProblem, type criarEmpresaSchema } from "@/lib/schemas/org";
 import type { Papel } from "@/lib/limits";
@@ -54,4 +55,13 @@ export async function createCompany(usuario: Usuario, input: z.infer<typeof cria
     throw error;
   }
   return { id: data as string, slug: input.slug };
+}
+
+// Publica ou tira do ar a página de carreiras (8.3; o formulário completo da empresa é do 8.9).
+// Só muda a própria empresa (filtro por id, 6.5). O catálogo de eventos (15.3) não tem tipo para
+// isso; a mudança fica em rs_empresas.atualizado_em. Recebe: contexto e se publica.
+export async function setCareersPagePublished(ctx: { empresa: { id: string; slug: string } }, publicada: boolean): Promise<void> {
+  const { error } = await db().from("rs_empresas").update({ pagina_publicada: publicada }).eq("id", ctx.empresa.id).is("excluida_em", null);
+  if (error) throw error;
+  invalidarPaginas(ctx.empresa.slug);
 }

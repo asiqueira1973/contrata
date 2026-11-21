@@ -22,18 +22,25 @@ export async function apiRoute(req: NextRequest, escopo: Escopo, fn: (ctx: Conte
   }
 }
 
-// Cursor opaco (base64url de {o: deslocamento}) e limite da página.
+// Lê o cursor opaco (base64url de {o: deslocamento}); inválido volta ao começo. Serve à API e ao MCP.
+export function lerCursor(c: string | null | undefined): number {
+  try {
+    return c ? Math.max(0, Number((JSON.parse(Buffer.from(c, "base64url").toString("utf8")) as { o?: number }).o) || 0) : 0;
+  } catch {
+    return 0;
+  }
+}
+
+// Cursor da próxima página, ou null quando não há mais.
+export function proximoCursor(inicio: number, limite: number, mais: boolean): string | null {
+  return mais ? Buffer.from(JSON.stringify({ o: inicio + limite })).toString("base64url") : null;
+}
+
+// Cursor opaco e limite da página.
 export function pagina(req: NextRequest): { inicio: number; limite: number } {
   const sp = req.nextUrl.searchParams;
   const limite = Math.min(LIMITE_MAX, Math.max(1, Number(sp.get("limite")) || LIMITE_PADRAO));
-  let inicio = 0;
-  try {
-    const c = sp.get("cursor");
-    if (c) inicio = Math.max(0, Number((JSON.parse(Buffer.from(c, "base64url").toString("utf8")) as { o?: number }).o) || 0);
-  } catch {
-    inicio = 0;
-  }
-  return { inicio, limite };
+  return { inicio: lerCursor(sp.get("cursor")), limite };
 }
 
 // Fatia a lista e devolve o próximo cursor (null no fim).

@@ -1,7 +1,7 @@
 // Estado puro do formulário genérico (máquina 12.5), testável sem navegador:
 // carregando → pronto ⇄ salvando → sucesso | (erro → pronto); cancelado. Sucesso e cancelado
 // travam: não há segundo Salvar (evita gravar em duplicidade).
-import { campoVisivel, type Campo, type ErroDeCampo, type Formulario, type Opcao, type RespostaSalvar, type Valores } from "@/lib/formularios";
+import { campoVisivel, type Campo, type ErroDeCampo, type Formulario, type ItemLista, type Opcao, type RespostaSalvar, type Valores } from "@/lib/formularios";
 
 export type Fase = "carregando" | "erro_opcoes" | "pronto" | "salvando" | "sucesso" | "cancelado";
 export type Estado = {
@@ -37,8 +37,8 @@ export function reduzir(s: Estado, e: Evento): Estado {
       return { ...s, fase: "erro_opcoes" };
     case "valor": {
       if (s.fase !== "pronto") return s;
-      const erros = { ...s.erros };
-      delete erros[e.nome];
+      // Mexer num campo (ou num item de lista) apaga os erros dele e dos itens dele.
+      const erros = Object.fromEntries(Object.entries(s.erros).filter(([k]) => k !== e.nome && !k.startsWith(`${e.nome}.`)));
       return { ...s, valores: { ...s.valores, ...(e.preencher ?? {}), [e.nome]: e.valor }, erros, erroGeral: null };
     }
     case "salvar_inicio":
@@ -66,14 +66,27 @@ function espalharErros(lista: ErroDeCampo[]): Pick<Estado, "erros" | "erroGeral"
   return { erros, erroGeral: gerais.join(" ") || null };
 }
 
-// Validação local (conveniência; o servidor revalida tudo, princípio 6): obrigatórios visíveis.
+const vazio = (v: unknown) => v === undefined || v === "" || (Array.isArray(v) && v.length === 0) || v === false;
+
+// Validação local (conveniência; o servidor revalida tudo, princípio 6): obrigatórios visíveis,
+// inclusive os subcampos obrigatórios de cada item de lista ("etapas.1.nome").
 export function errosLocais(campos: Campo[], valores: Valores, mensagem: string): Record<string, string> {
   const erros: Record<string, string> = {};
   for (const c of campos) {
-    if (!c.obrigatorio || !campoVisivel(c, valores)) continue;
+    if (!campoVisivel(c, valores)) continue;
     const v = valores[c.nome];
-    const vazio = v === undefined || v === "" || (Array.isArray(v) && v.length === 0) || v === false;
-    if (vazio) erros[c.nome] = mensagem;
+    if (c.tipo === "lista") {
+      if (c.somenteLeitura) continue;
+      const itens = Array.isArray(v) ? (v as ItemLista[]) : [];
+      if ((c.obrigatorio || (c.min ?? 0) > 0) && itens.length < Math.max(1, c.min ?? 0)) erros[c.nome] = mensagem;
+      itens.forEach((item, i) => {
+        for (const sc of c.subcampos) {
+          if (sc.obrigatorio && campoVisivel(sc, item) && vazio(item[sc.nome])) erros[`${c.nome}.${i}.${sc.nome}`] = mensagem;
+        }
+      });
+      continue;
+    }
+    if (c.obrigatorio && vazio(v)) erros[c.nome] = mensagem;
   }
   return erros;
 }

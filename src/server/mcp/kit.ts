@@ -32,7 +32,8 @@ export function comoResultado(r: RespostaSalvar): CallToolResult {
 
 // Erro do domínio (DomainError ou P0001 do banco) vira a mensagem da copy; o resto, a genérica.
 export function erroDoDominio(e: unknown): ErroDeCampo[] {
-  if (e instanceof CamposInvalidos) return e.campos.map((c) => ({ campo: c.campo, mensagem: ERROS[c.codigo] ?? ERROS.campo_invalido }));
+  // Campo vazio = erro geral (ex.: o que falta para publicar, num formulário que só tem a vaga).
+  if (e instanceof CamposInvalidos) return e.campos.map((c) => ({ campo: c.campo || null, mensagem: ERROS[c.codigo] ?? ERROS.campo_invalido }));
   const codigo = e instanceof DomainError ? e.codigo : errorCode(e);
   if (codigo in ERROS) return [{ campo: null, mensagem: ERROS[codigo] }];
   console.error("erro_interno_mcp", codigo);

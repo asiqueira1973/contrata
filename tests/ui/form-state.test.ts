@@ -51,4 +51,23 @@ describe("estado do formulário", () => {
     s = reduzir(s, { tipo: "salvar_inicio", erros: {} });
     expect(reduzir(s, { tipo: "cancelar" }).fase).toBe("salvando");
   });
+  it("lista: cobra o mínimo de itens e os subcampos obrigatórios visíveis de cada item (8.3)", () => {
+    const campos: Formulario["campos"] = [{
+      tipo: "lista", nome: "perguntas", rotulo: "Perguntas", rotuloItem: "Pergunta", adicionar: "+", min: 1, novo: { texto: "", tipo: "sim_nao" },
+      subcampos: [
+        { tipo: "texto", nome: "texto", rotulo: "Texto", obrigatorio: true },
+        { tipo: "linhas", nome: "opcoes", rotulo: "Opções", obrigatorio: true, mostrarSe: [{ campo: "tipo", igual: "escolha_unica" }] },
+      ],
+    }];
+    expect(errosLocais(campos, { perguntas: [] }, "x")).toEqual({ perguntas: "x" });
+    expect(errosLocais(campos, { perguntas: [{ texto: "", tipo: "sim_nao" }, { texto: "Turno", tipo: "escolha_unica", opcoes: [] }] }, "x"))
+      .toEqual({ "perguntas.0.texto": "x", "perguntas.1.opcoes": "x" });
+    expect(errosLocais([{ ...campos[0], somenteLeitura: true } as Formulario["campos"][number]], { perguntas: [] }, "x")).toEqual({});
+  });
+  it("mexer na lista apaga os erros dos itens dela", () => {
+    let s = reduzir(reduzir(inicial(), { tipo: "formulario", form }), { tipo: "opcoes", opcoes: {} });
+    s = reduzir(s, { tipo: "salvar_inicio", erros: { "etapas.0.nome": "x", nome: "y" } });
+    s = reduzir(s, { tipo: "valor", nome: "etapas", valor: [{ nome: "Triagem", tipo: "triagem" }] });
+    expect(s.erros).toEqual({ nome: "y" });
+  });
 });
