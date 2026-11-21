@@ -170,6 +170,26 @@ describe("publicar, pausar e encerrar (12.1, 11.1)", () => {
     const { data } = await db().from("rs_eventos").select("origem, ator_tipo").eq("vaga_id", outra).eq("tipo", "vaga_publicada").single();
     expect(data).toEqual({ origem: "mcp", ator_tipo: "agente" });
   });
+  // Achado do verifier do 8.3: sem formulário, o modelo manda só o que muda; o resto não pode sumir.
+  it("fallback de edição muda só os campos enviados (descrição, etapas e equipe ficam)", async () => {
+    const id = (await criar(tokens.admin, { titulo: "Caixa", responsavel: undefined })).ids![0];
+    await db().rpc("rs_fn_grava_equipe", { p_vaga: id, p_empresa: empresa.id, p_equipe: { responsavel: empresa.adminMembroId, avaliadores: [] } as never });
+    const args = { vaga: id, titulo: "Caixa (manhã)", modelo_trabalho: "presencial", regime: "clt" };
+    const previa = estrutura(await callTool(tokens.admin, "registrar_vaga", args, SEM_UI)) as { token_previa: string };
+    const ok = estrutura(await callTool(tokens.admin, "registrar_vaga", { ...args, confirmar: true, token_previa: previa.token_previa }, SEM_UI));
+    expect(ok.ok).toBe(true);
+    const { data } = await db().from("rs_vagas").select("titulo, descricao, cidade, rs_etapas(id), rs_vaga_equipe(membro_id)").eq("id", id).single();
+    expect(data!.titulo).toBe("Caixa (manhã)");
+    expect(data!.descricao).toBe(DESCRICAO);
+    expect(data!.cidade).toBe("Campinas");
+    expect(data!.rs_etapas).toHaveLength(2);
+    expect(data!.rs_vaga_equipe).toEqual([{ membro_id: empresa.adminMembroId }]);
+  });
+  // Equipe dá acesso às candidaturas da vaga: sem formulário, não muda (13.5, v0.4.2).
+  it("fallback não mexe na equipe (responsável e avaliadores só pelo formulário)", async () => {
+    const r = await callTool(tokens.admin, "registrar_vaga", base({ avaliadores: [membroAval] }), SEM_UI);
+    expect(texto(r)).toBe("Isso só pode ser feito pelo formulário, com o clique da pessoa. Use o Contrata no Claude ou no ChatGPT.");
+  });
 });
 
 describe("página de carreiras (8.3, parte do 8.9)", () => {
