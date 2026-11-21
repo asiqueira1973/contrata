@@ -20,7 +20,7 @@ create function pg_temp.notif(p_chave text) returns jsonb language sql as $$
     'assunto', 'Recebemos', 'html', '<p>link</p>', 'texto', 'link') $$;
 create function pg_temp.conclui(p_cand uuid, p_chave text, p_arquivo jsonb default null) returns jsonb language sql as $$
   select public.rs_fn_conclui_candidatura(p_cand, pg_temp.id('e'), p_arquivo,
-    '{"assunto":"Recebemos","corpo":"Acompanhe: {{link_acompanhamento}}"}', pg_temp.notif(p_chave), pg_temp.publico()) $$;
+    '{"assunto":"Recebemos","corpo":"Acompanhe: {{link_acompanhamento}}"}', pg_temp.notif(p_chave), pg_temp.publico(), 'final-' || p_chave) $$;
 
 insert into fx values ('ana', (public.rs_fn_entra_usuario('sub-ca-ana', 'ana-ca@teste.dev', 'Ana', null) ->> 'usuario_id')::uuid);
 insert into fx select 'e', public.rs_fn_cria_empresa(pg_temp.id('ana'), 'ca-padaria', 'Padaria', 'ana-ca@teste.dev');
@@ -58,6 +58,16 @@ select is((pg_temp.conclui(pg_temp.id('c1'), 'rec:c1b') ->> 'ja_recebida')::bool
 select is((select corpo from public.rs_mensagens where candidatura_id = pg_temp.id('c1') and tipo = 'confirmacao'), 'Acompanhe: {{link_acompanhamento}}',
           'a mensagem guardada não tem o link (20.3)');
 select is((select count(*)::int from public.rs_eventos where candidatura_id = pg_temp.id('c1') and tipo = 'candidatura_criada'), 1, 'evento candidatura_criada');
+select is((select token_hash from public.rs_candidaturas where id = pg_temp.id('c1')), 'final-rec:c1', 'o token definitivo nasce na conclusão');
+
+-- Manual (11.2): sem respostas obrigatórias e sem currículo, mesmo com a vaga pedindo
+update public.rs_vagas set curriculo_obrigatorio = true where id = pg_temp.id('v');
+select throws_ok($$select pg_temp.conclui((pg_temp.cria('dani@teste.dev', 'tok-d', jsonb_build_array(jsonb_build_object('pergunta_id', pg_temp.id('p1'), 'valor', 'sim'))) ->> 'id')::uuid, 'rec:d')$$,
+                 'P0001', 'curriculo_obrigatorio', 'pela página, a vaga que pede currículo não conclui sem ele');
+insert into fx select 'cm', (public.rs_fn_cria_candidatura(pg_temp.id('e'), pg_temp.id('v'), pg_temp.cand('edu@teste.dev'), '[]', 'manual',
+  pg_temp.ator('m'), 'manual', false, 'tok-m', 10000) ->> 'id')::uuid;
+select lives_ok(format('select pg_temp.conclui(%L, %L)', pg_temp.id('cm'), 'rec:cm'), 'manual conclui sem currículo e sem respostas');
+update public.rs_vagas set curriculo_obrigatorio = false where id = pg_temp.id('v');
 
 -- Desistiu (12.2, 11.12)
 select throws_ok(format('select public.rs_fn_encerra_candidatura(%L, %L, %L, %L, null, null)', pg_temp.id('c1'), pg_temp.id('e'), 'reprovada', pg_temp.ator('m')),

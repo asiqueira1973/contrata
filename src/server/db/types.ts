@@ -780,7 +780,7 @@ isOneToOne: false
 { Args: { "p_ator": Json,"p_membro": string }; Returns: undefined
                            },
 "rs_fn_conclui_candidatura":
-{ Args: { "p_arquivo": Json,"p_ator": Json,"p_candidatura": string,"p_empresa": string,"p_mensagem": Json,"p_notificacao": Json }; Returns: Json
+{ Args: { "p_arquivo": Json,"p_ator": Json,"p_candidatura": string,"p_empresa": string,"p_mensagem": Json,"p_notificacao": Json,"p_token_hash": string }; Returns: Json
                            },
 "rs_fn_confere_vaga":
 { Args: { "p_alcance": Json,"p_area": string,"p_dono": string,"p_empresa": string }; Returns: undefined

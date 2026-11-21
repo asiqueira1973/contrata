@@ -170,7 +170,7 @@ export function entradaDaVaga(v: VagaDetalhe): VagaEntrada {
 export async function listJobs(ctx: ContextoVagas, filtros: FiltrosVagas, pagina: { inicio: number; limite: number }) {
   let q = db()
     .from("rs_vagas")
-    .select("id, slug, titulo, status, modelo_trabalho, cidade, uf, publicada_em, encerra_em, atualizado_em, area:area_id(id, nome), dono:dono_pessoa_id(id, nome), rs_candidaturas(situacao)")
+    .select("id, slug, titulo, status, modelo_trabalho, cidade, uf, publicada_em, encerra_em, atualizado_em, area:area_id(id, nome), dono:dono_pessoa_id(id, nome), rs_candidaturas(situacao, recebida_em)")
     .eq("empresa_id", ctx.empresa.id);
   if (ctx.alcance.tipo === "areas") {
     if (!ctx.alcance.areaIds.length) return { itens: [] as VagaNaLista[], mais: false };
@@ -196,7 +196,8 @@ export async function listJobs(ctx: ContextoVagas, filtros: FiltrosVagas, pagina
     id: v.id, slug: v.slug, titulo: v.titulo, status: v.status, area: v.area, dono: v.dono,
     modelo_trabalho: v.modelo_trabalho, cidade: v.cidade, uf: v.uf, publicada_em: v.publicada_em,
     encerra_em: v.encerra_em, atualizado_em: v.atualizado_em,
-    candidaturas_ativas: (v.rs_candidaturas ?? []).filter((c) => c.situacao === "ativa").length,
+    // Só as recebidas contam: envio que não terminou não existe para a empresa (9.4).
+    candidaturas_ativas: (v.rs_candidaturas ?? []).filter((c) => c.situacao === "ativa" && c.recebida_em).length,
   }));
   return { itens, mais: linhas.length > pagina.limite };
 }
@@ -272,7 +273,7 @@ export async function transitionJob(ctx: ContextoVagas, id: string, para: Status
 // contagem por situação, sinalizadas, paradas há 14+ dias (11.11) e idade média das ativas em dias.
 export async function jobSummary(ctx: ContextoVagas, id: string, agora = new Date()) {
   const v = await getJob(ctx, id);
-  const { data, error } = await db().from("rs_candidaturas").select("etapa_id, situacao, sinalizada, movida_em, criado_em").eq("empresa_id", ctx.empresa.id).eq("vaga_id", id);
+  const { data, error } = await db().from("rs_candidaturas").select("etapa_id, situacao, sinalizada, movida_em, criado_em").eq("empresa_id", ctx.empresa.id).eq("vaga_id", id).not("recebida_em", "is", null);
   if (error) throw error;
   const cands = data ?? [];
   const ativas = cands.filter((c) => c.situacao === "ativa");

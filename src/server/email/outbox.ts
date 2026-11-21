@@ -43,7 +43,7 @@ export async function deliver(id: string, fromName?: string): Promise<void> {
 }
 
 // Roda depois da resposta (after do Next); fora de uma requisição (testes, scripts), roda já.
-function afterResponse(task: () => Promise<void>): Promise<void> | void {
+export function afterResponse(task: () => Promise<void>): Promise<void> | void {
   try {
     after(task);
   } catch {
@@ -76,4 +76,10 @@ export async function enqueue(n: NovaNotificacao): Promise<string | null> {
   if (!data) return null;
   await afterResponse(() => deliver(data.id, n.fromName));
   return data.id;
+}
+
+// Agenda o envio de uma notificação que o banco já gravou na mesma transação da mudança (ex.:
+// rs_fn_conclui_candidatura, rs_fn_encerra_candidatura). Recebe: id e o nome do remetente.
+export async function deliverLater(id: string, fromName?: string): Promise<void> {
+  await afterResponse(() => deliver(id, fromName));
 }

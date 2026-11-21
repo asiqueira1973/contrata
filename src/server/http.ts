@@ -44,6 +44,14 @@ const STATUS: Record<string, number> = {
   perguntas_congeladas: 409,
   etapa_com_candidaturas: 409,
   idempotencia_conflito: 409,
+  vaga_fechada: 409,
+  limite_candidaturas_vaga: 429,
+  resposta_obrigatoria: 400,
+  pergunta_invalida: 400,
+  curriculo_obrigatorio: 400,
+  transicao_proibida: 409,
+  candidatura_anonimizada: 409,
+  link_invalido: 404,
 };
 
 // Resposta de erro padrão. Recebe: código e status (opcional). Devolve: Response JSON.
@@ -88,4 +96,11 @@ export async function parseBody<T extends z.ZodType>(req: NextRequest, schema: T
     return jsonError("dados_invalidos", 400, { campos });
   }
   return parsed.data;
+}
+
+// IP de quem chamou (11.14), do primeiro x-forwarded-for, só se tiver cara de IP (como no Assina).
+// Usado só para o limite por IP, e mesmo assim só o HMAC dele vai para o banco.
+export function ipDaRequisicao(req: Request): string | null {
+  const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || null;
+  return ip && /^[0-9a-fA-F:.]{2,45}$/.test(ip) ? ip : null;
 }
