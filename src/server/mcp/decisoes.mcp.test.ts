@@ -172,6 +172,17 @@ describe("mensagens e modelos (11.8, 11.29)", () => {
   });
 });
 
+describe("link de quem se candidatou antes do link derivado (decisão 1 do 8.6)", () => {
+  it("a mensagem sai com um link que funciona mesmo que o banco tenha o hash antigo", async () => {
+    const id = await createReceivedApplication(empresa.id, vaga.id, { nome: "Gil Antigo", email: "gil@decisoes.exemplo" });
+    await db().from("rs_candidaturas").update({ token_hash: `antigo-${id}` }).eq("id", id);
+    const ok = estrutura(await callTool(tokens.admin, "salvar_mensagem", { candidatura: id, assunto: "Oi", corpo: "Acompanhe: {{link_acompanhamento}}" }));
+    expect(ok.ok).toBe(true);
+    const token = emails.filter((e) => e.to === "gil@decisoes.exemplo").at(-1)!.text.match(/\/c\/([A-Za-z0-9_-]{43})/)![1];
+    expect((await requireCandidaturaPorToken(token))?.id).toBe(id);
+  });
+});
+
 describe("revisão (11.13)", () => {
   it("o pedido avisa a equipe; a resposta sem formulário não reabre; com formulário reabre", async () => {
     const token = emails.find((e) => e.to === "bia@decisoes.exemplo")!.text.match(/\/c\/([A-Za-z0-9_-]{43})/)![1];
