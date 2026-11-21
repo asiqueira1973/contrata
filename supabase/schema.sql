@@ -356,6 +356,41 @@ end $$;
 ALTER FUNCTION "public"."rs_fn_aceita_convite"("p_membro" "uuid", "p_usuario" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."rs_fn_adiciona_nota"("p_candidatura" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_texto" "text", "p_ator" "jsonb") RETURNS "uuid"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare
+  v public.rs_candidaturas;
+  v_vaga public.rs_vagas;
+  v_id uuid;
+  v_texto text := pg_catalog.btrim(coalesce(p_texto, ''));
+begin
+  select * into v from public.rs_candidaturas where id = p_candidatura and empresa_id = p_empresa and recebida_em is not null for update;
+  select * into v_vaga from public.rs_vagas where id = v.vaga_id;
+  if v.id is null or not public.rs_fn_vaga_no_alcance(v_vaga.id, v_vaga.area_id, p_alcance) then
+    raise exception 'nao_encontrado' using errcode = 'P0001';
+  end if;
+  if pg_catalog.char_length(v_texto) not between 1 and 10000 then
+    raise exception 'nota_invalida' using errcode = 'P0001';
+  end if;
+  if p_ator ->> 'tipo' not in ('membro', 'agente', 'api') then
+    raise exception 'ator_invalido' using errcode = 'P0001';
+  end if;
+  insert into public.rs_notas (candidatura_id, texto, ator_tipo, membro_id, credencial_id)
+  values (p_candidatura, v_texto, (p_ator ->> 'tipo')::public.rs_tipo_ator, (p_ator ->> 'membro_id')::uuid,
+          (p_ator ->> 'credencial_id')::uuid)
+  returning id into v_id;
+  update public.rs_candidaturas set atualizado_em = pg_catalog.now() where id = p_candidatura;
+  perform public.rs_fn_registra_evento(p_empresa, v.vaga_id, p_candidatura, 'nota_adicionada', p_ator, 'web',
+    pg_catalog.jsonb_build_object('candidatura_id', p_candidatura, 'nota_id', v_id));
+  return v_id;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_adiciona_nota"("p_candidatura" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_texto" "text", "p_ator" "jsonb") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."rs_fn_anonimiza_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid") RETURNS "text"[]
     LANGUAGE "plpgsql"
     SET "search_path" TO ''
@@ -1231,6 +1266,100 @@ end $$;
 ALTER FUNCTION "public"."rs_fn_grava_perguntas"("p_vaga" "uuid", "p_perguntas" "jsonb") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."rs_fn_lista_candidaturas"("p_empresa" "uuid", "p_alcance" "jsonb", "p_filtros" "jsonb", "p_inicio" integer, "p_limite" integer) RETURNS TABLE("id" "uuid", "vaga_id" "uuid", "etapa_id" "uuid", "situacao" "text", "sinalizada" boolean, "nome" "text", "recebida_em" timestamp with time zone, "movida_em" timestamp with time zone, "encerrada_em" timestamp with time zone, "atualizado_em" timestamp with time zone, "relevancia" real)
+    LANGUAGE "plpgsql" STABLE
+    SET "search_path" TO ''
+    AS $$
+#variable_conflict use_column
+declare
+  v_q text := nullif(pg_catalog.btrim(p_filtros ->> 'q'), '');
+  v_tsq tsquery := case when v_q is null then null
+                        else pg_catalog.websearch_to_tsquery('pg_catalog.portuguese', extensions.unaccent(v_q)) end;
+  v_situacao text := coalesce(nullif(p_filtros ->> 'situacao', ''), 'ativa');
+  v_pendente uuid := nullif(p_filtros ->> 'pendente_de', '')::uuid;
+begin
+  return query
+  select c.id, c.vaga_id, c.etapa_id, c.situacao::text, c.sinalizada, k.nome, c.recebida_em, c.movida_em, c.encerrada_em,
+         c.atualizado_em,
+         case when v_tsq is null then null else pg_catalog.ts_rank(c.texto_busca, v_tsq) end
+    from public.rs_candidaturas c
+    join public.rs_vagas v on v.id = c.vaga_id
+    join public.rs_candidatos k on k.id = c.candidato_id
+   where c.empresa_id = p_empresa
+     and c.recebida_em is not null
+     and public.rs_fn_vaga_no_alcance(v.id, v.area_id, p_alcance)
+     and (v_situacao = 'todas' or c.situacao::text = v_situacao)
+     and (p_filtros ->> 'vaga_id' is null or c.vaga_id = (p_filtros ->> 'vaga_id')::uuid)
+     and (p_filtros ->> 'etapa_id' is null or c.etapa_id = (p_filtros ->> 'etapa_id')::uuid)
+     and (p_filtros ->> 'sinalizada' is null or c.sinalizada = (p_filtros ->> 'sinalizada')::boolean)
+     and (p_filtros ->> 'parada_desde' is null
+          or (c.situacao = 'ativa' and c.movida_em < (p_filtros ->> 'parada_desde')::timestamptz))
+     and (p_filtros ->> 'atualizada_desde' is null or c.atualizado_em >= (p_filtros ->> 'atualizada_desde')::timestamptz)
+     and (v_pendente is null or (
+           c.situacao = 'ativa'
+           and exists (select 1 from public.rs_vaga_equipe q where q.vaga_id = c.vaga_id and q.membro_id = v_pendente)
+           and not exists (select 1 from public.rs_avaliacoes a where a.candidatura_id = c.id and a.etapa_id = c.etapa_id
+                           and a.membro_id = v_pendente)))
+     and (v_tsq is null or c.texto_busca @@ v_tsq)
+   order by
+     case when v_tsq is not null then pg_catalog.ts_rank(c.texto_busca, v_tsq) end desc nulls last,
+     case when v_tsq is null and p_filtros ->> 'ordem' = 'movimentacao' then c.movida_em end desc nulls last,
+     c.recebida_em, c.id
+   offset greatest(p_inicio, 0) limit greatest(p_limite, 0);
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_lista_candidaturas"("p_empresa" "uuid", "p_alcance" "jsonb", "p_filtros" "jsonb", "p_inicio" integer, "p_limite" integer) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_move_etapa"("p_ids" "uuid"[], "p_empresa" "uuid", "p_etapa" "uuid", "p_alcance" "jsonb", "p_ator" "jsonb") RETURNS integer
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare
+  v_ids uuid[] := (select pg_catalog.array_agg(distinct x) from pg_catalog.unnest(p_ids) x);
+  v_etapa public.rs_etapas;
+  v_vaga public.rs_vagas;
+  v record;
+  v_achadas integer;
+  v_movidas integer := 0;
+begin
+  if v_ids is null or pg_catalog.cardinality(v_ids) = 0 or pg_catalog.cardinality(v_ids) > 100 then
+    raise exception 'lote_invalido' using errcode = 'P0001';
+  end if;
+  select * into v_etapa from public.rs_etapas where id = p_etapa;
+  select * into v_vaga from public.rs_vagas where id = v_etapa.vaga_id and empresa_id = p_empresa;
+  if v_vaga.id is null or not public.rs_fn_vaga_no_alcance(v_vaga.id, v_vaga.area_id, p_alcance) then
+    raise exception 'etapa_nao_encontrada' using errcode = 'P0001';
+  end if;
+  -- Trava as linhas antes de conferir, para o lote valer inteiro ou nada.
+  perform 1 from public.rs_candidaturas c where c.id = any (v_ids) and c.empresa_id = p_empresa order by c.id for update;
+  select count(*) into v_achadas from public.rs_candidaturas c join public.rs_vagas w on w.id = c.vaga_id
+   where c.id = any (v_ids) and c.empresa_id = p_empresa and c.recebida_em is not null
+     and public.rs_fn_vaga_no_alcance(w.id, w.area_id, p_alcance);
+  if v_achadas <> pg_catalog.cardinality(v_ids) then
+    raise exception 'nao_encontrado' using errcode = 'P0001';
+  end if;
+  if exists (select 1 from public.rs_candidaturas where id = any (v_ids) and vaga_id <> v_vaga.id) then
+    raise exception 'etapa_de_outra_vaga' using errcode = 'P0001';
+  end if;
+  if exists (select 1 from public.rs_candidaturas where id = any (v_ids) and situacao <> 'ativa') then
+    raise exception 'candidatura_nao_ativa' using errcode = 'P0001';
+  end if;
+  for v in select c.id, c.etapa_id from public.rs_candidaturas c
+            where c.id = any (v_ids) and c.etapa_id is distinct from p_etapa order by c.id loop
+    update public.rs_candidaturas set etapa_id = p_etapa, movida_em = pg_catalog.now() where id = v.id;
+    perform public.rs_fn_registra_evento(p_empresa, v_vaga.id, v.id, 'etapa_alterada', p_ator, 'web',
+      pg_catalog.jsonb_build_object('candidatura_id', v.id, 'de', v.etapa_id, 'para', p_etapa));
+    v_movidas := v_movidas + 1;
+  end loop;
+  return v_movidas;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_move_etapa"("p_ids" "uuid"[], "p_empresa" "uuid", "p_etapa" "uuid", "p_alcance" "jsonb", "p_ator" "jsonb") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."rs_fn_muda_acesso"("p_membro" "uuid", "p_papel" "public"."rs_papel_membro", "p_todas_areas" boolean, "p_areas" "uuid"[], "p_ator" "jsonb") RETURNS "void"
     LANGUAGE "plpgsql"
     SET "search_path" TO ''
@@ -1311,6 +1440,49 @@ end $$;
 
 
 ALTER FUNCTION "public"."rs_fn_reenvia_convite"("p_membro" "uuid", "p_token_hash" "text", "p_expira_em" timestamp with time zone, "p_ator" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_registra_avaliacao"("p_candidatura" "uuid", "p_empresa" "uuid", "p_etapa" "uuid", "p_membro" "uuid", "p_recomendacao" "public"."rs_recomendacao", "p_comentario" "text", "p_ator" "jsonb") RETURNS "uuid"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare
+  v public.rs_candidaturas;
+  v_id uuid;
+  v_nova boolean;
+  v_comentario text := pg_catalog.btrim(coalesce(p_comentario, ''));
+begin
+  select * into v from public.rs_candidaturas where id = p_candidatura and empresa_id = p_empresa and recebida_em is not null for update;
+  if v.id is null then
+    raise exception 'nao_encontrado' using errcode = 'P0001';
+  end if;
+  if not exists (select 1 from public.rs_vaga_equipe where vaga_id = v.vaga_id and membro_id = p_membro) then
+    raise exception 'fora_da_equipe' using errcode = 'P0001';
+  end if;
+  if v.situacao <> 'ativa' then
+    raise exception 'candidatura_nao_ativa' using errcode = 'P0001';
+  end if;
+  if not exists (select 1 from public.rs_etapas where id = p_etapa and vaga_id = v.vaga_id) then
+    raise exception 'etapa_de_outra_vaga' using errcode = 'P0001';
+  end if;
+  if pg_catalog.char_length(v_comentario) not between 10 and 5000 then
+    raise exception 'comentario_invalido' using errcode = 'P0001';
+  end if;
+  v_nova := not exists (select 1 from public.rs_avaliacoes where candidatura_id = p_candidatura and etapa_id = p_etapa and membro_id = p_membro);
+  insert into public.rs_avaliacoes (candidatura_id, etapa_id, membro_id, recomendacao, comentario)
+  values (p_candidatura, p_etapa, p_membro, p_recomendacao, v_comentario)
+  on conflict (candidatura_id, etapa_id, membro_id)
+  do update set recomendacao = excluded.recomendacao, comentario = excluded.comentario
+  returning id into v_id;
+  update public.rs_candidaturas set atualizado_em = pg_catalog.now() where id = p_candidatura;
+  perform public.rs_fn_registra_evento(p_empresa, v.vaga_id, p_candidatura, 'avaliacao_registrada', p_ator, 'web',
+    pg_catalog.jsonb_build_object('candidatura_id', p_candidatura, 'etapa_id', p_etapa, 'recomendacao', p_recomendacao,
+      'nova', v_nova));
+  return v_id;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_registra_avaliacao"("p_candidatura" "uuid", "p_empresa" "uuid", "p_etapa" "uuid", "p_membro" "uuid", "p_recomendacao" "public"."rs_recomendacao", "p_comentario" "text", "p_ator" "jsonb") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."rs_fn_registra_evento"("p_empresa" "uuid", "p_vaga" "uuid", "p_candidatura" "uuid", "p_tipo" "text", "p_ator" "jsonb", "p_origem" "public"."rs_origem_evento", "p_dados" "jsonb" DEFAULT '{}'::"jsonb") RETURNS bigint
@@ -1984,6 +2156,7 @@ CREATE TABLE IF NOT EXISTS "public"."rs_candidaturas" (
     "exclusao_codigos_hora" smallint DEFAULT 0 NOT NULL,
     "exclusao_janela_desde" timestamp with time zone,
     "talentos_pedido" boolean DEFAULT false NOT NULL,
+    "atualizado_em" timestamp with time zone DEFAULT "now"() NOT NULL,
     CONSTRAINT "rs_candidaturas_encerramento" CHECK ((("situacao" = 'ativa'::"public"."rs_situacao_candidatura") = ("encerrada_em" IS NULL))),
     CONSTRAINT "rs_candidaturas_expurgo" CHECK ((("situacao" <> 'ativa'::"public"."rs_situacao_candidatura") OR ("expurgar_em" IS NULL))),
     CONSTRAINT "rs_candidaturas_motivo" CHECK ((("motivo_reprovacao" IS NULL) OR ("situacao" = 'reprovada'::"public"."rs_situacao_candidatura")))
@@ -2688,6 +2861,10 @@ CREATE INDEX "rs_candidatos_talentos" ON "public"."rs_candidatos" USING "btree" 
 
 
 
+CREATE INDEX "rs_candidaturas_atualizado" ON "public"."rs_candidaturas" USING "btree" ("empresa_id", "atualizado_em");
+
+
+
 CREATE INDEX "rs_candidaturas_busca" ON "public"."rs_candidaturas" USING "gin" ("texto_busca");
 
 
@@ -2933,6 +3110,10 @@ CREATE OR REPLACE TRIGGER "rs_tg_atualizado_em" BEFORE UPDATE ON "public"."rs_av
 
 
 CREATE OR REPLACE TRIGGER "rs_tg_atualizado_em" BEFORE UPDATE ON "public"."rs_candidatos" FOR EACH ROW EXECUTE FUNCTION "public"."rs_tg_atualizado_em"();
+
+
+
+CREATE OR REPLACE TRIGGER "rs_tg_atualizado_em" BEFORE UPDATE ON "public"."rs_candidaturas" FOR EACH ROW EXECUTE FUNCTION "public"."rs_tg_atualizado_em"();
 
 
 
@@ -3378,6 +3559,11 @@ GRANT ALL ON FUNCTION "public"."rs_fn_aceita_convite"("p_membro" "uuid", "p_usua
 
 
 
+REVOKE ALL ON FUNCTION "public"."rs_fn_adiciona_nota"("p_candidatura" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_texto" "text", "p_ator" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_adiciona_nota"("p_candidatura" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_texto" "text", "p_ator" "jsonb") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."rs_fn_anonimiza_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_anonimiza_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid") TO "service_role";
 
@@ -3513,6 +3699,16 @@ GRANT ALL ON FUNCTION "public"."rs_fn_grava_perguntas"("p_vaga" "uuid", "p_pergu
 
 
 
+REVOKE ALL ON FUNCTION "public"."rs_fn_lista_candidaturas"("p_empresa" "uuid", "p_alcance" "jsonb", "p_filtros" "jsonb", "p_inicio" integer, "p_limite" integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_lista_candidaturas"("p_empresa" "uuid", "p_alcance" "jsonb", "p_filtros" "jsonb", "p_inicio" integer, "p_limite" integer) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_move_etapa"("p_ids" "uuid"[], "p_empresa" "uuid", "p_etapa" "uuid", "p_alcance" "jsonb", "p_ator" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_move_etapa"("p_ids" "uuid"[], "p_empresa" "uuid", "p_etapa" "uuid", "p_alcance" "jsonb", "p_ator" "jsonb") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."rs_fn_muda_acesso"("p_membro" "uuid", "p_papel" "public"."rs_papel_membro", "p_todas_areas" boolean, "p_areas" "uuid"[], "p_ator" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_muda_acesso"("p_membro" "uuid", "p_papel" "public"."rs_papel_membro", "p_todas_areas" boolean, "p_areas" "uuid"[], "p_ator" "jsonb") TO "service_role";
 
@@ -3525,6 +3721,11 @@ GRANT ALL ON FUNCTION "public"."rs_fn_novo_codigo_exclusao"("p_candidatura" "uui
 
 REVOKE ALL ON FUNCTION "public"."rs_fn_reenvia_convite"("p_membro" "uuid", "p_token_hash" "text", "p_expira_em" timestamp with time zone, "p_ator" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_reenvia_convite"("p_membro" "uuid", "p_token_hash" "text", "p_expira_em" timestamp with time zone, "p_ator" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_registra_avaliacao"("p_candidatura" "uuid", "p_empresa" "uuid", "p_etapa" "uuid", "p_membro" "uuid", "p_recomendacao" "public"."rs_recomendacao", "p_comentario" "text", "p_ator" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_registra_avaliacao"("p_candidatura" "uuid", "p_empresa" "uuid", "p_etapa" "uuid", "p_membro" "uuid", "p_recomendacao" "public"."rs_recomendacao", "p_comentario" "text", "p_ator" "jsonb") TO "service_role";
 
 
 
