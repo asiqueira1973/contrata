@@ -7,7 +7,7 @@
 A especificação completa está em [`spec.md`](spec.md); os planos de cada épico, em [`plans/`](plans/); o que existe de fato, em [`DOCUMENTACAO-TECNICA.md`](DOCUMENTACAO-TECNICA.md).
 
 ## Estado
-Em implementação. Prontos: guardrails (8.0), fundação (8.1: banco, login com Google, empresa, equipe, convites, áreas e pessoas) e **o conector (8.2)**: OAuth próprio, servidor MCP em `/mcp` com consultas e formulários dentro do chat, chaves de API e a API v1 de leitura. Vagas e candidaturas chegam a partir do 8.3. O guia completo de auto-hospedagem entra no épico 8.12.
+Em implementação. Prontos: guardrails (8.0), fundação (8.1), o conector (8.2: OAuth, servidor MCP com consultas e formulários no chat, chaves de API, API v1) e **vagas e página de carreiras (8.3)**: pelo chat, criar, editar, publicar, pausar e encerrar vagas, com etapas, perguntas e equipe; a vaga publicada aparece em `/{empresa}` e `/{empresa}/vagas/{slug}` (com JSON-LD para o Google), no feed `/{empresa}/vagas.xml`, no `sitemap.xml` e na API pública. Candidaturas chegam no 8.4. O guia completo de auto-hospedagem entra no épico 8.12.
 
 ## Rodar localmente
 
@@ -24,6 +24,8 @@ Preencha o `.env.local`:
 - `SESSION_SECRET`: `openssl rand -base64 32`;
 - `CRIACAO_EMPRESA_EMAILS`: os e-mails (ou `@seudominio.com.br`) que podem criar empresa. **Vazia, ninguém cria**;
 - `MCP_PREVIEW_SECRET`: `openssl rand -base64 32` (assina as prévias do conector para clientes sem formulário);
+- `PREVIA_PAGINA_SECRET`: `openssl rand -base64 32` (link de pré-visualização da página de carreiras ainda não publicada);
+- `CRON_SECRET`: `openssl rand -base64 32` (protege a faxina diária, `/api/cron/diario`; na Vercel, o `vercel.json` já agenda 1×/dia);
 - `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`: veja abaixo.
 
 ```bash
@@ -58,6 +60,9 @@ node scripts/dev-session.mjs carla@padaria.exemplo
 ```
 
 O comando imprime um cookie `rs_sessao=…` para colar no navegador em `localhost:3050`. Ele recusa rodar contra um banco que não seja o local.
+
+### Página de carreiras
+Com o seed, `http://localhost:3050/padaria-exemplo` mostra a página da Padaria Exemplo com duas vagas publicadas. A página só aparece depois que um administrador a publica (peça ao Claude: "publique a página de carreiras"); antes disso, o formulário devolve um link de pré-visualização que vale 10 minutos.
 
 ### Ver os formulários sem o Claude
 Com `npm run dev`, abra `http://localhost:3050/dev/formularios`. É um host de MCP Apps que só existe em desenvolvimento: cole um token `rsm_` local, escolha a ferramenta (`abrir_formulario_convite`, `abrir_formulario_pessoa`…) e os argumentos, e o formulário abre como abriria no chat, em tema claro ou escuro.

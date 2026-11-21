@@ -2,7 +2,7 @@
 
 | Campo | Valor |
 |---|---|
-| Versão | 0.4.2 (20/11/2026: **mexer em acesso não tem fallback**. Convite e acesso só pelo formulário, e "dar acesso" é recusado na prévia de pessoa, pelo mesmo motivo das decisões: sem formulário, o próprio modelo poderia confirmar) · 0.4.1 (20/11/2026, divergências do 8.2: **um renderizador de formulário genérico** em `ui/formulario/`, descrito pelo servidor, no lugar de um HTML por ação; a origem do evento viaja no ator; token do conector sem refresh, vale até ser revogado) · 0.4 (20/11/2026: **um sistema para agentes, não para humanos**. MCP first e headless: o console do LLM é a tela de quem recruta; consulta em linguagem natural e escrita por formulário no chat (MCP Apps), no padrão "o modelo propõe, a pessoa grava" do Agenda Psi. Sai o painel web; ficam na web só entrar/consentir/convite, o candidato e páginas públicas. Pergunta 25.3 respondida: decisões são confirmadas pelo clique no formulário. Avaliadores avaliam pelo LLM. Nova ordem de épicos a partir do 8.2) · 0.3 (20/11/2026: **clone e use, não SaaS**. Saem o pedido de convite da instância (tabela `rs_pedidos_convite`, telas `/pedir-convite` e `/admin/convites`, `CRIACAO_EMPRESA`, `ADMIN_INSTANCIA_EMAILS`) e os limites de instância de SaaS (usuários e empresas novas por dia, empresas por usuário). Quem pode criar empresa passa a ser a lista `CRIACAO_EMPRESA_EMAILS` (regra 11.33 reescrita). A instância continua servindo várias empresas) · 0.2 (20/11/2026: perguntas 25.2, 25.5, 25.6 e 25.7 respondidas; Resend gratuito; licença MIT; SMTP fica para a v2) · 0.1 (20/11/2026: primeira versão. ATS aberto e gratuito, só de recrutamento e seleção, para várias empresas, com API e MCP como portas principais do lado de quem recruta. Login sempre pelo Google; administração da empresa com convites, papéis, áreas e cadastro de pessoas, incluindo donos de vaga que não acessam o sistema) |
+| Versão | 0.4.3 (21/11/2026, divergências do 8.3: etapas e perguntas no formulário `vaga` com o campo `lista`; `encerrar_vaga` sem fallback e com escopo `decisao`; formulário `pagina_de_carreiras` (publicar e pré-visualizar) antes do 8.9; `Idempotency-Key` guardada na vaga; encerrar com candidatura em andamento recusado até o 8.6) · 0.4.2 (20/11/2026: **mexer em acesso não tem fallback**. Convite e acesso só pelo formulário, e "dar acesso" é recusado na prévia de pessoa, pelo mesmo motivo das decisões: sem formulário, o próprio modelo poderia confirmar) · 0.4.1 (20/11/2026, divergências do 8.2: **um renderizador de formulário genérico** em `ui/formulario/`, descrito pelo servidor, no lugar de um HTML por ação; a origem do evento viaja no ator; token do conector sem refresh, vale até ser revogado) · 0.4 (20/11/2026: **um sistema para agentes, não para humanos**. MCP first e headless: o console do LLM é a tela de quem recruta; consulta em linguagem natural e escrita por formulário no chat (MCP Apps), no padrão "o modelo propõe, a pessoa grava" do Agenda Psi. Sai o painel web; ficam na web só entrar/consentir/convite, o candidato e páginas públicas. Pergunta 25.3 respondida: decisões são confirmadas pelo clique no formulário. Avaliadores avaliam pelo LLM. Nova ordem de épicos a partir do 8.2) · 0.3 (20/11/2026: **clone e use, não SaaS**. Saem o pedido de convite da instância (tabela `rs_pedidos_convite`, telas `/pedir-convite` e `/admin/convites`, `CRIACAO_EMPRESA`, `ADMIN_INSTANCIA_EMAILS`) e os limites de instância de SaaS (usuários e empresas novas por dia, empresas por usuário). Quem pode criar empresa passa a ser a lista `CRIACAO_EMPRESA_EMAILS` (regra 11.33 reescrita). A instância continua servindo várias empresas) · 0.2 (20/11/2026: perguntas 25.2, 25.5, 25.6 e 25.7 respondidas; Resend gratuito; licença MIT; SMTP fica para a v2) · 0.1 (20/11/2026: primeira versão. ATS aberto e gratuito, só de recrutamento e seleção, para várias empresas, com API e MCP como portas principais do lado de quem recruta. Login sempre pelo Google; administração da empresa com convites, papéis, áreas e cadastro de pessoas, incluindo donos de vaga que não acessam o sistema) |
 | Responsável de produto | Alexandre Siqueira (DabLab) |
 | Status | pronto para revisão |
 | Data | 20/11/2026 |
@@ -770,18 +770,20 @@ Todas as funções em `plpgsql`, `SECURITY INVOKER`, `search_path=''`, chamadas 
 ### 8.3 Vagas e página de carreiras
 **Objetivo:** criar, publicar, pausar e encerrar vagas pelo chat, com página pública indexável.
 **Fluxo:** "abra uma vaga de assistente administrativo no Financeiro, para o Bruno…" → `listar_areas` + `listar_pessoas` → `abrir_formulario_vaga` (preenchido; etapas padrão; perguntas) → Salvar (rascunho) → "publique" → `abrir_formulario_publicar_vaga` → Publicar → aparece em `/{empresa}` e `/{empresa}/vagas/{slug}`, no feed, no sitemap e na API pública.
-- [ ] Validação da regra 11.1 igual no formulário, no `salvar_*`, no fallback e na API v1 (mesmo schema zod).
-- [ ] Área fora do alcance do recrutador é recusada (`fora_do_alcance`); trocar a área de uma vaga só para outra área do alcance.
-- [ ] Dono da vaga escolhido no cadastro de pessoas (opções por busca); se tiver acesso, entra na equipe como avaliador; se não tiver, o formulário mostra "Sem acesso · recebe resumo semanal" (11.31).
-- [ ] `listar_vagas` filtra por área, dono e status; a página de carreiras filtra por área (nome da área, nunca o dono).
-- [ ] Rascunho: tudo editável. Publicada: perguntas congeladas (o formulário mostra só leitura), o resto editável. Encerrada: nada muda (trigger + teste).
-- [ ] Página de carreiras só responde com `pagina_publicada = true`; o formulário "Página de carreiras" (8.9) devolve o link de pré-visualização assinado de 10 min com a faixa "Página ainda não publicada".
-- [ ] JSON-LD `JobPosting` conforme a regra 11.20 (com os ajustes de formato registrados no `plans/8.1-fundacao.md`), validado em teste e no Teste de Pesquisa Aprimorada do Google.
-- [ ] Vaga pausada ou encerrada: a página responde 200 com "Esta vaga não recebe mais candidaturas" e **sem** JSON-LD; sai do sitemap e do feed.
-- [ ] `GET /{empresa}/vagas.xml` (feed) e `GET /api/publico/{empresa}/vagas` (JSON) listam só publicadas.
-- [ ] Encerrar com candidaturas ativas abre o formulário de decisão com quantas pessoas vão receber a devolutiva e o texto (8.6). Pela API v1 vira proposta (11.7).
-- [ ] Data-limite vencida: a faxina pausa a vaga e avisa o responsável (11.11).
-- [ ] Ferramentas: `listar_vagas`, `ver_vaga`, `resumo_da_vaga` (consulta); formulários `vaga` (criar e editar, com etapas, perguntas e equipe), `publicar_vaga`, `pausar_vaga`, `encerrar_vaga`.
+- [x] Validação da regra 11.1 igual no formulário, no `salvar_*`, no fallback e na API v1 (mesmo schema zod).
+- [x] Área fora do alcance do recrutador é recusada (`fora_do_alcance`); trocar a área de uma vaga só para outra área do alcance.
+- [x] Dono da vaga escolhido no cadastro de pessoas (opções por busca); se tiver acesso, entra na equipe como avaliador; se não tiver, o formulário mostra "Sem acesso · recebe resumo semanal" (11.31).
+- [x] `listar_vagas` filtra por área, dono e status; a página de carreiras filtra por área (nome da área, nunca o dono).
+- [x] Rascunho: tudo editável. Publicada: perguntas congeladas (o formulário mostra só leitura), o resto editável. Encerrada: nada muda (trigger + teste).
+- [x] Página de carreiras só responde com `pagina_publicada = true`; o formulário "Página de carreiras" (trazido para o 8.3; o 8.9 completa) devolve o link de pré-visualização assinado de 10 min com a faixa "Página ainda não publicada".
+- [ ] JSON-LD `JobPosting` conforme a regra 11.20 (com os ajustes de formato registrados no `plans/8.1-fundacao.md`), validado em teste e no Teste de Pesquisa Aprimorada do Google. *(Teste local feito; o do Google depende de URL pública.)*
+- [x] Vaga pausada ou encerrada: a página responde 200 com "Esta vaga não recebe mais candidaturas" e **sem** JSON-LD; sai do sitemap e do feed.
+- [x] `GET /{empresa}/vagas.xml` (feed) e `GET /api/publico/{empresa}/vagas` (JSON) listam só publicadas.
+- [ ] Encerrar com candidaturas ativas abre o formulário de decisão com quantas pessoas vão receber a devolutiva e o texto (8.6). Pela API v1 vira proposta (11.7). *(No 8.3 o domínio recusa com `vaga_com_ativas` e a API responde 409; o 8.6 completa.)*
+- [x] Data-limite vencida: a faxina pausa a vaga e avisa o responsável (11.11). *(O aviso sai no resumo diário do 8.10.)*
+- [x] Ferramentas: `listar_vagas`, `ver_vaga`, `resumo_da_vaga` (consulta); formulários `vaga` (criar e editar, com etapas, perguntas e equipe), `publicar_vaga`, `pausar_vaga`, `encerrar_vaga`.
+
+**Concluído no local e com a migration no remoto em 21/11/2026** (v0.4.3, `plans/8.3-vagas.md`). Pendentes: URL pública (Teste de Pesquisa Aprimorada e fluxo no Claude e no ChatGPT) e a parte de decisão do encerramento (8.6).
 
 ### 8.4 Candidatura e link de acompanhamento
 **Objetivo:** a pessoa se candidata em menos de três minutos e acompanha pelo link (web, o candidato não tem agente).
@@ -1122,7 +1124,9 @@ Base `/api/v1`, `Authorization: Bearer rsk_…` (ou `rsm_…`). Escopo exigido e
 | `webhooks` | F | administrador | — | `registrar_webhook` |
 | `empresa` · `excluir_empresa` | F | administrador | — | `registrar_empresa`; excluir sem fallback |
 | `vaga` (criar e editar, etapas, perguntas, equipe) | F | recrutador | `listar_areas`, `listar_pessoas`, `listar_equipe` | `registrar_vaga` |
-| `publicar_vaga` · `pausar_vaga` | F | recrutador | `listar_vagas` | `registrar_publicacao` |
+| `publicar_vaga` · `pausar_vaga` | F | recrutador | vagas do alcance | `registrar_publicar_vaga` · `registrar_pausar_vaga` |
+| `encerrar_vaga` (sem candidatura em andamento, com motivo e confirmação) | F | recrutador, escopo `decisao` | vagas do alcance | **nenhum** (irreversível; com candidatura em andamento é `decisoes`) |
+| `pagina_de_carreiras` (publicar ou tirar do ar; link de pré-visualização de 10 min) — o 8.9 acrescenta logo, cor e descrição | F | administrador | — | **nenhum** |
 | `adicionar_candidato` | F | recrutador | `listar_vagas` | `registrar_candidato` (sem currículo) |
 | `avaliacao` | F | equipe da vaga | `listar_candidaturas` | `registrar_avaliacao` |
 | `mensagem` · `modelos_mensagem` · `convidar_para_vaga` · `resposta_revisao` | F | recrutador | modelos, vagas | `registrar_…` |
