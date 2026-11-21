@@ -45,7 +45,7 @@ select is((select sinalizada from public.rs_candidaturas where id = pg_temp.id('
 select is((select email::text from public.rs_candidatos k join public.rs_candidaturas c on c.candidato_id = k.id where c.id = pg_temp.id('c1')), 'ana.silva@teste.dev', 'e-mail normalizado');
 select is(pg_temp.cria('ana.silva@teste.dev', 'tok-1b', jsonb_build_array(jsonb_build_object('pergunta_id', pg_temp.id('p1'), 'valor', 'sim'))),
           jsonb_build_object('id', pg_temp.id('c1'), 'existente', true, 'recebida', false), 'mesmo e-mail na vaga devolve a existente (11.3)');
-select is((select token_hash from public.rs_candidaturas where id = pg_temp.id('c1')), 'tok-1b', 'a duplicada troca o token para reenviar o link');
+select is((select token_hash from public.rs_candidaturas where id = pg_temp.id('c1')), 'tok-1', 'a duplicada não mexe no token (o servidor gira o link pela rs_fn_troca_link, 8.6)');
 select is((select sinalizada from public.rs_candidaturas where id = pg_temp.id('c1')), true, 'a duplicada não muda a candidatura');
 select throws_ok($$select public.rs_fn_cria_candidatura(pg_temp.id('e'), pg_temp.id('v'), pg_temp.cand('b@teste.dev'),
   jsonb_build_array(jsonb_build_object('pergunta_id', pg_temp.id('p1'), 'valor', 'sim')), 'pagina', pg_temp.publico(), '2026-11-20', false, 'tok-x', 1)$$,

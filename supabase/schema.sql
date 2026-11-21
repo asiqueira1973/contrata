@@ -391,6 +391,32 @@ end $$;
 ALTER FUNCTION "public"."rs_fn_adiciona_nota"("p_candidatura" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_texto" "text", "p_ator" "jsonb") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."rs_fn_alvo_da_decisao"("p_empresa" "uuid", "p_tipo" "public"."rs_tipo_decisao", "p_candidatura" "uuid", "p_vaga" "uuid", "p_alcance" "jsonb") RETURNS "text"
+    LANGUAGE "plpgsql" STABLE
+    SET "search_path" TO ''
+    AS $$
+declare
+  v public.rs_candidaturas;
+  v_vaga public.rs_vagas;
+begin
+  if p_tipo = 'encerrar_vaga' then
+    select * into v_vaga from public.rs_vagas where id = p_vaga and empresa_id = p_empresa;
+    if v_vaga.id is null or not public.rs_fn_vaga_no_alcance(v_vaga.id, v_vaga.area_id, p_alcance) then return 'nao_encontrado'; end if;
+    if v_vaga.status = 'encerrada' then return 'vaga_encerrada'; end if;
+    return null;
+  end if;
+  select * into v from public.rs_candidaturas where id = p_candidatura and empresa_id = p_empresa and recebida_em is not null;
+  select * into v_vaga from public.rs_vagas where id = v.vaga_id;
+  if v.id is null or not public.rs_fn_vaga_no_alcance(v_vaga.id, v_vaga.area_id, p_alcance) then return 'nao_encontrado'; end if;
+  if exists (select 1 from public.rs_candidatos where id = v.candidato_id and anonimizado_em is not null) then return 'candidatura_encerrada'; end if;
+  if p_tipo <> 'enviar_mensagem' and v.situacao <> 'ativa' then return 'candidatura_encerrada'; end if;
+  return null;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_alvo_da_decisao"("p_empresa" "uuid", "p_tipo" "public"."rs_tipo_decisao", "p_candidatura" "uuid", "p_vaga" "uuid", "p_alcance" "jsonb") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."rs_fn_anonimiza_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid") RETURNS "text"[]
     LANGUAGE "plpgsql"
     SET "search_path" TO ''
@@ -411,7 +437,7 @@ begin
   update public.rs_mensagens set assunto = '', corpo = '' where candidatura_id = p_candidatura;
   update public.rs_notificacoes set status = 'descartada', html = '', texto = ''
    where candidatura_id = p_candidatura and status in ('pendente', 'falhou');
-  update public.rs_candidaturas set texto_busca = null, sinalizada = false, exclusao_codigo_hash = null,
+  update public.rs_candidaturas set texto_busca = null, sinalizada = false, exclusao_codigo_hash = null, revisao_texto = null,
          token_hash = 'anonimizada:' || id::text
    where id = p_candidatura;
   perform public.rs_fn_registra_evento(p_empresa, v.vaga_id, p_candidatura, 'candidatura_anonimizada',
@@ -618,6 +644,53 @@ end $$;
 ALTER FUNCTION "public"."rs_fn_confere_vaga"("p_empresa" "uuid", "p_area" "uuid", "p_dono" "uuid", "p_alcance" "jsonb") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."rs_fn_confirma_decisao"("p_decisao" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_payload" "jsonb", "p_mensagens" "jsonb", "p_ator" "jsonb") RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare
+  d public.rs_decisoes;
+  v_motivo text;
+  v_ator jsonb;
+begin
+  if p_ator ->> 'tipo' <> 'membro' then
+    raise exception 'decisao_so_por_pessoa' using errcode = 'P0001';
+  end if;
+  select * into d from public.rs_decisoes where id = p_decisao and empresa_id = p_empresa for update;
+  if d.id is null then
+    raise exception 'nao_encontrado' using errcode = 'P0001';
+  end if;
+  if d.status <> 'pendente' then
+    return pg_catalog.jsonb_build_object('status', d.status, 'motivo', 'ja_decidida');
+  end if;
+  v_motivo := case when d.expira_em <= pg_catalog.now() then 'venceu'
+                   else public.rs_fn_alvo_da_decisao(p_empresa, d.tipo, d.candidatura_id, d.vaga_id, p_alcance) end;
+  if v_motivo = 'nao_encontrado' then
+    raise exception 'nao_encontrado' using errcode = 'P0001';
+  end if;
+  if v_motivo is not null then
+    update public.rs_decisoes set status = 'expirada', decidida_por_membro_id = (p_ator ->> 'membro_id')::uuid, decidida_em = pg_catalog.now()
+     where id = d.id;
+    perform public.rs_fn_registra_evento(p_empresa, d.vaga_id, d.candidatura_id, 'decisao_expirada', p_ator, 'web',
+      pg_catalog.jsonb_build_object('decisao_id', d.id, 'motivo', v_motivo));
+    return pg_catalog.jsonb_build_object('status', 'expirada', 'motivo', v_motivo);
+  end if;
+  -- Quem executa é o membro que clicou; o evento guarda quem propôs.
+  v_ator := p_ator || pg_catalog.jsonb_build_object('autorizado_por_membro_id', p_ator ->> 'membro_id');
+  perform public.rs_fn_executa_decisao(p_empresa, d.tipo, d.candidatura_id, d.vaga_id, coalesce(p_payload, d.payload), p_mensagens, v_ator, d.id);
+  update public.rs_decisoes set status = 'confirmada', payload = coalesce(p_payload, d.payload),
+         decidida_por_membro_id = (p_ator ->> 'membro_id')::uuid, decidida_em = pg_catalog.now()
+   where id = d.id;
+  perform public.rs_fn_registra_evento(p_empresa, d.vaga_id, d.candidatura_id, 'decisao_confirmada', v_ator, 'web',
+    pg_catalog.jsonb_build_object('decisao_id', d.id, 'tipo', d.tipo, 'proposta_por_tipo', d.proposta_por_tipo,
+      'proposta_por_membro_id', d.proposta_por_membro_id, 'proposta_por_credencial_id', d.credencial_id));
+  return pg_catalog.jsonb_build_object('status', 'confirmada');
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_confirma_decisao"("p_decisao" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_payload" "jsonb", "p_mensagens" "jsonb", "p_ator" "jsonb") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."rs_fn_conta_tentativa"("p_chave" "text", "p_tipo" "text", "p_limite" integer, "p_janela_s" integer) RETURNS boolean
     LANGUAGE "plpgsql"
     SET "search_path" TO ''
@@ -699,8 +772,7 @@ begin
   if v_candidato is not null then
     select * into v_existente from public.rs_candidaturas where vaga_id = p_vaga and candidato_id = v_candidato for update;
     if v_existente.id is not null then
-      -- 11.3: não cria outra nem muda a candidatura; só troca o token para o link ser reenviado.
-      update public.rs_candidaturas set token_hash = p_token_hash where id = v_existente.id;
+      -- 11.3: não cria outra nem muda nada; o servidor gira o link (rs_fn_troca_link) para reenviá-lo.
       return pg_catalog.jsonb_build_object('id', v_existente.id, 'existente', true, 'recebida', v_existente.recebida_em is not null);
     end if;
   end if;
@@ -893,6 +965,52 @@ end $$;
 ALTER FUNCTION "public"."rs_fn_da_acesso"("p_pessoa" "uuid", "p_empresa" "uuid", "p_papel" "public"."rs_papel_membro", "p_todas_areas" boolean, "p_areas" "uuid"[], "p_token_hash" "text", "p_expira_em" timestamp with time zone, "p_max_pendentes" integer, "p_ator" "jsonb") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."rs_fn_decide"("p_empresa" "uuid", "p_tipo" "public"."rs_tipo_decisao", "p_candidatura" "uuid", "p_vaga" "uuid", "p_payload" "jsonb", "p_mensagens" "jsonb", "p_alcance" "jsonb", "p_ator" "jsonb") RETURNS integer
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare v_motivo text;
+begin
+  if p_ator ->> 'tipo' <> 'membro' then
+    raise exception 'decisao_so_por_pessoa' using errcode = 'P0001';
+  end if;
+  v_motivo := public.rs_fn_alvo_da_decisao(p_empresa, p_tipo, p_candidatura, p_vaga, p_alcance);
+  if v_motivo is not null then
+    raise exception '%', case when v_motivo = 'nao_encontrado' then 'nao_encontrado' else 'transicao_proibida' end using errcode = 'P0001';
+  end if;
+  return public.rs_fn_executa_decisao(p_empresa, p_tipo, p_candidatura, p_vaga, p_payload, p_mensagens, p_ator, null);
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_decide"("p_empresa" "uuid", "p_tipo" "public"."rs_tipo_decisao", "p_candidatura" "uuid", "p_vaga" "uuid", "p_payload" "jsonb", "p_mensagens" "jsonb", "p_alcance" "jsonb", "p_ator" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_descarta_decisao"("p_decisao" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_motivo" "text", "p_ator" "jsonb") RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare d public.rs_decisoes;
+begin
+  if p_ator ->> 'tipo' <> 'membro' then
+    raise exception 'decisao_so_por_pessoa' using errcode = 'P0001';
+  end if;
+  select * into d from public.rs_decisoes where id = p_decisao and empresa_id = p_empresa for update;
+  if d.id is null or public.rs_fn_alvo_da_decisao(p_empresa, d.tipo, d.candidatura_id, d.vaga_id, p_alcance) = 'nao_encontrado' then
+    raise exception 'nao_encontrado' using errcode = 'P0001';
+  end if;
+  if d.status <> 'pendente' then
+    raise exception 'proposta_invalida' using errcode = 'P0001';
+  end if;
+  update public.rs_decisoes set status = 'descartada', decidida_por_membro_id = (p_ator ->> 'membro_id')::uuid, decidida_em = pg_catalog.now()
+   where id = d.id;
+  perform public.rs_fn_registra_evento(p_empresa, d.vaga_id, d.candidatura_id, 'decisao_descartada', p_ator, 'web',
+    pg_catalog.jsonb_build_object('decisao_id', d.id, 'tipo', d.tipo));
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_descarta_decisao"("p_decisao" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_motivo" "text", "p_ator" "jsonb") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."rs_fn_encerra_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid", "p_situacao" "public"."rs_situacao_candidatura", "p_ator" "jsonb", "p_motivo" "public"."rs_motivo_reprovacao", "p_mensagem" "jsonb", "p_dados" "jsonb" DEFAULT '{}'::"jsonb") RETURNS "jsonb"
     LANGUAGE "plpgsql"
     SET "search_path" TO ''
@@ -912,7 +1030,9 @@ begin
   if v.situacao <> 'ativa' or p_situacao = 'ativa' then
     raise exception 'transicao_proibida' using errcode = 'P0001';
   end if;
-  if p_situacao in ('reprovada', 'encerrada_vaga') and p_mensagem is null then
+  -- 11.5: reprovar e encerrar com a vaga exigem devolutiva de 20 a 3.000 caracteres, em todo caminho.
+  if p_situacao in ('reprovada', 'encerrada_vaga') and (p_mensagem is null
+     or pg_catalog.char_length(pg_catalog.btrim(coalesce(p_mensagem ->> 'corpo', ''))) not between 20 and 3000) then
     raise exception 'devolutiva_obrigatoria' using errcode = 'P0001';
   end if;
   select retencao_dias into v_retencao from public.rs_empresas where id = p_empresa;
@@ -991,6 +1111,52 @@ end $$;
 ALTER FUNCTION "public"."rs_fn_entra_usuario"("p_google_sub" "text", "p_email" "text", "p_nome" "text", "p_foto" "text") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."rs_fn_envia_mensagem"("p_candidatura" "uuid", "p_empresa" "uuid", "p_tipo" "public"."rs_tipo_mensagem", "p_mensagem" "jsonb", "p_ator" "jsonb", "p_decisao" "uuid", "p_cota" integer) RETURNS "uuid"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare
+  v public.rs_candidaturas;
+  v_notificacao uuid;
+  v_id uuid;
+begin
+  select * into v from public.rs_candidaturas where id = p_candidatura and empresa_id = p_empresa and recebida_em is not null for update;
+  if v.id is null then
+    raise exception 'nao_encontrado' using errcode = 'P0001';
+  end if;
+  if exists (select 1 from public.rs_candidatos where id = v.candidato_id and anonimizado_em is not null) then
+    raise exception 'candidatura_anonimizada' using errcode = 'P0001';
+  end if;
+  if pg_catalog.char_length(pg_catalog.btrim(coalesce(p_mensagem ->> 'corpo', ''))) not between 2 and 5000
+     or pg_catalog.char_length(pg_catalog.btrim(coalesce(p_mensagem ->> 'assunto', ''))) not between 2 and 200 then
+    raise exception 'mensagem_invalida' using errcode = 'P0001';
+  end if;
+  if p_cota is not null then
+    perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtext('mensagens_api:' || p_empresa::text));
+    if (select count(*) from public.rs_mensagens where empresa_id = p_empresa and ator_tipo = 'api'
+         and criado_em > pg_catalog.now() - interval '1 day') >= p_cota then
+      raise exception 'limite_mensagens' using errcode = 'P0001';
+    end if;
+  end if;
+  insert into public.rs_notificacoes (empresa_id, candidatura_id, tipo, destinatario, chave_idempotencia, assunto, html, texto, reply_to)
+  values (p_empresa, p_candidatura, 'mensagem_candidato', p_mensagem -> 'notificacao' ->> 'destinatario',
+          p_mensagem -> 'notificacao' ->> 'chave', p_mensagem -> 'notificacao' ->> 'assunto', p_mensagem -> 'notificacao' ->> 'html',
+          p_mensagem -> 'notificacao' ->> 'texto', nullif(p_mensagem -> 'notificacao' ->> 'reply_to', ''))
+  returning id into v_notificacao;
+  insert into public.rs_mensagens (empresa_id, candidatura_id, tipo, assunto, corpo, ator_tipo, membro_id, credencial_id, decisao_id, notificacao_id)
+  values (p_empresa, p_candidatura, p_tipo, p_mensagem ->> 'assunto', p_mensagem ->> 'corpo', (p_ator ->> 'tipo')::public.rs_tipo_ator,
+          (p_ator ->> 'membro_id')::uuid, (p_ator ->> 'credencial_id')::uuid, p_decisao, v_notificacao)
+  returning id into v_id;
+  update public.rs_candidaturas set atualizado_em = pg_catalog.now() where id = p_candidatura;
+  perform public.rs_fn_registra_evento(p_empresa, v.vaga_id, p_candidatura, 'mensagem_enviada', p_ator, 'web',
+    pg_catalog.jsonb_build_object('candidatura_id', p_candidatura, 'mensagem_id', v_id, 'tipo', p_tipo, 'decisao_id', p_decisao));
+  return v_id;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_envia_mensagem"("p_candidatura" "uuid", "p_empresa" "uuid", "p_tipo" "public"."rs_tipo_mensagem", "p_mensagem" "jsonb", "p_ator" "jsonb", "p_decisao" "uuid", "p_cota" integer) OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."rs_fn_exclui_dados_candidato"("p_candidatura" "uuid", "p_empresa" "uuid") RETURNS "text"[]
     LANGUAGE "plpgsql"
     SET "search_path" TO ''
@@ -1023,6 +1189,47 @@ end $$;
 
 
 ALTER FUNCTION "public"."rs_fn_exclui_dados_candidato"("p_candidatura" "uuid", "p_empresa" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_executa_decisao"("p_empresa" "uuid", "p_tipo" "public"."rs_tipo_decisao", "p_candidatura" "uuid", "p_vaga" "uuid", "p_payload" "jsonb", "p_mensagens" "jsonb", "p_ator" "jsonb", "p_decisao" "uuid") RETURNS integer
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare
+  v_c record;
+  v_n integer := 0;
+  v_dados jsonb := pg_catalog.jsonb_build_object('decisao_id', p_decisao);
+begin
+  if p_tipo = 'reprovar' then
+    perform public.rs_fn_encerra_candidatura(p_candidatura, p_empresa, 'reprovada', p_ator,
+      coalesce(nullif(p_payload ->> 'motivo', ''), 'outro')::public.rs_motivo_reprovacao, p_mensagens -> p_candidatura::text, v_dados);
+    return 1;
+  elsif p_tipo = 'contratar' then
+    perform public.rs_fn_encerra_candidatura(p_candidatura, p_empresa, 'contratada', p_ator, null, p_mensagens -> p_candidatura::text, v_dados);
+    return 1;
+  elsif p_tipo = 'enviar_mensagem' then
+    perform public.rs_fn_envia_mensagem(p_candidatura, p_empresa, coalesce(p_mensagens -> p_candidatura::text ->> 'tipo', 'contato')::public.rs_tipo_mensagem,
+      p_mensagens -> p_candidatura::text, p_ator, p_decisao, null);
+    return 1;
+  end if;
+  -- encerrar_vaga: todas as recebidas em andamento recebem a devolutiva (11.5); depois, a vaga.
+  if (select count(*) from public.rs_candidaturas where vaga_id = p_vaga and empresa_id = p_empresa and situacao = 'ativa'
+       and recebida_em is not null) > 1000 then
+    raise exception 'lote_grande_demais' using errcode = 'P0001';
+  end if;
+  for v_c in select id from public.rs_candidaturas where vaga_id = p_vaga and empresa_id = p_empresa and situacao = 'ativa'
+              and recebida_em is not null order by id for update loop
+    perform public.rs_fn_encerra_candidatura(v_c.id, p_empresa, 'encerrada_vaga', p_ator, null, p_mensagens -> v_c.id::text, v_dados);
+    v_n := v_n + 1;
+  end loop;
+  perform public.rs_fn_transicao_vaga(p_vaga, p_empresa, 'encerrada',
+    coalesce(nullif(p_payload ->> 'motivo_encerramento', ''), 'outro')::public.rs_motivo_encerramento_vaga,
+    '{"tipo":"todas"}', p_ator, 50);
+  return v_n;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_executa_decisao"("p_empresa" "uuid", "p_tipo" "public"."rs_tipo_decisao", "p_candidatura" "uuid", "p_vaga" "uuid", "p_payload" "jsonb", "p_mensagens" "jsonb", "p_ator" "jsonb", "p_decisao" "uuid") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."rs_fn_expurga_empresa"("p_empresa" "uuid") RETURNS "void"
@@ -1065,6 +1272,28 @@ end $$;
 
 
 ALTER FUNCTION "public"."rs_fn_faxina_candidaturas_abandonadas"("p_lote" integer) OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_faxina_decisoes"("p_lote" integer) RETURNS integer
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare
+  d record;
+  v_n integer := 0;
+begin
+  for d in select id, empresa_id, vaga_id, candidatura_id from public.rs_decisoes
+            where status = 'pendente' and expira_em <= pg_catalog.now() order by expira_em limit p_lote for update skip locked loop
+    update public.rs_decisoes set status = 'expirada', decidida_em = pg_catalog.now() where id = d.id;
+    perform public.rs_fn_registra_evento(d.empresa_id, d.vaga_id, d.candidatura_id, 'decisao_expirada',
+      '{"tipo":"sistema","origem":"cron"}', 'cron', pg_catalog.jsonb_build_object('decisao_id', d.id, 'motivo', 'venceu'));
+    v_n := v_n + 1;
+  end loop;
+  return v_n;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_faxina_decisoes"("p_lote" integer) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."rs_fn_faxina_vagas_vencidas"("p_lote" integer) RETURNS integer
@@ -1422,6 +1651,108 @@ end $$;
 ALTER FUNCTION "public"."rs_fn_novo_codigo_exclusao"("p_candidatura" "uuid", "p_codigo_hash" "text", "p_validade_s" integer, "p_intervalo_s" integer, "p_max_hora" integer) OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."rs_fn_pede_revisao"("p_candidatura" "uuid", "p_texto" "text") RETURNS "uuid"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare v public.rs_candidaturas;
+begin
+  select * into v from public.rs_candidaturas where id = p_candidatura for update;
+  if v.id is null or exists (select 1 from public.rs_candidatos where id = v.candidato_id and anonimizado_em is not null) then
+    raise exception 'nao_encontrado' using errcode = 'P0001';
+  end if;
+  if v.situacao not in ('reprovada', 'encerrada_vaga') or v.revisao_pedida_em is not null
+     or (v.expurgar_em is not null and v.expurgar_em <= pg_catalog.now()) then
+    raise exception 'revisao_indisponivel' using errcode = 'P0001';
+  end if;
+  if pg_catalog.char_length(coalesce(p_texto, '')) > 1000 then
+    raise exception 'revisao_texto_longo' using errcode = 'P0001';
+  end if;
+  update public.rs_candidaturas set revisao_pedida_em = pg_catalog.now(), revisao_texto = nullif(pg_catalog.btrim(coalesce(p_texto, '')), '')
+   where id = p_candidatura;
+  perform public.rs_fn_registra_evento(v.empresa_id, v.vaga_id, p_candidatura, 'revisao_pedida',
+    '{"tipo":"candidato","origem":"publico"}', 'publico', pg_catalog.jsonb_build_object('candidatura_id', p_candidatura));
+  return v.vaga_id;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_pede_revisao"("p_candidatura" "uuid", "p_texto" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_propoe_decisao"("p_empresa" "uuid", "p_tipo" "public"."rs_tipo_decisao", "p_candidatura" "uuid", "p_vaga" "uuid", "p_payload" "jsonb", "p_justificativa" "text", "p_ator" "jsonb", "p_alcance" "jsonb") RETURNS "uuid"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare
+  v_id uuid;
+  v_vaga uuid := p_vaga;
+  v_motivo text;
+begin
+  if p_ator ->> 'tipo' not in ('api', 'agente') or p_ator ->> 'credencial_id' is null then
+    raise exception 'ator_invalido' using errcode = 'P0001';
+  end if;
+  v_motivo := public.rs_fn_alvo_da_decisao(p_empresa, p_tipo, p_candidatura, p_vaga, p_alcance);
+  if v_motivo is not null then
+    raise exception '%', case when v_motivo = 'nao_encontrado' then 'nao_encontrado' else 'transicao_proibida' end using errcode = 'P0001';
+  end if;
+  if p_tipo = 'encerrar_vaga' then p_candidatura := null;
+  else select vaga_id into v_vaga from public.rs_candidaturas where id = p_candidatura; end if;
+  begin
+    insert into public.rs_decisoes (empresa_id, tipo, candidatura_id, vaga_id, payload, justificativa, proposta_por_tipo,
+                                    proposta_por_membro_id, credencial_id)
+    values (p_empresa, p_tipo, p_candidatura, case when p_tipo = 'encerrar_vaga' then p_vaga else v_vaga end, coalesce(p_payload, '{}'),
+            nullif(pg_catalog.btrim(coalesce(p_justificativa, '')), ''), (p_ator ->> 'tipo')::public.rs_tipo_ator,
+            (p_ator ->> 'membro_id')::uuid, (p_ator ->> 'credencial_id')::uuid)
+    returning id into v_id;
+  exception when unique_violation then
+    raise exception 'proposta_existente' using errcode = 'P0001';
+  end;
+  perform public.rs_fn_registra_evento(p_empresa, v_vaga, p_candidatura, 'decisao_proposta', p_ator, 'web',
+    pg_catalog.jsonb_build_object('decisao_id', v_id, 'tipo', p_tipo));
+  return v_id;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_propoe_decisao"("p_empresa" "uuid", "p_tipo" "public"."rs_tipo_decisao", "p_candidatura" "uuid", "p_vaga" "uuid", "p_payload" "jsonb", "p_justificativa" "text", "p_ator" "jsonb", "p_alcance" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_reabre_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_ator" "jsonb") RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare
+  v public.rs_candidaturas;
+  v_vaga public.rs_vagas;
+  v_etapa uuid;
+begin
+  select * into v from public.rs_candidaturas where id = p_candidatura and empresa_id = p_empresa and recebida_em is not null for update;
+  select * into v_vaga from public.rs_vagas where id = v.vaga_id;
+  if v.id is null or not public.rs_fn_vaga_no_alcance(v_vaga.id, v_vaga.area_id, p_alcance) then
+    raise exception 'nao_encontrado' using errcode = 'P0001';
+  end if;
+  if exists (select 1 from public.rs_candidatos where id = v.candidato_id and anonimizado_em is not null) then
+    raise exception 'candidatura_anonimizada' using errcode = 'P0001';
+  end if;
+  if v.situacao in ('ativa', 'encerrada_vaga') or (v.expurgar_em is not null and v.expurgar_em <= pg_catalog.now()) then
+    raise exception 'transicao_proibida' using errcode = 'P0001';
+  end if;
+  if v_vaga.status not in ('publicada', 'pausada') then
+    raise exception 'vaga_fechada' using errcode = 'P0001';
+  end if;
+  v_etapa := coalesce(v.etapa_id, (select id from public.rs_etapas where vaga_id = v.vaga_id order by ordem limit 1));
+  perform pg_catalog.set_config('rs.transicao', 'on', true);
+  update public.rs_candidaturas set situacao = 'ativa', encerrada_em = null, expurgar_em = null, motivo_reprovacao = null,
+         etapa_id = v_etapa, movida_em = pg_catalog.now()
+   where id = p_candidatura;
+  perform pg_catalog.set_config('rs.transicao', 'off', true);
+  perform public.rs_fn_registra_evento(p_empresa, v.vaga_id, p_candidatura, 'candidatura_reaberta', p_ator, 'web',
+    pg_catalog.jsonb_build_object('candidatura_id', p_candidatura, 'de', v.situacao));
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_reabre_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_ator" "jsonb") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."rs_fn_reenvia_convite"("p_membro" "uuid", "p_token_hash" "text", "p_expira_em" timestamp with time zone, "p_ator" "jsonb") RETURNS "void"
     LANGUAGE "plpgsql"
     SET "search_path" TO ''
@@ -1530,6 +1861,38 @@ end $$;
 
 
 ALTER FUNCTION "public"."rs_fn_remove_membro"("p_membro" "uuid", "p_ator" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_responde_revisao"("p_candidatura" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_mensagem" "jsonb", "p_reabrir" boolean, "p_ator" "jsonb") RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare
+  v public.rs_candidaturas;
+  v_vaga public.rs_vagas;
+begin
+  select * into v from public.rs_candidaturas where id = p_candidatura and empresa_id = p_empresa for update;
+  select * into v_vaga from public.rs_vagas where id = v.vaga_id;
+  if v.id is null or not public.rs_fn_vaga_no_alcance(v_vaga.id, v_vaga.area_id, p_alcance) then
+    raise exception 'nao_encontrado' using errcode = 'P0001';
+  end if;
+  if v.revisao_pedida_em is null or v.revisao_respondida_em is not null then
+    raise exception 'revisao_indisponivel' using errcode = 'P0001';
+  end if;
+  if p_reabrir and p_ator ->> 'tipo' <> 'membro' then
+    raise exception 'decisao_so_por_pessoa' using errcode = 'P0001';
+  end if;
+  perform public.rs_fn_envia_mensagem(p_candidatura, p_empresa, 'resposta_revisao', p_mensagem, p_ator, null, null);
+  update public.rs_candidaturas set revisao_respondida_em = pg_catalog.now() where id = p_candidatura;
+  perform public.rs_fn_registra_evento(p_empresa, v.vaga_id, p_candidatura, 'revisao_respondida', p_ator, 'web',
+    pg_catalog.jsonb_build_object('candidatura_id', p_candidatura, 'reaberta', coalesce(p_reabrir, false)));
+  if p_reabrir then
+    perform public.rs_fn_reabre_candidatura(p_candidatura, p_empresa, p_alcance, p_ator);
+  end if;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_responde_revisao"("p_candidatura" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_mensagem" "jsonb", "p_reabrir" boolean, "p_ator" "jsonb") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."rs_fn_revoga_credencial"("p_credencial" "uuid", "p_empresa" "uuid", "p_ator" "jsonb") RETURNS "void"
@@ -1824,6 +2187,21 @@ end $$;
 
 
 ALTER FUNCTION "public"."rs_fn_troca_codigo_oauth"("p_codigo_hash" "text", "p_cliente" "uuid", "p_redirect_uri" "text", "p_challenge_do_verifier" "text", "p_token_hash" "text", "p_token_prefixo" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_troca_link"("p_candidatura" "uuid", "p_empresa" "uuid", "p_versao" integer, "p_hash" "text") RETURNS boolean
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+begin
+  update public.rs_candidaturas set link_versao = p_versao + 1, token_hash = p_hash
+   where id = p_candidatura and empresa_id = p_empresa and link_versao = p_versao
+     and token_hash not like 'anonimizada:%';
+  return found;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_troca_link"("p_candidatura" "uuid", "p_empresa" "uuid", "p_versao" integer, "p_hash" "text") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."rs_fn_vaga_no_alcance"("p_vaga" "uuid", "p_area" "uuid", "p_alcance" "jsonb") RETURNS boolean
@@ -2157,9 +2535,12 @@ CREATE TABLE IF NOT EXISTS "public"."rs_candidaturas" (
     "exclusao_janela_desde" timestamp with time zone,
     "talentos_pedido" boolean DEFAULT false NOT NULL,
     "atualizado_em" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "link_versao" integer DEFAULT 0 NOT NULL,
+    "revisao_texto" "text",
     CONSTRAINT "rs_candidaturas_encerramento" CHECK ((("situacao" = 'ativa'::"public"."rs_situacao_candidatura") = ("encerrada_em" IS NULL))),
     CONSTRAINT "rs_candidaturas_expurgo" CHECK ((("situacao" <> 'ativa'::"public"."rs_situacao_candidatura") OR ("expurgar_em" IS NULL))),
-    CONSTRAINT "rs_candidaturas_motivo" CHECK ((("motivo_reprovacao" IS NULL) OR ("situacao" = 'reprovada'::"public"."rs_situacao_candidatura")))
+    CONSTRAINT "rs_candidaturas_motivo" CHECK ((("motivo_reprovacao" IS NULL) OR ("situacao" = 'reprovada'::"public"."rs_situacao_candidatura"))),
+    CONSTRAINT "rs_candidaturas_revisao_texto" CHECK (("char_length"("revisao_texto") <= 1000))
 );
 
 
@@ -3564,6 +3945,11 @@ GRANT ALL ON FUNCTION "public"."rs_fn_adiciona_nota"("p_candidatura" "uuid", "p_
 
 
 
+REVOKE ALL ON FUNCTION "public"."rs_fn_alvo_da_decisao"("p_empresa" "uuid", "p_tipo" "public"."rs_tipo_decisao", "p_candidatura" "uuid", "p_vaga" "uuid", "p_alcance" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_alvo_da_decisao"("p_empresa" "uuid", "p_tipo" "public"."rs_tipo_decisao", "p_candidatura" "uuid", "p_vaga" "uuid", "p_alcance" "jsonb") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."rs_fn_anonimiza_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_anonimiza_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid") TO "service_role";
 
@@ -3601,6 +3987,11 @@ GRANT ALL ON FUNCTION "public"."rs_fn_conclui_candidatura"("p_candidatura" "uuid
 
 REVOKE ALL ON FUNCTION "public"."rs_fn_confere_vaga"("p_empresa" "uuid", "p_area" "uuid", "p_dono" "uuid", "p_alcance" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_confere_vaga"("p_empresa" "uuid", "p_area" "uuid", "p_dono" "uuid", "p_alcance" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_confirma_decisao"("p_decisao" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_payload" "jsonb", "p_mensagens" "jsonb", "p_ator" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_confirma_decisao"("p_decisao" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_payload" "jsonb", "p_mensagens" "jsonb", "p_ator" "jsonb") TO "service_role";
 
 
 
@@ -3644,6 +4035,16 @@ GRANT ALL ON FUNCTION "public"."rs_fn_da_acesso"("p_pessoa" "uuid", "p_empresa" 
 
 
 
+REVOKE ALL ON FUNCTION "public"."rs_fn_decide"("p_empresa" "uuid", "p_tipo" "public"."rs_tipo_decisao", "p_candidatura" "uuid", "p_vaga" "uuid", "p_payload" "jsonb", "p_mensagens" "jsonb", "p_alcance" "jsonb", "p_ator" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_decide"("p_empresa" "uuid", "p_tipo" "public"."rs_tipo_decisao", "p_candidatura" "uuid", "p_vaga" "uuid", "p_payload" "jsonb", "p_mensagens" "jsonb", "p_alcance" "jsonb", "p_ator" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_descarta_decisao"("p_decisao" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_motivo" "text", "p_ator" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_descarta_decisao"("p_decisao" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_motivo" "text", "p_ator" "jsonb") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."rs_fn_encerra_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid", "p_situacao" "public"."rs_situacao_candidatura", "p_ator" "jsonb", "p_motivo" "public"."rs_motivo_reprovacao", "p_mensagem" "jsonb", "p_dados" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_encerra_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid", "p_situacao" "public"."rs_situacao_candidatura", "p_ator" "jsonb", "p_motivo" "public"."rs_motivo_reprovacao", "p_mensagem" "jsonb", "p_dados" "jsonb") TO "service_role";
 
@@ -3654,8 +4055,18 @@ GRANT ALL ON FUNCTION "public"."rs_fn_entra_usuario"("p_google_sub" "text", "p_e
 
 
 
+REVOKE ALL ON FUNCTION "public"."rs_fn_envia_mensagem"("p_candidatura" "uuid", "p_empresa" "uuid", "p_tipo" "public"."rs_tipo_mensagem", "p_mensagem" "jsonb", "p_ator" "jsonb", "p_decisao" "uuid", "p_cota" integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_envia_mensagem"("p_candidatura" "uuid", "p_empresa" "uuid", "p_tipo" "public"."rs_tipo_mensagem", "p_mensagem" "jsonb", "p_ator" "jsonb", "p_decisao" "uuid", "p_cota" integer) TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."rs_fn_exclui_dados_candidato"("p_candidatura" "uuid", "p_empresa" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_exclui_dados_candidato"("p_candidatura" "uuid", "p_empresa" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_executa_decisao"("p_empresa" "uuid", "p_tipo" "public"."rs_tipo_decisao", "p_candidatura" "uuid", "p_vaga" "uuid", "p_payload" "jsonb", "p_mensagens" "jsonb", "p_ator" "jsonb", "p_decisao" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_executa_decisao"("p_empresa" "uuid", "p_tipo" "public"."rs_tipo_decisao", "p_candidatura" "uuid", "p_vaga" "uuid", "p_payload" "jsonb", "p_mensagens" "jsonb", "p_ator" "jsonb", "p_decisao" "uuid") TO "service_role";
 
 
 
@@ -3666,6 +4077,11 @@ GRANT ALL ON FUNCTION "public"."rs_fn_expurga_empresa"("p_empresa" "uuid") TO "s
 
 REVOKE ALL ON FUNCTION "public"."rs_fn_faxina_candidaturas_abandonadas"("p_lote" integer) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_faxina_candidaturas_abandonadas"("p_lote" integer) TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_faxina_decisoes"("p_lote" integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_faxina_decisoes"("p_lote" integer) TO "service_role";
 
 
 
@@ -3719,6 +4135,21 @@ GRANT ALL ON FUNCTION "public"."rs_fn_novo_codigo_exclusao"("p_candidatura" "uui
 
 
 
+REVOKE ALL ON FUNCTION "public"."rs_fn_pede_revisao"("p_candidatura" "uuid", "p_texto" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_pede_revisao"("p_candidatura" "uuid", "p_texto" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_propoe_decisao"("p_empresa" "uuid", "p_tipo" "public"."rs_tipo_decisao", "p_candidatura" "uuid", "p_vaga" "uuid", "p_payload" "jsonb", "p_justificativa" "text", "p_ator" "jsonb", "p_alcance" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_propoe_decisao"("p_empresa" "uuid", "p_tipo" "public"."rs_tipo_decisao", "p_candidatura" "uuid", "p_vaga" "uuid", "p_payload" "jsonb", "p_justificativa" "text", "p_ator" "jsonb", "p_alcance" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_reabre_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_ator" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_reabre_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_ator" "jsonb") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."rs_fn_reenvia_convite"("p_membro" "uuid", "p_token_hash" "text", "p_expira_em" timestamp with time zone, "p_ator" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_reenvia_convite"("p_membro" "uuid", "p_token_hash" "text", "p_expira_em" timestamp with time zone, "p_ator" "jsonb") TO "service_role";
 
@@ -3736,6 +4167,11 @@ GRANT ALL ON FUNCTION "public"."rs_fn_registra_evento"("p_empresa" "uuid", "p_va
 
 REVOKE ALL ON FUNCTION "public"."rs_fn_remove_membro"("p_membro" "uuid", "p_ator" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_remove_membro"("p_membro" "uuid", "p_ator" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_responde_revisao"("p_candidatura" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_mensagem" "jsonb", "p_reabrir" boolean, "p_ator" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_responde_revisao"("p_candidatura" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_mensagem" "jsonb", "p_reabrir" boolean, "p_ator" "jsonb") TO "service_role";
 
 
 
@@ -3771,6 +4207,11 @@ GRANT ALL ON FUNCTION "public"."rs_fn_transicao_vaga"("p_vaga" "uuid", "p_empres
 
 REVOKE ALL ON FUNCTION "public"."rs_fn_troca_codigo_oauth"("p_codigo_hash" "text", "p_cliente" "uuid", "p_redirect_uri" "text", "p_challenge_do_verifier" "text", "p_token_hash" "text", "p_token_prefixo" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_troca_codigo_oauth"("p_codigo_hash" "text", "p_cliente" "uuid", "p_redirect_uri" "text", "p_challenge_do_verifier" "text", "p_token_hash" "text", "p_token_prefixo" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_troca_link"("p_candidatura" "uuid", "p_empresa" "uuid", "p_versao" integer, "p_hash" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_troca_link"("p_candidatura" "uuid", "p_empresa" "uuid", "p_versao" integer, "p_hash" "text") TO "service_role";
 
 
 
