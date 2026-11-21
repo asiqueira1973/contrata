@@ -6,6 +6,7 @@ import "server-only";
 import { FAXINA_LOTE } from "@/lib/limits";
 import { cleanAbandonedApplications } from "@/server/recruiting/applications";
 import { pauseExpiredJobs } from "@/server/recruiting/jobs";
+import { cleanOldExports } from "@/server/recruiting/pipeline";
 
 const ORCAMENTO_MS = 45_000;
 
@@ -24,6 +25,8 @@ export async function runDailyCleanup(agora = () => Date.now()) {
     abandonadas += n;
     if (n < FAXINA_LOTE || agora() - inicio > ORCAMENTO_MS) break;
   }
-  console.info("faxina_diaria", { vagas_pausadas: vagasPausadas, candidaturas_abandonadas: abandonadas });
-  return { vagas_pausadas: vagasPausadas, candidaturas_abandonadas: abandonadas };
+  // CSVs exportados (14.1) dos dias anteriores: o link já venceu (5 min), o arquivo não serve mais.
+  const exportacoes = await cleanOldExports();
+  console.info("faxina_diaria", { vagas_pausadas: vagasPausadas, candidaturas_abandonadas: abandonadas, pastas_exportacao: exportacoes });
+  return { vagas_pausadas: vagasPausadas, candidaturas_abandonadas: abandonadas, pastas_exportacao: exportacoes };
 }

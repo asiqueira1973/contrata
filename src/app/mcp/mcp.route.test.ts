@@ -66,12 +66,13 @@ describe("ferramentas por capacidade do cliente (13.5) e visibilidade (princípi
     const nomes = (await listTools(admin, null)).map((t) => t.name);
     expect(nomes).toEqual(expect.arrayContaining(["abrir_formulario_area", "registrar_area"]));
   });
-  it("toda ferramenta tem título e dicas; salvar_* e registrar_* são escrita; openWorldHint sempre false", async () => {
+  it("toda ferramenta tem título e dicas; salvar_*, registrar_* e as operações (8.5) são escrita; openWorldHint sempre false", async () => {
     for (const t of await listTools(admin, null)) {
       expect(t.title, t.name).toBeTruthy();
-      const escrita = /^(salvar|registrar)_/.test(t.name);
-      expect(t.annotations?.readOnlyHint, t.name).toBe(!escrita);
-      expect(t.annotations?.destructiveHint, t.name).toBe(escrita);
+      const formulario = /^(salvar|registrar)_/.test(t.name);
+      const operacao = ["mover_etapa", "adicionar_nota"].includes(t.name);
+      expect(t.annotations?.readOnlyHint, t.name).toBe(!(formulario || operacao));
+      expect(t.annotations?.destructiveHint, t.name).toBe(formulario);
       expect(t.annotations?.openWorldHint, t.name).toBe(false);
     }
   });

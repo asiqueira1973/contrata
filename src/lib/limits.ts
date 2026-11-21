@@ -121,6 +121,13 @@ export const LISTA_PADRAO = 50;
 export const LISTA_MAX = 200;
 // Candidatura parada (11.11): 14 dias sem mudar de etapa.
 export const CANDIDATURA_PARADA_DIAS = 14;
+// Filtro "paradas" do funil (8.5): 7 dias sem mudar de etapa, ajustável na consulta.
+export const FILTRO_PARADAS_DIAS = 7;
+// Mover em lote (11.30) e exportar (14.1): até 100 por chamada; CSV com até 10.000 linhas.
+export const MOVER_LOTE_MAX = 100;
+export const EXPORTACAO_MAX = 10_000;
+// Nota interna (11.34): até 10.000 caracteres, como o check de rs_notas.
+export const NOTA_MAX = 10_000;
 // Faxina (8.10, 11.11): lotes de 200.
 export const FAXINA_LOTE = 200;
 // Pré-visualização da página de carreiras não publicada (8.3): link assinado de 10 min.

@@ -186,3 +186,22 @@ export async function uploadTo(url: string, bytes: Uint8Array, contentType = "ap
   const caminho = u.pathname.replace("/api/dev/arquivos/", "").split("/").map(decodeURIComponent);
   return PUT(new NextRequest(url, { method: "PUT", body: Buffer.from(bytes), headers: { "content-type": contentType } }), { params: Promise.resolve({ caminho }) });
 }
+
+// Cria e conclui uma candidatura direto pelas funções do banco (8.5), sem currículo. Respostas:
+// [{pergunta_id, valor}]. Devolve: o id.
+export async function createReceivedApplication(empresaId: string, vagaId: string, pessoa: { nome: string; email: string }, respostas: { pergunta_id: string; valor: string }[] = []) {
+  const ator = { tipo: "candidato", origem: "publico" };
+  const { data, error } = await db().rpc("rs_fn_cria_candidatura", {
+    p_empresa: empresaId, p_vaga: vagaId, p_candidato: pessoa as never, p_respostas: respostas as never, p_origem: "pagina",
+    p_ator: ator as never, p_consentimento: "2026-11-20", p_talentos: false, p_token_hash: `t-${randomUUID()}`, p_max_por_vaga: 10000,
+  });
+  if (error) throw error;
+  const id = (data as { id: string }).id;
+  const { error: e2 } = await db().rpc("rs_fn_conclui_candidatura", {
+    p_candidatura: id, p_empresa: empresaId, p_arquivo: null as never, p_mensagem: { assunto: "Recebemos", corpo: "Acompanhe: {{link_acompanhamento}}" } as never,
+    p_notificacao: { tipo: "candidatura_recebida", destinatario: pessoa.email, chave: `rec:${id}`, assunto: "Recebemos", html: "<p>x</p>", texto: "x" } as never,
+    p_ator: ator as never, p_token_hash: `f-${randomUUID()}`,
+  });
+  if (e2) throw e2;
+  return id;
+}

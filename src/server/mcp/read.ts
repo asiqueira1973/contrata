@@ -4,24 +4,26 @@ import "server-only";
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { copy } from "@/lib/copy";
+import type { Papel } from "@/lib/limits";
 import { listAreas } from "@/server/org/areas";
 import { listTeam } from "@/server/org/members";
 import { listPeople } from "@/server/org/people";
 import { bloqueio, consultar, erro, type ToolContext } from "./kit";
 
 // Registra uma consulta com título e descrição da copy e a guarda de escopo leitura. `entrada`:
-// os filtros que o modelo pode passar (zod com .describe() em português, 13.3).
+// os filtros que o modelo pode passar (zod com .describe() em português, 13.3). `papel`: papel
+// mínimo, quando a consulta não é para todos (ex.: exportar, 14.1).
 export function consulta<E extends z.ZodObject>(
-  server: McpServer, ctx: ToolContext, nome: string, fn: (args: z.infer<E>) => Promise<Record<string, unknown>>, entrada?: E,
+  server: McpServer, ctx: ToolContext, nome: string, fn: (args: z.infer<E>) => Promise<Record<string, unknown>>, entrada?: E, papel?: Papel,
 ) {
-  if (bloqueio(ctx, "leitura")) return;
+  if (bloqueio(ctx, "leitura", papel)) return;
   // O SDK não infere o tipo de um schema genérico (como em forms/registrar.ts).
   const schema = (entrada ?? z.object({})) as unknown as z.ZodObject<z.ZodRawShape>;
   server.registerTool(
     nome,
     { title: copy.mcp.titulos[nome], description: copy.mcp.descricoes[nome], inputSchema: schema, _meta: { ui: { visibility: ["model"] } } },
     async (args: unknown) => {
-      const b = bloqueio(ctx, "leitura");
+      const b = bloqueio(ctx, "leitura", papel);
       return b ? erro(b) : consultar(() => fn((args ?? {}) as z.infer<E>));
     },
   );

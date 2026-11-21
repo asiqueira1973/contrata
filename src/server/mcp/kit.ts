@@ -64,16 +64,21 @@ export async function consultar(fn: () => Promise<Record<string, unknown>>): Pro
 
 type Config = { title?: string; annotations?: Record<string, unknown> } & Record<string, unknown>;
 
+// Operações diretas do agente (classe O, 11.34): gravam sem formulário, então são escrita.
+export const OPERACOES = new Set(["mover_etapa", "adicionar_nota"]);
+
 // Todo registro de ferramenta ganha título e dicas: leitura (consultas, opções e abrir_formulario_*,
-// que não gravam) ou escrita (salvar_* e registrar_*). openWorldHint é sempre false: a ferramenta
+// que não gravam) ou escrita (salvar_*, registrar_* e as operações da classe O). openWorldHint é sempre false: a ferramenta
 // só age sobre a empresa da credencial. Ferramenta sem título faz o registro falhar.
 export function exigirAnotacoes(server: McpServer): void {
   const original = server.registerTool.bind(server) as (nome: string, config: Config, cb: unknown) => unknown;
   (server as unknown as { registerTool: typeof original }).registerTool = (nome, config, cb) => {
     const title = config.title;
     if (!title) throw new Error(`ferramenta sem título: ${nome}`);
-    const escrita = /^(salvar|registrar)_/.test(nome);
-    const annotations = { ...config.annotations, title, readOnlyHint: !escrita, destructiveHint: escrita, openWorldHint: false };
+    // Operações (mover, anotar) gravam, mas são reversíveis: escrita sem ser destrutiva.
+    const formulario = /^(salvar|registrar)_/.test(nome);
+    const escrita = formulario || OPERACOES.has(nome);
+    const annotations = { ...config.annotations, title, readOnlyHint: !escrita, destructiveHint: formulario, openWorldHint: false };
     return original(nome, { ...config, annotations }, cb);
   };
 }
