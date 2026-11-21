@@ -143,6 +143,29 @@ describe("chave de API criada pelo formulário (6.3, 11.15)", () => {
     const { data: ev } = await db().from("rs_eventos").select("dados").eq("empresa_id", empresa.id).eq("tipo", "credencial_criada").single();
     expect(JSON.stringify(ev!.dados)).not.toContain(valor);
   });
+  // Escopo efetivo (11.16): o papel não basta; a conexão precisa do escopo. Achado do verifier do 8.2.
+  it("administrador conectado só com leitura não cria chave nem revoga a credencial de outro", async () => {
+    const soLeitura = await createTestToken(empresa.id, empresa.adminMembroId, ["leitura"]);
+    const r = await callTool(soLeitura, "salvar_conexoes", { operacao: "criar_chave", nome: "escalada", escopos: ["decisao"] });
+    expect("structuredContent" in r && r.structuredContent?.ok).toBe(false);
+    expect(JSON.stringify(r)).toContain("Esta conexão não tem permissão para isso.");
+    const { count } = await db().from("rs_credenciais").select("id", { count: "exact", head: true }).eq("empresa_id", empresa.id).eq("nome", "escalada");
+    expect(count).toBe(0);
+    const { data: alheia } = await db().from("rs_credenciais").select("id").eq("empresa_id", empresa.id).eq("prefixo", leitura.slice(0, 8)).single();
+    const rv = await callTool(soLeitura, "salvar_conexoes", { operacao: "revogar", credencial: alheia!.id });
+    expect("structuredContent" in rv && rv.structuredContent?.ok).toBe(false);
+    const { data: ainda } = await db().from("rs_credenciais").select("revogada_em").eq("id", alheia!.id).single();
+    expect(ainda!.revogada_em).toBeNull();
+  });
+  it("conexão sem decisao não cria chave com decisao; revogar a própria conexão só com leitura vale", async () => {
+    const semDecisao = await createTestToken(empresa.id, empresa.adminMembroId, ["leitura", "escrita"]);
+    const r = await callTool(semDecisao, "salvar_conexoes", { operacao: "criar_chave", nome: "maior", escopos: ["decisao"] });
+    expect("structuredContent" in r && r.structuredContent?.ok).toBe(false);
+    const propria = await createTestToken(empresa.id, empresa.adminMembroId, ["leitura"]);
+    const { data: c } = await db().from("rs_credenciais").select("id").eq("empresa_id", empresa.id).eq("prefixo", propria.slice(0, 8)).single();
+    const rv = await callTool(propria, "salvar_conexoes", { operacao: "revogar", credencial: c!.id });
+    expect("structuredContent" in rv && rv.structuredContent?.ok).toBe(true);
+  });
   it("o recrutador não cria chave nem vê a opção", async () => {
     const r = await callTool(leitura, "salvar_conexoes", { operacao: "criar_chave", nome: "x", escopos: ["leitura"] });
     expect("content" in r && r.content[0].text).toBe("Seu papel na empresa não permite isso.");
