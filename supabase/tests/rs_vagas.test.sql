@@ -138,9 +138,10 @@ select throws_ok(format('select public.rs_fn_transicao_vaga(%L, %L, %L, null, %L
 -- Etapa com candidatura não sai; candidatura ativa impede encerrar (decisão, 8.6)
 with x as (insert into public.rs_candidatos (empresa_id, email, nome) values (pg_temp.id('e'), 'cand-vg@teste.dev', 'Pessoa') returning id)
 insert into fx select 'cand', id from x;
-insert into public.rs_candidaturas (empresa_id, vaga_id, candidato_id, etapa_id, origem, token_hash, consentimento_versao, consentimento_em)
+-- Candidatura recebida (8.4: só a recebida conta como "em andamento").
+insert into public.rs_candidaturas (empresa_id, vaga_id, candidato_id, etapa_id, origem, token_hash, consentimento_versao, consentimento_em, recebida_em)
 values (pg_temp.id('e'), pg_temp.id('v1'), pg_temp.id('cand'),
-        (select id from public.rs_etapas where vaga_id = pg_temp.id('v1') and ordem = 1), 'pagina', 'tok-vg', '2026-11-21', now());
+        (select id from public.rs_etapas where vaga_id = pg_temp.id('v1') and ordem = 1), 'pagina', 'tok-vg', '2026-11-21', now(), now());
 select throws_ok(format('select public.rs_fn_salva_vaga(%L, %L, %L, %L, %L)', pg_temp.id('v1'), pg_temp.id('e'),
                  pg_temp.dados('Atendente de loja', 'loja', jsonb_build_object('dono_pessoa_id', pg_temp.id('p_caio'),
                    'etapas', '[{"nome":"Só uma","tipo":"entrevista"}]'::jsonb)), pg_temp.todas(), pg_temp.ator('m_ana')),

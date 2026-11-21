@@ -101,7 +101,7 @@ describe("API v1 — vagas", () => {
     expect((await encerrar(req(`/api/v1/vagas/${id}/encerrar`, decisao, "POST", {}), params({ id }))).status).toBe(400);
     const { data: c } = await db().from("rs_candidatos").insert({ empresa_id: empresa.id, email: `c-${empresa.slug}@teste.exemplo`, nome: "Pessoa" }).select("id").single();
     const { data: et } = await db().from("rs_etapas").select("id").eq("vaga_id", id).eq("ordem", 1).single();
-    await db().from("rs_candidaturas").insert({ empresa_id: empresa.id, vaga_id: id, candidato_id: c!.id, etapa_id: et!.id, origem: "pagina", token_hash: `t-${id}`, consentimento_versao: "1", consentimento_em: new Date().toISOString() });
+    await db().from("rs_candidaturas").insert({ empresa_id: empresa.id, vaga_id: id, candidato_id: c!.id, etapa_id: et!.id, origem: "pagina", token_hash: `t-${id}`, consentimento_versao: "1", consentimento_em: new Date().toISOString(), recebida_em: new Date().toISOString() });
     const r = await encerrar(req(`/api/v1/vagas/${id}/encerrar`, decisao, "POST", { motivo: "preenchida" }), params({ id }));
     expect(r.status).toBe(409);
     expect((await r.json()).codigo).toBe("vaga_com_ativas");

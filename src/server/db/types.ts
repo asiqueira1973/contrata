@@ -114,14 +114,14 @@ isOneToOne: false
                   ]
                 },"rs_candidaturas": {
                   Row: {
-                    "candidato_id": string,"consentimento_em": string,"consentimento_versao": string,"criado_em": string,"empresa_id": string,"encerrada_em": string | null,"etapa_id": string | null,"expurgar_em": string | null,"id": string,"motivo_reprovacao": Database["public"]['Enums']["rs_motivo_reprovacao"] | null,"movida_em": string,"origem": Database["public"]['Enums']["rs_origem_candidatura"],"revisao_pedida_em": string | null,"revisao_respondida_em": string | null,"sinalizada": boolean,"situacao": Database["public"]['Enums']["rs_situacao_candidatura"],"texto_busca": unknown,"token_hash": string,"vaga_id": string
+                    "candidato_id": string,"consentimento_em": string,"consentimento_versao": string,"criado_em": string,"empresa_id": string,"encerrada_em": string | null,"etapa_id": string | null,"exclusao_codigo_hash": string | null,"exclusao_codigos_hora": number,"exclusao_expira_em": string | null,"exclusao_janela_desde": string | null,"exclusao_tentativas": number,"expurgar_em": string | null,"id": string,"motivo_reprovacao": Database["public"]['Enums']["rs_motivo_reprovacao"] | null,"movida_em": string,"origem": Database["public"]['Enums']["rs_origem_candidatura"],"recebida_em": string | null,"revisao_pedida_em": string | null,"revisao_respondida_em": string | null,"sinalizada": boolean,"situacao": Database["public"]['Enums']["rs_situacao_candidatura"],"texto_busca": unknown,"token_hash": string,"vaga_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "candidato_id": string,"consentimento_em": string,"consentimento_versao": string,"criado_em"?: string,"empresa_id": string,"encerrada_em"?: string | null,"etapa_id"?: string | null,"expurgar_em"?: string | null,"id"?: string,"motivo_reprovacao"?: Database["public"]['Enums']["rs_motivo_reprovacao"] | null,"movida_em"?: string,"origem": Database["public"]['Enums']["rs_origem_candidatura"],"revisao_pedida_em"?: string | null,"revisao_respondida_em"?: string | null,"sinalizada"?: boolean,"situacao"?: Database["public"]['Enums']["rs_situacao_candidatura"],"texto_busca"?: unknown,"token_hash": string,"vaga_id": string
+                    "candidato_id": string,"consentimento_em": string,"consentimento_versao": string,"criado_em"?: string,"empresa_id": string,"encerrada_em"?: string | null,"etapa_id"?: string | null,"exclusao_codigo_hash"?: string | null,"exclusao_codigos_hora"?: number,"exclusao_expira_em"?: string | null,"exclusao_janela_desde"?: string | null,"exclusao_tentativas"?: number,"expurgar_em"?: string | null,"id"?: string,"motivo_reprovacao"?: Database["public"]['Enums']["rs_motivo_reprovacao"] | null,"movida_em"?: string,"origem": Database["public"]['Enums']["rs_origem_candidatura"],"recebida_em"?: string | null,"revisao_pedida_em"?: string | null,"revisao_respondida_em"?: string | null,"sinalizada"?: boolean,"situacao"?: Database["public"]['Enums']["rs_situacao_candidatura"],"texto_busca"?: unknown,"token_hash": string,"vaga_id": string
                   }
                   Update: {
-                    "candidato_id"?: string,"consentimento_em"?: string,"consentimento_versao"?: string,"criado_em"?: string,"empresa_id"?: string,"encerrada_em"?: string | null,"etapa_id"?: string | null,"expurgar_em"?: string | null,"id"?: string,"motivo_reprovacao"?: Database["public"]['Enums']["rs_motivo_reprovacao"] | null,"movida_em"?: string,"origem"?: Database["public"]['Enums']["rs_origem_candidatura"],"revisao_pedida_em"?: string | null,"revisao_respondida_em"?: string | null,"sinalizada"?: boolean,"situacao"?: Database["public"]['Enums']["rs_situacao_candidatura"],"texto_busca"?: unknown,"token_hash"?: string,"vaga_id"?: string
+                    "candidato_id"?: string,"consentimento_em"?: string,"consentimento_versao"?: string,"criado_em"?: string,"empresa_id"?: string,"encerrada_em"?: string | null,"etapa_id"?: string | null,"exclusao_codigo_hash"?: string | null,"exclusao_codigos_hora"?: number,"exclusao_expira_em"?: string | null,"exclusao_janela_desde"?: string | null,"exclusao_tentativas"?: number,"expurgar_em"?: string | null,"id"?: string,"motivo_reprovacao"?: Database["public"]['Enums']["rs_motivo_reprovacao"] | null,"movida_em"?: string,"origem"?: Database["public"]['Enums']["rs_origem_candidatura"],"recebida_em"?: string | null,"revisao_pedida_em"?: string | null,"revisao_respondida_em"?: string | null,"sinalizada"?: boolean,"situacao"?: Database["public"]['Enums']["rs_situacao_candidatura"],"texto_busca"?: unknown,"token_hash"?: string,"vaga_id"?: string
                   }
                   Relationships: [
                     {
@@ -646,6 +646,20 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"rs_tentativas_publicas": {
+                  Row: {
+                    "chave_hash": string,"criado_em": string,"id": number,"tipo": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "chave_hash": string,"criado_em"?: string,"id"?: never,"tipo": string
+                  }
+                  Update: {
+                    "chave_hash"?: string,"criado_em"?: string,"id"?: never,"tipo"?: string
+                  }
+                  Relationships: [
+                    
+                  ]
                 },"rs_usuarios": {
                   Row: {
                     "criado_em": string,"email": string,"foto_url": string | null,"google_sub": string,"id": string,"nome": string,"suspenso_em": string | null,"termos_aceitos_em": string | null,"ultimo_acesso_em": string | null
@@ -747,6 +761,9 @@ isOneToOne: false
             "rs_fn_aceita_convite":
 { Args: { "p_membro": string,"p_usuario": string }; Returns: boolean
                            },
+"rs_fn_anonimiza_candidatura":
+{ Args: { "p_candidatura": string,"p_empresa": string }; Returns: (string)[]
+                           },
 "rs_fn_area_no_alcance":
 { Args: { "p_alcance": Json,"p_area": string }; Returns: boolean
                            },
@@ -756,14 +773,26 @@ isOneToOne: false
 "rs_fn_arquiva_pessoa":
 { Args: { "p_ator": Json,"p_empresa": string,"p_pessoa": string }; Returns: undefined
                            },
+"rs_fn_atualiza_busca":
+{ Args: { "p_candidatura": string }; Returns: undefined
+                           },
 "rs_fn_cancela_convite":
 { Args: { "p_ator": Json,"p_membro": string }; Returns: undefined
+                           },
+"rs_fn_conclui_candidatura":
+{ Args: { "p_arquivo": Json,"p_ator": Json,"p_candidatura": string,"p_empresa": string,"p_mensagem": Json,"p_notificacao": Json }; Returns: Json
                            },
 "rs_fn_confere_vaga":
 { Args: { "p_alcance": Json,"p_area": string,"p_dono": string,"p_empresa": string }; Returns: undefined
                            },
+"rs_fn_conta_tentativa":
+{ Args: { "p_chave": string,"p_janela_s": number,"p_limite": number,"p_tipo": string }; Returns: boolean
+                           },
 "rs_fn_convida_membro":
 { Args: { "p_areas": (string)[],"p_ator": Json,"p_email": string,"p_empresa": string,"p_expira_em": string,"p_max_pendentes": number,"p_papel": Database["public"]['Enums']["rs_papel_membro"],"p_todas_areas": boolean,"p_token_hash": string }; Returns: string
+                           },
+"rs_fn_cria_candidatura":
+{ Args: { "p_ator": Json,"p_candidato": Json,"p_consentimento": string,"p_empresa": string,"p_max_por_vaga": number,"p_origem": Database["public"]['Enums']["rs_origem_candidatura"],"p_respostas": Json,"p_talentos": boolean,"p_token_hash": string,"p_vaga": string }; Returns: Json
                            },
 "rs_fn_cria_chave_api":
 { Args: { "p_ator": Json,"p_empresa": string,"p_escopos": (Database["public"]['Enums']["rs_escopo"])[],"p_max_ativas": number,"p_nome": string,"p_prefixo": string,"p_valor_hash": string }; Returns: string
@@ -780,11 +809,20 @@ isOneToOne: false
 "rs_fn_da_acesso":
 { Args: { "p_areas": (string)[],"p_ator": Json,"p_empresa": string,"p_expira_em": string,"p_max_pendentes": number,"p_papel": Database["public"]['Enums']["rs_papel_membro"],"p_pessoa": string,"p_todas_areas": boolean,"p_token_hash": string }; Returns: string
                            },
+"rs_fn_encerra_candidatura":
+{ Args: { "p_ator": Json,"p_candidatura": string,"p_dados"?: Json,"p_empresa": string,"p_mensagem": Json,"p_motivo": Database["public"]['Enums']["rs_motivo_reprovacao"],"p_situacao": Database["public"]['Enums']["rs_situacao_candidatura"] }; Returns: Json
+                           },
 "rs_fn_entra_usuario":
 { Args: { "p_email": string,"p_foto": string,"p_google_sub": string,"p_nome": string }; Returns: Json
                            },
+"rs_fn_exclui_dados_candidato":
+{ Args: { "p_candidatura": string,"p_empresa": string }; Returns: (string)[]
+                           },
 "rs_fn_expurga_empresa":
 { Args: { "p_empresa": string }; Returns: undefined
+                           },
+"rs_fn_faxina_candidaturas_abandonadas":
+{ Args: { "p_lote": number }; Returns: (string)[]
                            },
 "rs_fn_faxina_vagas_vencidas":
 { Args: { "p_lote": number }; Returns: number
@@ -798,11 +836,17 @@ isOneToOne: false
 "rs_fn_grava_etapas":
 { Args: { "p_etapas": Json,"p_vaga": string }; Returns: undefined
                            },
+"rs_fn_grava_extracao":
+{ Args: { "p_arquivo": string,"p_status": Database["public"]['Enums']["rs_status_extracao"],"p_texto": string }; Returns: undefined
+                           },
 "rs_fn_grava_perguntas":
 { Args: { "p_perguntas": Json,"p_vaga": string }; Returns: undefined
                            },
 "rs_fn_muda_acesso":
 { Args: { "p_areas": (string)[],"p_ator": Json,"p_membro": string,"p_papel": Database["public"]['Enums']["rs_papel_membro"],"p_todas_areas": boolean }; Returns: undefined
+                           },
+"rs_fn_novo_codigo_exclusao":
+{ Args: { "p_candidatura": string,"p_codigo_hash": string,"p_intervalo_s": number,"p_max_hora": number,"p_validade_s": number }; Returns: string
                            },
 "rs_fn_reenvia_convite":
 { Args: { "p_ator": Json,"p_expira_em": string,"p_membro": string,"p_token_hash": string }; Returns: undefined
@@ -839,6 +883,9 @@ isOneToOne: false
                            },
 "rs_fn_valida_areas":
 { Args: { "p_areas": (string)[],"p_empresa": string,"p_papel": Database["public"]['Enums']["rs_papel_membro"],"p_todas": boolean }; Returns: undefined
+                           },
+"rs_fn_valida_codigo_exclusao":
+{ Args: { "p_candidatura": string,"p_codigo_hash": string,"p_max_tentativas": number }; Returns: string
                            }
           }
           Enums: {
