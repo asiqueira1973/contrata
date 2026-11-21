@@ -3,7 +3,7 @@
 Descreve o que está **de fato** implementado, na ordem da seção 19 do `spec.md` (v0.4). Toda mudança de schema, trigger, rota, ferramenta ou lógica de tela atualiza este documento no mesmo commit.
 
 ## Estado (20/11/2026)
-Épicos 8.0 (guardrails), 8.1 (fundação) e 8.2 (o conector) concluídos **no local**. **Spec v0.4: sistema para agentes, sem painel.** Quem recruta conecta o Contrata no Claude ou no ChatGPT (`{site}/mcp`, OAuth próprio) e administra equipe, áreas, pessoas, conexões e chaves por consultas e formulários dentro do chat. O painel web do 8.1 saiu. Pendentes, com o Alexandre: migrations no remoto (8.1 e 8.2), cliente OAuth do Google e uma URL pública para testar no Claude e no ChatGPT de verdade (ver `plans/8.2-conector.md`). Vagas e candidaturas chegam a partir do 8.3.
+Épicos 8.0 (guardrails), 8.1 (fundação) e 8.2 (o conector) concluídos **no local**. **Spec v0.4: sistema para agentes, sem painel.** Quem recruta conecta o Contrata no Claude ou no ChatGPT (`{site}/mcp`, OAuth próprio) e administra equipe, áreas, pessoas, conexões e chaves por consultas e formulários dentro do chat. O painel web do 8.1 saiu. Migrations do 8.1 e do 8.2 aplicadas no remoto em 21/11/2026 (pelo `apply_migration`, mesmo SQL dos arquivos; 26 tabelas e 26 funções `rs_`, nenhuma exposta a `anon`/`authenticated`). Pendentes, com o Alexandre: nome e domínio (25.1), cliente OAuth do Google e uma URL pública para testar no Claude e no ChatGPT de verdade (ver `plans/8.2-conector.md`). Vagas e candidaturas chegam a partir do 8.3.
 
 ---
 

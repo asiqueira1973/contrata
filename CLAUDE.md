@@ -1,13 +1,13 @@
 # CLAUDE.md — Contrata
 
-Fonte única de verdade: `spec.md` (v0.4.1). Planos aprovados: `plans/`. Os princípios da seção 0 desempatam dúvidas. Itens da seção 25 → **pare e pergunte**. Referências: `~/assina` (login, R2, Resend, webhooks, OAuth) e `~/agenda-psi/mcp-server` (MCP Apps, formulários, fallback com prévia). Leia antes de reinventar. Mudou schema, rota, ferramenta ou tela → atualize `DOCUMENTACAO-TECNICA.md`, este arquivo e o README no mesmo commit.
+Fonte única de verdade: `spec.md` (v0.4.2). Planos aprovados: `plans/`. Os princípios da seção 0 desempatam dúvidas. Itens da seção 25 → **pare e pergunte**. Referências: `~/assina` (login, R2, Resend, webhooks, OAuth) e `~/agenda-psi/mcp-server` (MCP Apps, formulários, fallback com prévia). Leia antes de reinventar. Mudou schema, rota, ferramenta ou tela → atualize `DOCUMENTACAO-TECNICA.md`, este arquivo e o README no mesmo commit.
 
 ## Regra de ouro
 Se um teste falhar, corrija o código, não o teste; nunca pule nem apague teste que falha.
 Bug: teste que reproduz → ver falhar → commit → `touch .claude/fix-mode` → corrigir → `rm .claude/fix-mode`.
 
 ## Estado
-Spec **v0.4.1: um sistema para agentes, não para humanos**. Quem recruta opera pelo Claude ou pelo ChatGPT; não há painel. Clone e use: quem cria empresa é `CRIACAO_EMPRESA_EMAILS` (11.33). Épicos 8.0, 8.1 e 8.2 (o conector: OAuth, `/mcp`, formulários, API v1) concluídos **no local**. Pendentes, com o Alexandre: migrations no remoto, cliente OAuth do Google, URL pública para testar no Claude e no ChatGPT. Próximo: 8.3 (vagas e página de carreiras), em plan mode. 25.1 (nome e domínio) decide-se antes do 8.12.
+Spec **v0.4.2: um sistema para agentes, não para humanos**. Quem recruta opera pelo Claude ou pelo ChatGPT; não há painel. Clone e use: quem cria empresa é `CRIACAO_EMPRESA_EMAILS` (11.33). Épicos 8.0, 8.1 e 8.2 (o conector: OAuth, `/mcp`, formulários, API v1) concluídos **no local**. As quatro migrations estão no remoto (21/11/2026). Pendentes, com o Alexandre: nome e domínio (25.1), DNS na Vercel, cliente OAuth do Google e, com eles, o teste no Claude e no ChatGPT. O 8.3 deve criar índice para as duas FKs que o advisor apontou (`rs_decisoes.candidatura_id`, `rs_empresas.criada_por_usuario_id`). Próximo: 8.3 (vagas e página de carreiras), em plan mode. 25.1 (nome e domínio) decide-se antes do 8.12.
 
 ## Como uma ação nova entra (padrão do 8.2)
 1. Função de domínio em `src/server/<área>/` com `ator` e, se lê candidaturas, `alcance`.
