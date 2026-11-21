@@ -2,6 +2,7 @@
 // (pagina_publicada); antes disso, só com o link de pré-visualização assinado de 10 min, com a
 // faixa "Página ainda não publicada" e noindex. Vagas publicadas, filtro por área (nome da área,
 // nunca o dono) e por modelo. Dados em cache de 60 s, revalidados a cada edição.
+import { connection } from "next/server";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -40,6 +41,8 @@ export async function generateMetadata({ params }: PageProps<"/[empresa]">): Pro
 
 async function Vagas({ empresa, searchParams }: { empresa: EmpresaPublica; searchParams: PageProps<"/[empresa]">["searchParams"] }) {
   const sp = await searchParams;
+  // A validade do token depende da hora: lê o relógio só na requisição, nunca no prerender.
+  await connection();
   const area = typeof sp.area === "string" ? sp.area : "";
   const modelo = typeof sp.modelo === "string" ? sp.modelo : "";
   const todas = await vagasEmCache(empresa.slug, empresa.id);

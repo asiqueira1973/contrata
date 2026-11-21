@@ -1,13 +1,13 @@
 # CLAUDE.md — Contrata
 
-Fonte única de verdade: `spec.md` (v0.4.3). Planos aprovados: `plans/`. Os princípios da seção 0 desempatam dúvidas. Itens da seção 25 → **pare e pergunte**. Referências: `~/assina` (login, R2, Resend, webhooks, OAuth) e `~/agenda-psi/mcp-server` (MCP Apps, formulários, fallback com prévia). Leia antes de reinventar. Mudou schema, rota, ferramenta ou tela → atualize `DOCUMENTACAO-TECNICA.md`, este arquivo e o README no mesmo commit.
+Fonte única de verdade: `spec.md` (v0.4.4). Planos aprovados: `plans/`. Os princípios da seção 0 desempatam dúvidas. Itens da seção 25 → **pare e pergunte**. Referências: `~/assina` (login, R2, Resend, webhooks, OAuth) e `~/agenda-psi/mcp-server` (MCP Apps, formulários, fallback com prévia). Leia antes de reinventar. Mudou schema, rota, ferramenta ou tela → atualize `DOCUMENTACAO-TECNICA.md`, este arquivo e o README no mesmo commit.
 
 ## Regra de ouro
 Se um teste falhar, corrija o código, não o teste; nunca pule nem apague teste que falha.
 Bug: teste que reproduz → ver falhar → commit → `touch .claude/fix-mode` → corrigir → `rm .claude/fix-mode`.
 
 ## Estado
-Spec **v0.4.3: um sistema para agentes, não para humanos**. Quem recruta opera pelo Claude ou pelo ChatGPT; não há painel. Clone e use: quem cria empresa é `CRIACAO_EMPRESA_EMAILS` (11.33). Épicos 8.0, 8.1, 8.2 (o conector) e 8.3 (vagas e página de carreiras) concluídos no local, com as migrations no remoto (21/11/2026). Pendentes, com o Alexandre: nome e domínio (25.1), DNS na Vercel, cliente OAuth do Google e, com eles, o teste no Claude, no ChatGPT e no Teste de Pesquisa Aprimorada. Próximo: 8.4 (candidatura e link de acompanhamento), em plan mode. 25.1 decide-se antes do 8.12.
+Spec **v0.4.4: um sistema para agentes, não para humanos**. Quem recruta opera pelo Claude ou pelo ChatGPT; não há painel. Clone e use: quem cria empresa é `CRIACAO_EMPRESA_EMAILS` (11.33). Épicos 8.0, 8.1, 8.2 (o conector), 8.3 (vagas e página de carreiras) e 8.4 (candidatura e link `/c`) concluídos no local, com as migrations no remoto (21/11/2026). Pendentes, com o Alexandre: nome e domínio (25.1), DNS na Vercel, cliente OAuth do Google, bucket R2 e, com eles, o teste no Claude, no ChatGPT, no Teste de Pesquisa Aprimorada e o e-mail real pelo Resend. Próximo: 8.5 (funil), em plan mode. 25.1 decide-se antes do 8.12.
 
 ## Como uma ação nova entra (padrão do 8.2)
 1. Função de domínio em `src/server/<área>/` com `ator` e, se lê candidaturas, `alcance`.
@@ -68,3 +68,9 @@ Spec **v0.4.3: um sistema para agentes, não para humanos**. Quem recruta opera 
 - Fallback de edição (`registrar_*` de um formulário que edita): o modelo manda só o que muda. O `save.ts` junta com o registro atual e não regrava lista que não veio (ver `forms/vaga/save.ts`); senão, o que faltou some.
 - Campo `lista` do formulário: o item guarda chaves que não desenha (o `id` da etapa) e as devolve no salvar; `mostrarSe` de subcampo compara com o próprio item.
 - Faxina: `src/server/cron.ts` (`runDailyCleanup`) cresce a cada épico, na ordem da seção 9; `/api/cron/diario` exige `Bearer CRON_SECRET`.
+- **Candidatura em duas fases (8.4):** criar devolve `{id, upload_url?, concluir_token}` e a candidatura nasce **não recebida** (`recebida_em` nula); só `concluir` a torna visível. Toda consulta de candidaturas para a empresa filtra `recebida_em is not null`. A faxina apaga as não recebidas com 24 h.
+- O token `/c` nunca sai para a empresa (nem na API) e nunca é guardado em claro: no banco, só o hash; na mensagem guardada, só `{{link_acompanhamento}}`. Reenviar o link gera token novo.
+- IP e e-mail dos limites públicos só como HMAC (`chaveDoIp`, com `SESSION_SECRET`), em `rs_tentativas_publicas`. `ipDaRequisicao` lê `x-forwarded-for`.
+- Sem `S3_*`, o currículo vai para `.armazenamento-local/` e a URL de upload é `/api/dev/arquivos/…` assinada; nos testes (`tests/setup.ts` apaga as `S3_*`) use `uploadTo` de `tests/helpers.ts`. Para conferir o tipo do arquivo, sempre os bytes (`confereCurriculo`), nunca a extensão nem o `content-type`.
+- Campo `arquivo` do formulário: o valor é `{nome, tipo, base64}` ou `""`; o `save.ts` decodifica e passa os bytes ao domínio. Sem formulário não há arquivo: use `soNoFormulario`.
+- O servidor de desenvolvimento às vezes fica com um módulo velho depois de muitas edições (ex.: `copy.mcp.form.<acao>` indefinido no `/mcp` com o `tsc` e os testes verdes): reinicie o `npm run dev`.

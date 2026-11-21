@@ -1,0 +1,26 @@
+// /api/v1/candidaturas (8.4; 13.2). POST (escrita): cria a candidatura de uma vaga publicada da
+// empresa (origem `integracao`), com o mesmo schema da 11.2 e `vaga_id` no corpo. Devolve
+// {id, upload_url?, concluir_token}, como a API pública; o link /c só vai por e-mail ao candidato.
+// Duplicada já recebida: 200 {id, duplicada: true} (11.3). Sem limite por IP (a chave já identifica).
+import type { NextRequest } from "next/server";
+import { z } from "zod";
+import { corpo } from "@/server/api/jobs";
+import { apiRoute } from "@/server/api/v1";
+import { CamposInvalidos, DomainError } from "@/server/http";
+import { applyToJob, empresaParaCandidatura } from "@/server/recruiting/applications";
+import { getJob } from "@/server/recruiting/jobs";
+
+export function POST(req: NextRequest) {
+  return apiRoute(req, "escrita", async (ctx) => {
+    const { vaga_id, ...entrada } = await corpo(req);
+    const id = z.uuid().safeParse(vaga_id);
+    if (!id.success) throw new CamposInvalidos([{ campo: "vaga_id", codigo: "campo_invalido" }]);
+    // getJob confere que a vaga é desta empresa (404 se não for).
+    const vaga = await getJob(ctx, id.data);
+    const empresa = await empresaParaCandidatura({ id: ctx.empresa.id });
+    if (!empresa) throw new DomainError("nao_encontrado", 404);
+    const r = await applyToJob({ empresa, vaga: { id: vaga.id }, entrada, origem: "integracao", ip: null, ator: ctx.ator });
+    if (r.duplicada) return Response.json({ id: r.id, duplicada: true });
+    return Response.json({ id: r.id, upload_url: r.upload_url, concluir_token: r.concluir_token }, { status: 201 });
+  });
+}

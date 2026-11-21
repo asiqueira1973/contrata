@@ -3,7 +3,7 @@
 Descreve o que está **de fato** implementado, na ordem da seção 19 do `spec.md` (v0.4). Toda mudança de schema, trigger, rota, ferramenta ou lógica de tela atualiza este documento no mesmo commit.
 
 ## Estado (21/11/2026)
-Épicos 8.0 (guardrails), 8.1 (fundação), 8.2 (o conector) e **8.3 (vagas e página de carreiras)** concluídos no local, com as migrations no remoto (pelo `apply_migration`, mesmo SQL dos arquivos; 26 tabelas e 38 funções `rs_`, nenhuma exposta a `anon`/`authenticated`). **Spec v0.4.3: sistema para agentes, sem painel.** Quem recruta conecta o Contrata no Claude ou no ChatGPT (`{site}/mcp`) e, pelo chat, administra a equipe e cria, edita, publica, pausa e encerra vagas; a vaga publicada aparece na página de carreiras, no feed, no sitemap e na API pública. Pendentes, com o Alexandre: nome e domínio (25.1), DNS na Vercel, cliente OAuth do Google e, com eles, o teste no Claude, no ChatGPT e no Teste de Pesquisa Aprimorada do Google. Candidaturas chegam no 8.4.
+Épicos 8.0 (guardrails), 8.1 (fundação), 8.2 (o conector), 8.3 (vagas e página de carreiras) e **8.4 (candidatura e link de acompanhamento)** concluídos no local, com as migrations no remoto (pelo `apply_migration`, mesmo SQL dos arquivos; nenhuma função `rs_` exposta a `anon`/`authenticated`). **Spec v0.4.4: sistema para agentes, sem painel.** Quem recruta conecta o Contrata no Claude ou no ChatGPT (`{site}/mcp`) e, pelo chat, administra a equipe e cria, edita, publica, pausa e encerra vagas; a vaga publicada aparece na página de carreiras, no feed, no sitemap e na API pública. A pessoa se candidata pela página da vaga (upload direto do currículo), acompanha pelo link `/c/{token}` que recebe por e-mail, retira a candidatura, baixa e exclui os dados; a empresa inclui candidatos pelo chat (`adicionar_candidato`) ou pela API v1. Pendentes, com o Alexandre: nome e domínio (25.1), DNS na Vercel, cliente OAuth do Google, bucket R2 e, com eles, o teste no Claude, no ChatGPT, no Teste de Pesquisa Aprimorada do Google e o e-mail real pelo Resend. O funil (etapas, avaliações) chega no 8.5.
 
 ---
 
@@ -11,7 +11,7 @@ Descreve o que está **de fato** implementado, na ordem da seção 19 do `spec.m
 
 Todas as tabelas `rs_*` existem desde o 8.1 (migration `20261120180000_rs_schema.sql`), com RLS ligada, nenhuma política e nenhum privilégio para `anon`/`authenticated`: só o servidor, com a service role, lê e escreve (6.5). O schema gerado está em `supabase/schema.sql`.
 
-**Em uso até o 8.3** (as demais tabelas existem e ganham uso nos próximos épicos):
+**Em uso até o 8.4** (as demais tabelas existem e ganham uso nos próximos épicos):
 
 | Tabela | O que guarda, em linguagem de negócio |
 |---|---|
@@ -29,6 +29,12 @@ Todas as tabelas `rs_*` existem desde o 8.1 (migration `20261120180000_rs_schema
 | `rs_etapas` | Etapas da vaga (1–15, ordem única adiável); o `tipo` decide o que o candidato vê (11.21). Toda vaga nasce com as etapas padrão de `limits.ts` |
 | `rs_perguntas` | Perguntas da candidatura (0–10), congeladas depois da 1ª publicação; `resposta_esperada` só em sim/não e escolha única (11.10) |
 | `rs_vaga_equipe` | Quem conduz (um `responsavel`, recrutador+) e quem avalia (`avaliador`) na vaga. O dono com acesso entra sempre como avaliador (11.31) |
+| `rs_candidatos` | A pessoa que se candidata, uma por e-mail normalizado na empresa (nome, e-mail, telefone, LinkedIn, cidade). Anonimizada na exclusão (7.4) |
+| `rs_candidaturas` | Pessoa × vaga: etapa, `situacao` (máquina 12.2), `origem` (`pagina`, `api_publica`, `integracao`, `manual`), `token_hash` do link `/c` (só o hash; `anonimizada:{id}` depois da exclusão), `consentimento_versao` (versão do aviso aceito, ou `manual`), `expurgar_em`. Do 8.4: **`recebida_em`** (nula até concluir; a empresa só vê as recebidas) e o código de exclusão (`exclusao_codigo_hash`, `exclusao_expira_em`, `exclusao_tentativas`, `exclusao_codigos_hora`, `exclusao_janela_desde`) |
+| `rs_respostas` | Respostas às perguntas da vaga; `sinalizada` quando difere da resposta esperada (11.10) |
+| `rs_arquivos` | O currículo: `path` no bucket (`{empresa}/{candidatura}/curriculo.pdf|docx`), nome original, tipo conferido pelos bytes, tamanho, sha256, `extracao_status` (`ok`, `sem_texto`, `falhou`) e o texto extraído (até 100.000 caracteres) |
+| `rs_mensagens` | Mensagens ao candidato. O corpo guarda `{{link_acompanhamento}}`, nunca o link resolvido (20.3) |
+| `rs_tentativas_publicas` | (8.4) Janela deslizante dos limites da 11.14: `chave_hash` (HMAC do IP ou do e-mail com `SESSION_SECRET`; o IP nunca é guardado), `tipo` (`candidatura`, `links`, `links_email`), `criado_em`. A faxina apaga as de mais de 24 h |
 | `rs_notificacoes` | Fila de e-mail idempotente: cada e-mail tem uma `chave_idempotencia` única; status `pendente` → `enviada` ou `falhou` |
 
 Valores de enum em uso: `rs_papel_membro` (administrador, recrutador, avaliador), `rs_tipo_ator` (membro, agente, api, sistema), `rs_status_vaga`, `rs_modelo_trabalho`, `rs_regime`, `rs_tipo_etapa`, `rs_tipo_pergunta`, `rs_papel_na_vaga`, `rs_motivo_encerramento_vaga`, `rs_origem_evento` (`formulario`, `mcp`, `api`, `web`, `publico`, `cron`; o antigo `painel` virou `web` no 8.2), `rs_tipo_notificacao` (`convite_membro`), `rs_status_notificacao` (pendente, enviada, falhou). Os enums do convite da instância (`rs_status_pedido_convite`, `pedido_convite_*`) **não existem**: saíram no spec v0.3.
@@ -91,6 +97,20 @@ Do 8.3, migration `20261121180000_rs_vagas.sql` (mais os índices das duas FKs q
 | `rs_fn_transicao_vaga(vaga, empresa, para, motivo, alcance, ator, max)` | função | publicar, pausar, encerrar | Máquina 12.1; publicar confere de novo a 11.1 (descrição 50+, etapa, local, data-limite ≥ hoje em São Paulo) e o limite de 50 publicadas (11.14); `publicada_em` só na primeira; encerrar exige motivo e recusa candidatura ativa (`vaga_com_ativas`, decisão do 8.6) |
 | `rs_fn_faxina_vagas_vencidas(lote)` | função | `/api/cron/diario` | Pausa (não encerra) a publicada com `encerra_em` < hoje em São Paulo, `for update skip locked`; evento `vaga_pausada_prazo` (ator sistema, origem cron) |
 
+Do 8.4, migrations `20261122090000_rs_candidaturas.sql` e `20261122100000_rs_conclui_candidatura.sql`:
+
+| Nome | Tipo | Quando roda | O que faz |
+|---|---|---|---|
+| `rs_fn_conta_tentativa(chave, tipo, limite, janela)` | função | candidatar, "Perdi o link" | Janela deslizante: conta as tentativas da chave na janela e grava a nova se couber; devolve se passou |
+| `rs_fn_cria_candidatura(empresa, vaga, candidato, respostas, origem, ator, consentimento, talentos, token_hash, max)` | função | página, API pública, API v1, chat | Só vaga publicada (`vaga_fechada`) e até 10.000 por vaga; upsert do candidato por e-mail; 1ª etapa; respostas com `sinalizada`; consentimento de talentos. Duplicada devolve `{id, existente: true, recebida}` e troca o `token_hash` (o link reenviado é novo) |
+| `rs_fn_conclui_candidatura(candidatura, empresa, arquivo, mensagem, notificacao, ator, token_hash)` | função | concluir | Grava o arquivo (se houver), `recebida_em`, o `token_hash` definitivo, a mensagem `confirmacao` (com o placeholder), a notificação e o evento `candidatura_criada`. Idempotente; manual pode vir sem currículo |
+| `rs_fn_grava_extracao` / `rs_fn_atualiza_busca` | função | depois da resposta (`after()`) | Texto extraído e status; recalcula o vetor de busca |
+| `rs_fn_encerra_candidatura(candidatura, empresa, situacao, ator, motivo, mensagem, dados)` | função | retirar (8.4); decisões (8.6) | Máquina 12.2 genérica: calcula `expurgar_em` pela retenção; `devolutiva_obrigatoria` para reprovar e encerrar pela vaga; recusa candidatura anonimizada e volta para `ativa` (`transicao_proibida`) |
+| `rs_fn_anonimiza_candidatura` / `rs_fn_exclui_dados_candidato` | função | excluir meus dados | 7.4: apaga respostas, mensagens, texto e notificações pendentes; anonimiza o candidato; devolve os caminhos para apagar do bucket depois do commit; evento `dados_excluidos` |
+| `rs_fn_novo_codigo_exclusao` / `rs_fn_valida_codigo_exclusao` | função | excluir meus dados | Código de 6 dígitos (hash), 10 min, 1 por minuto, 5 por hora, 5 tentativas; devolve `ok`, `aguarde`, `limite_hora`, `errado:N`, `bloqueado` ou `expirado` |
+| `rs_fn_faxina_candidaturas_abandonadas(lote)` | função | `/api/cron/diario` | Apaga as não recebidas com mais de 24 h e devolve os prefixos para limpar o bucket |
+| `rs_fn_transicao_vaga` (refeita) | função | publicar | Agora trava a linha da empresa (`for update`) antes de contar as 50 publicadas; `vaga_com_ativas` conta só candidaturas recebidas |
+
 ---
 
 ## 4. Mapas
@@ -105,6 +125,10 @@ Do 8.3, migration `20261121180000_rs_vagas.sql` (mais os índices das duas FKs q
 | Documentação da API | `/docs/api` | — | — |
 | Página de carreiras | `/{empresa}` | `rs_empresas`, `rs_vagas` (publicadas), `rs_areas` | — (só com `pagina_publicada`; antes, só com `?previa=` assinado) |
 | Página da vaga | `/{empresa}/vagas/{slug}` | `rs_vagas`, `rs_areas` | — (publicada com JSON-LD; pausada ou encerrada: 200 sem JSON-LD; rascunho: 404) |
+| Candidatar-se | `/{empresa}/vagas/{slug}/candidatar` (`noindex`) | `rs_vagas`, `rs_perguntas`, `rs_empresas` | pelas rotas públicas de candidatura (abaixo) |
+| Acompanhamento | `/c/{token}` (`noindex`, `no-referrer`) | `rs_candidaturas`, `rs_mensagens` (sem o link) | `POST /api/c/{token}/retirar`, `/excluir/codigo`, `/excluir`; `GET /api/c/{token}/exportar` |
+| Perdi o link | `/c` (todas as empresas) e `/{empresa}/links` | — | `POST /api/publico/links`, `/api/publico/{empresa}/links` (resposta sempre igual) |
+| Arquivos locais (só sem `S3_*` e fora de produção) | `/api/dev/arquivos/[...caminho]` | o disco (`.armazenamento-local/`) | PUT com URL assinada por HMAC |
 | Feed, sitemap, robots | `/{empresa}/vagas.xml`, `/sitemap.xml`, `/robots.txt` | `rs_empresas`, `rs_vagas` | — |
 | Host de formulários (só `NODE_ENV=development`) | `/dev/formularios` | — | — (abre e salva formulários de verdade, com um token local) |
 
@@ -124,6 +148,7 @@ Formulários: cada um registra `abrir_formulario_<acao>` (modelo), `opcoes_<acao
 | `pausar_vaga` | pausar a publicada | recrutador, `escrita` | sim |
 | `encerrar_vaga` | encerrar sem candidatura em andamento, com motivo e confirmação | recrutador, **`decisao`** | **não** (irreversível) |
 | `pagina_de_carreiras` | publicar ou tirar do ar a página; mostra o link de pré-visualização (8.3, parte do formulário da empresa do 8.9) | administrador, `escrita` | **não** |
+| `adicionar_candidato` | incluir uma pessoa numa vaga publicada do alcance, com currículo (campo `arquivo`, lido no navegador e enviado em base64); a pessoa recebe "{empresa} incluiu você…" com o link `/c` | recrutador, `escrita` | sim, **sem currículo** (`registrar_adicionar_candidato`; com arquivo: `so_no_formulario`) |
 | `conexoes` | revogar a própria conexão (basta `leitura`); revogar credencial de outro e criar chave de API (administrador **com conexão de `escrita`**; a chave nova tem no máximo os escopos da conexão) | qualquer membro, `leitura` | **não**: a chave só aparece no `structuredContent.segredo` do `salvar_conexoes`, nunca no texto |
 
 ### Ação → domínio → portas
@@ -145,6 +170,11 @@ Formulários: cada um registra `abrir_formulario_<acao>` (modelo), `opcoes_<acao
 | Encerrar sem candidaturas em andamento | `recruiting/jobs.transitionJob` | — | `POST /vagas/{id}/encerrar` (escopo `decisao`; 409 com candidatura em andamento até o 8.6) | `salvar_encerrar_vaga` |
 | Ler vagas | `recruiting/jobs.listJobs`, `getJob`, `jobSummary` | `/{empresa}`, `/{empresa}/vagas/{slug}` (`careers/public`) | `GET /vagas`, `/vagas/{id}`, `/vagas/{id}/resumo`; pública: `GET /api/publico/{e}/vagas`, `/{slug}` | `listar_vagas`, `ver_vaga`, `resumo_da_vaga` |
 | Publicar a página de carreiras | `org/companies.setCareersPagePublished` | — | — | `salvar_pagina_de_carreiras` |
+| Candidatar (11.2, 11.3) | `recruiting/applications.applyToJob`, `completeApplication` | `/{empresa}/vagas/{slug}/candidatar` → `POST /api/publico/{e}/vagas/{slug}/candidaturas`, PUT no bucket, `POST /api/publico/{e}/candidaturas/{id}/concluir` | `POST /api/v1/candidaturas`, `POST /api/v1/candidaturas/{id}/concluir` | — |
+| Incluir candidato | `recruiting/applications.addCandidateManually` | — | — | `salvar_adicionar_candidato`, `registrar_adicionar_candidato` |
+| Acompanhar, retirar, baixar, excluir | `requireCandidaturaPorToken`, `situacaoParaCandidato`, `withdraw`, `exportData`, `requestDeletionCode`, `deleteData` | `/c/{token}` e `/api/c/{token}/*` | — | — |
+| Perdi o link | `resendLinks` | `/c`, `/{empresa}/links` | — | — |
+| Limpar candidaturas abandonadas e tentativas velhas (faxina) | `cleanAbandonedApplications` via `runDailyCleanup` | `GET /api/cron/diario` | — | — |
 | Pausar vencidas (faxina) | `recruiting/jobs.pauseExpiredJobs` via `server/cron.runDailyCleanup` | `GET /api/cron/diario` (`CRON_SECRET`) | — | — |
 
 Guardiões: `requireUsuario` (páginas web com sessão) e `requireCredencial(req, tipos, escopo?)` (`/mcp` e `/api/v1`). O segundo acha a credencial pelo hash, recusa revogada ou de empresa excluída, e, para token do conector, **relê o vínculo do membro a cada chamada**: membro removido ou rebaixado perde o acesso na hora. Escopo efetivo (11.16) = escopos do token ∩ papel (avaliador só `leitura`). Dentro do MCP, cada ferramenta confere escopo e papel mínimo (`bloqueio` em `src/server/mcp/kit.ts`). O alcance (11.32) vem de `org/scope.computeScope`.
@@ -160,18 +190,22 @@ Guardiões: `requireUsuario` (páginas web com sessão) e `requireCredencial(req
 - **API v1:** `requireCredencial(req, ["api"], "leitura")`, envelope de erro `{codigo, mensagem}`, cursor base64url. `GET /api/v1/openapi.json` sai de `z.toJSONSchema` dos mesmos schemas de resposta.
 - **Vagas (8.3):** a regra 11.1 é o `vagaSchema` de `src/lib/schemas/jobs.ts`, usado pelo `salvar_vaga`, pelo `registrar_vaga` e pela API v1. Erros saem campo a campo (`CamposInvalidos`), com o caminho do item ("etapas.2.nome"): no formulário, embaixo do subcampo; na API, `400 dados_invalidos` com `campos`. Publicar confere antes o que falta (`faltasParaPublicar`) e o banco confere de novo. O `PATCH` junta o que veio com a vaga atual e não mexe nas listas.
 - **Páginas públicas:** dados em `'use cache'` com a tag `carreiras:{slug}` e 60 s (`src/app/[empresa]/dados.ts`); toda escrita de vaga e da página chama `invalidarPaginas` (`revalidateTag(…, { expire: 0 })`). `generateStaticParams` devolve uma amostra: assim o slug fica conhecido fora do `Suspense` e empresa ou vaga inexistente dá 404 de verdade; `searchParams` (filtros e `previa`) ficam dentro do `Suspense`. Markdown por `marked` + `sanitize-html` (lista fechada de tags). JSON-LD com `<` escapado.
+- **Candidatura (8.4):** a 11.2 é o `candidaturaSchema` de `src/lib/schemas/applications.ts`, o mesmo na página, na API pública, na API v1 e (sem aceite nem respostas) no chat. O `POST` cria a candidatura **não recebida** e devolve `{id, upload_url?, concluir_token}`; o navegador (ou a integração) sobe o arquivo direto no bucket com a URL assinada (1 h) e chama `concluir` com o token (HMAC de 1 h ligado ao id, `exp.ext.sig`). Concluir lê o arquivo do bucket, confere o tipo pelos bytes (`%PDF-`, ou zip com `word/document.xml`) e o tamanho, grava, gera o token `/c` definitivo e manda o e-mail; a extração (unpdf, mammoth; 15 s) roda em `after()`. A empresa nunca vê o token `/c`, nem pela API. Duplicada recebida: 200 `{duplicada: true}` e o link (novo) por e-mail; duplicada não recebida: a mesma candidatura com uma nova URL. Limites da 11.14: 10 por IP por hora (fora da API v1), 10.000 por vaga, 5 GB por empresa e o campo-armadilha `website`; recusa com 429 ou 400 `envio_recusado`, sem dizer o motivo. Origem: `pagina` quando o `Origin` é o próprio site; `api_publica` nos outros; CORS aberto a `https` no `POST`.
+- **Link `/c/{token}`:** o guardião `requireCandidaturaPorToken` confere o formato, faz o hash e acha a candidatura de empresa não excluída. Mostra a situação da 11.21 (sem etapas internas) e as mensagens com o placeholder trocado por "este link". Retirar → `desistiu` + e-mail; baixar → JSON da 14.2 (sem nota, avaliação nem motivo); excluir → código por e-mail (endereço mascarado na tela) → anonimização e limpeza do bucket. "Perdi o link" manda um e-mail por empresa, só com os links dela, e troca os tokens; a resposta é sempre a mesma.
+- **Armazenamento:** `src/server/files/storage.ts` (`ArquivoStorage`, do Assina). Com `S3_*`, o driver S3 (R2 por padrão); sem, o local em `.armazenamento-local/`, servido pela rota de desenvolvimento com HMAC do `SESSION_SECRET` (404 em produção ou com S3). A origem do `S3_ENDPOINT` entra na CSP (`connect-src`, `img-src`, `frame-src`).
 - **Faxina** (`/api/cron/diario`, `vercel.json` às 9h UTC = 6h em Brasília): `Bearer CRON_SECRET` comparado em tempo constante; lotes de 200 até ~45 s; log só com contagens.
+- **E-mails do candidato (8.4):** `candidatura_recebida` (e a versão manual "{empresa} incluiu você…"), desistência, links reenviados e código de exclusão; mesmo remetente e `reply-to` da empresa, com o rodapé da 15.4. O link `/c` só existe no envio: o corpo guardado tem o placeholder (20.3).
 - **E-mail** `convite_membro`: remetente "{empresa} via Contrata", `reply-to` = e-mail de contato da empresa, link `/convite/{token}`. Sem `RESEND_API_KEY`, em desenvolvimento, vai para `.caixa-de-saida-local/`. O corpo é apagado depois do envio.
 
 ### Como os formulários são construídos
-Um único HTML genérico (`ui/formulario/`), feito com Vite singlefile e sem React, renderiza qualquer formulário a partir da descrição que o servidor manda (`src/lib/formularios.ts`: campos `texto`, `email`, `textarea`, `select`, `radio`, `marcar`, `multipla`, `confirmar`, `numero`, `data` e `lista` — itens que se repetem, com subcampos `texto`, `select`, `marcar` e `linhas`, cada um com `mostrarSe` comparado ao próprio item). `npm run build:ui` gera `src/server/mcp/ui/generated.ts` (fora do git; limite de 300 KB, hoje ~270 KB), e o recurso é publicado como `ui://contrata/formulario-<hash>.html`. O tema vem do host.
+Um único HTML genérico (`ui/formulario/`), feito com Vite singlefile e sem React, renderiza qualquer formulário a partir da descrição que o servidor manda (`src/lib/formularios.ts`: campos `texto`, `email`, `textarea`, `select`, `radio`, `marcar`, `multipla`, `confirmar`, `numero`, `data`, `arquivo` (8.4: lê o arquivo no navegador, confere tipo e tamanho e manda `{nome, tipo, base64}`) e `lista` — itens que se repetem, com subcampos `texto`, `select`, `marcar` e `linhas`, cada um com `mostrarSe` comparado ao próprio item). `npm run build:ui` gera `src/server/mcp/ui/generated.ts` (fora do git; limite de 300 KB, hoje ~280 KB), e o recurso é publicado como `ui://contrata/formulario-<hash>.html`. O tema vem do host.
 
 ## 6. Como hospedar
-Resumo do README (o guia completo entra no 8.12): Supabase com as migrations de `supabase/migrations/`, cliente OAuth do Google próprio, variáveis do `.env.example`. **`CRIACAO_EMPRESA_EMAILS`** decide quem cria empresa (vazia = ninguém); **`MCP_PREVIEW_SECRET`** (32+ caracteres) assina as prévias do fallback; **`PREVIA_PAGINA_SECRET`** (32+) assina o link de pré-visualização da página de carreiras; **`CRON_SECRET`** protege a faxina (`vercel.json` agenda 1×/dia). O conector precisa de HTTPS público: o Claude e o ChatGPT não alcançam `localhost`.
+Resumo do README (o guia completo entra no 8.12): Supabase com as migrations de `supabase/migrations/`, cliente OAuth do Google próprio, variáveis do `.env.example`. **`CRIACAO_EMPRESA_EMAILS`** decide quem cria empresa (vazia = ninguém); **`MCP_PREVIEW_SECRET`** (32+ caracteres) assina as prévias do fallback; **`PREVIA_PAGINA_SECRET`** (32+) assina o link de pré-visualização da página de carreiras; **`CRON_SECRET`** protege a faxina (`vercel.json` agenda 1×/dia); **`S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET`** apontam para o bucket dos currículos (R2: `S3_REGION=auto`; o bucket precisa de CORS liberando `PUT` do domínio do site). Vazias, os arquivos ficam no disco, o que só serve em desenvolvimento. O conector precisa de HTTPS público: o Claude e o ChatGPT não alcançam `localhost`.
 
 ## 7. Divergências em relação ao spec
 
-Todas já refletidas no `spec.md` (v0.4.3).
+Todas já refletidas no `spec.md` (v0.4.4).
 
 1. **Clone e use (decisão do Alexandre, 20/11/2026):** saiu o pedido de convite da instância e os limites de SaaS; quem cria empresa é a lista `CRIACAO_EMPRESA_EMAILS` (11.33 reescrita).
 2. **Funções do banco por épico:** cada épico cria as funções que usa, com o pgTAP delas.
@@ -201,4 +235,15 @@ Todas já refletidas no `spec.md` (v0.4.3).
 26. **Markdown, JSON-LD e feed em `src/server/careers/`** (não em `src/server/jobs/`, como na tabela da 11.20): `jobs` já é o nome do domínio de vagas (`src/server/recruiting/jobs.ts`), e a parte pública ficou junta. O sitemap é uma rota (`src/app/sitemap.xml/route.ts`), não `sitemap.ts`, para não consultar o banco no build.
 27. **`hiringOrganization` sem `logo`** até o 8.9, quando a empresa ganha logo.
 28. **Fallback de vaga (`registrar_vaga`) edita só o que vier e não mexe na equipe** (achado do verifier do 8.3): responsável e avaliadores dão acesso às candidaturas, então seguem a regra da v0.4.2 (nada que mexe em acesso sem formulário; `soNoFormulario`).
-29. **Pendente para a próxima migration:** o limite de 50 vagas publicadas (11.14) conta sem travar a empresa; duas publicações simultâneas podem passar de 50. O 8.4 trava a linha da empresa antes de contar.
+29. **Limite de 50 vagas publicadas com trava** (pendência do 8.3, feita no 8.4): `rs_fn_transicao_vaga` trava a linha da empresa antes de contar.
+30. **Onde guardar o que o spec não diz (8.4):** o código de exclusão em colunas de `rs_candidaturas`; o limite por IP na tabela `rs_tentativas_publicas` (HMAC do IP, nunca o IP); `rs_candidaturas.recebida_em` separa a candidatura concluída da que parou no upload (9.4).
+31. **Concluir com `concluir_token`, não com o cookie `rs_cand_{id}`:** o cookie não chegaria quando o site da empresa chama a API de outro domínio. O token (HMAC, 1 h) vale para a página, a API pública e a API v1, que ganhou `POST /api/v1/candidaturas/{id}/concluir`.
+32. **Duplicada que parou no upload** devolve a mesma candidatura com uma nova URL (o "Tentar de novo" da 9.4); a recebida reenvia o link.
+33. **Token `/c` trocado no reenvio:** na duplicada e no "Perdi o link", o banco só guarda o hash, então o link reenviado é um token novo e o antigo deixa de valer.
+34. **Versão do aviso:** `2026-11-20`, com `+{8 do sha256 do texto extra}` quando a empresa tem texto próprio, calculada na hora; `manual` na candidatura do chat.
+35. **Fallback `registrar_adicionar_candidato`** (o spec dizia `registrar_candidato`): o nome sai do registro comum. Vai sem currículo; com arquivo, `so_no_formulario`.
+36. **`/c` sem "Pedir revisão" e sem renovar ou sair do banco de talentos:** a revisão só vale para candidatura reprovada ou encerrada (8.6); o banco de talentos é o 8.7. A caixa de consentimento já está no formulário.
+37. **"Perdi o link" em `/c` (sem empresa)** manda um e-mail por empresa, cada um só com os links dela (11.27).
+38. **Copy sem texto no spec** (e-mails de desistência e de links reenviados, corpo do código de exclusão) escrita no tom da seção 15, em `copy.emailCandidato`.
+39. **Ficam para depois:** o aviso ao administrador quando a empresa passa de 5 GB (o upload já é recusado; o aviso vai no resumo do 8.10), o limite de 600 chamadas por minuto da API (8.12) e os eventos de analytics (8.11).
+40. **Pré-visualização lê o relógio só na requisição:** `await connection()` antes de conferir o `?previa=` (o Next acusava `Date.now()` no prerender).

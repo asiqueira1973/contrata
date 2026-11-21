@@ -6,7 +6,10 @@
 // Um item de lista (ex.: uma etapa, uma pergunta). Chaves que o formulário não desenha (ex.: o
 // id de uma etapa que já existe) voltam intactas no salvar.
 export type ItemLista = Record<string, string | boolean | string[]>;
-export type Valor = string | boolean | string[] | ItemLista[];
+// Arquivo escolhido no formulário (8.4): lido no navegador e mandado em base64 pelo callServerTool
+// (o formulário não tem rede própria). O servidor confere tipo e tamanho pelos bytes.
+export type ArquivoValor = { nome: string; tipo: string; base64: string };
+export type Valor = string | boolean | string[] | ItemLista[] | ArquivoValor;
 export type Valores = Record<string, Valor>;
 
 // Uma opção de lista. `preencher`: ao escolher, estes campos recebem estes valores (ex.: editar
@@ -38,7 +41,9 @@ export type Campo =
   // Itens que se repetem (etapas, perguntas): adicionar, remover, subir e descer. `novo` é o item
   // que entra ao clicar em adicionar; `somenteLeitura` mostra sem deixar mudar (perguntas de vaga
   // já publicada, 11.1). Erros de item chegam como "<nome>.<índice>.<subcampo>".
-  | (Base & { tipo: "lista"; subcampos: SubCampo[]; novo: ItemLista; rotuloItem: string; adicionar: string; min?: number; max?: number; somenteLeitura?: boolean });
+  | (Base & { tipo: "lista"; subcampos: SubCampo[]; novo: ItemLista; rotuloItem: string; adicionar: string; min?: number; max?: number; somenteLeitura?: boolean })
+  // Arquivo (currículo): `aceita` é o atributo accept do input; `maxBytes`, o teto conferido no navegador.
+  | (Base & { tipo: "arquivo"; aceita: string; tipos: string[]; maxBytes: number; erroTipo: string; remover: string });
 
 // O que abrir_formulario_* devolve em structuredContent: o formulário pronto para desenhar.
 export type Formulario = {

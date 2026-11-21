@@ -494,7 +494,7 @@ end $$;
 ALTER FUNCTION "public"."rs_fn_cancela_convite"("p_membro" "uuid", "p_ator" "jsonb") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."rs_fn_conclui_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid", "p_arquivo" "jsonb", "p_mensagem" "jsonb", "p_notificacao" "jsonb", "p_ator" "jsonb") RETURNS "jsonb"
+CREATE OR REPLACE FUNCTION "public"."rs_fn_conclui_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid", "p_arquivo" "jsonb", "p_mensagem" "jsonb", "p_notificacao" "jsonb", "p_ator" "jsonb", "p_token_hash" "text") RETURNS "jsonb"
     LANGUAGE "plpgsql"
     SET "search_path" TO ''
     AS $$
@@ -512,7 +512,7 @@ begin
     return pg_catalog.jsonb_build_object('ja_recebida', true);
   end if;
   select curriculo_obrigatorio into v_obrigatorio from public.rs_vagas where id = v.vaga_id;
-  if v_obrigatorio and p_arquivo is null then
+  if v_obrigatorio and p_arquivo is null and v.origem <> 'manual' then
     raise exception 'curriculo_obrigatorio' using errcode = 'P0001';
   end if;
   if p_arquivo is not null then
@@ -522,7 +522,8 @@ begin
             (p_arquivo ->> 'bytes')::integer, p_arquivo ->> 'sha256', pg_catalog.now())
     returning id into v_arquivo;
   end if;
-  update public.rs_candidaturas set recebida_em = pg_catalog.now(), movida_em = pg_catalog.now() where id = p_candidatura;
+  update public.rs_candidaturas set recebida_em = pg_catalog.now(), movida_em = pg_catalog.now(), token_hash = p_token_hash
+   where id = p_candidatura;
   insert into public.rs_notificacoes (empresa_id, candidatura_id, tipo, destinatario, chave_idempotencia, assunto, html, texto, reply_to)
   values (p_empresa, p_candidatura, (p_notificacao ->> 'tipo')::public.rs_tipo_notificacao, p_notificacao ->> 'destinatario',
           p_notificacao ->> 'chave', p_notificacao ->> 'assunto', p_notificacao ->> 'html', p_notificacao ->> 'texto',
@@ -538,7 +539,7 @@ begin
 end $$;
 
 
-ALTER FUNCTION "public"."rs_fn_conclui_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid", "p_arquivo" "jsonb", "p_mensagem" "jsonb", "p_notificacao" "jsonb", "p_ator" "jsonb") OWNER TO "postgres";
+ALTER FUNCTION "public"."rs_fn_conclui_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid", "p_arquivo" "jsonb", "p_mensagem" "jsonb", "p_notificacao" "jsonb", "p_ator" "jsonb", "p_token_hash" "text") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."rs_fn_confere_vaga"("p_empresa" "uuid", "p_area" "uuid", "p_dono" "uuid", "p_alcance" "jsonb") RETURNS "void"
@@ -3403,8 +3404,8 @@ GRANT ALL ON FUNCTION "public"."rs_fn_cancela_convite"("p_membro" "uuid", "p_ato
 
 
 
-REVOKE ALL ON FUNCTION "public"."rs_fn_conclui_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid", "p_arquivo" "jsonb", "p_mensagem" "jsonb", "p_notificacao" "jsonb", "p_ator" "jsonb") FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."rs_fn_conclui_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid", "p_arquivo" "jsonb", "p_mensagem" "jsonb", "p_notificacao" "jsonb", "p_ator" "jsonb") TO "service_role";
+REVOKE ALL ON FUNCTION "public"."rs_fn_conclui_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid", "p_arquivo" "jsonb", "p_mensagem" "jsonb", "p_notificacao" "jsonb", "p_ator" "jsonb", "p_token_hash" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_conclui_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid", "p_arquivo" "jsonb", "p_mensagem" "jsonb", "p_notificacao" "jsonb", "p_ator" "jsonb", "p_token_hash" "text") TO "service_role";
 
 
 

@@ -4,7 +4,7 @@
 // Sem rede própria: tudo passa por callServerTool (CSP connect-src 'none').
 import type { App } from "@modelcontextprotocol/ext-apps";
 import { copy } from "@/lib/copy";
-import { campoVisivel, valoresVisiveis, type Campo, type Formulario, type ItemLista, type Opcao, type RespostaSalvar, type SubCampo, type Valor } from "@/lib/formularios";
+import { campoVisivel, valoresVisiveis, type ArquivoValor, type Campo, type Formulario, type ItemLista, type Opcao, type RespostaSalvar, type SubCampo, type Valor } from "@/lib/formularios";
 import { $, criarFormulario, el } from "../shared/app";
 import { lembrar, lerLembranca, storageDaPagina } from "../shared/memoria";
 import { errosLocais, inicial, reduzir, type Estado, type Evento } from "./state";
@@ -95,6 +95,41 @@ function montarCampo(c: Campo): void {
     input.addEventListener("input", () => despachar({ tipo: "valor", nome: c.nome, valor: input.value }));
     preencher = (v) => (input.value = typeof v === "string" ? v : "");
     bloco.append(el("label", { for: id }, c.rotulo), input);
+  } else if (c.tipo === "arquivo") {
+    const input = el("input", { id, type: "file", accept: c.aceita, "aria-describedby": erro.id });
+    const nome = el("span", { className: "rodape" });
+    const remover = el("button", { type: "button", className: "texto mini", hidden: true }, c.remover);
+    const mostrar = (v: Valor | undefined) => {
+      const a = v && typeof v === "object" && !Array.isArray(v) ? (v as ArquivoValor) : null;
+      nome.textContent = a?.nome ?? "";
+      remover.hidden = !a;
+      if (!a) input.value = "";
+    };
+    input.addEventListener("change", () => {
+      const f = input.files?.[0];
+      if (!f) return despachar({ tipo: "valor", nome: c.nome, valor: "" });
+      const tipo = c.tipos.includes(f.type) ? f.type : /\.pdf$/i.test(f.name) ? c.tipos[0] : /\.docx$/i.test(f.name) ? c.tipos[1] : f.type;
+      if (!c.tipos.includes(tipo) || f.size > c.maxBytes) {
+        input.value = "";
+        despachar({ tipo: "valor", nome: c.nome, valor: "" });
+        estado = { ...estado, erros: { ...estado.erros, [c.nome]: c.erroTipo } };
+        return desenhar();
+      }
+      const leitor = new FileReader();
+      leitor.onload = () => {
+        const base64 = String(leitor.result).split(",")[1] ?? "";
+        const valor: ArquivoValor = { nome: f.name.slice(0, 200), tipo, base64 };
+        despachar({ tipo: "valor", nome: c.nome, valor });
+        mostrar(valor);
+      };
+      leitor.readAsDataURL(f);
+    });
+    remover.addEventListener("click", () => {
+      despachar({ tipo: "valor", nome: c.nome, valor: "" });
+      mostrar(undefined);
+    });
+    preencher = mostrar;
+    bloco.append(el("label", { for: id }, c.rotulo), input, el("div", { className: "item-cab" }, nome, remover));
   } else if (c.tipo === "lista") {
     const lista = montarLista(c, erro);
     preencher = lista.preencher;

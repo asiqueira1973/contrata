@@ -5,6 +5,7 @@ import "server-only";
 import { McpServer } from "@modelcontextprotocol/server";
 import { NOME_PRODUTO } from "@/lib/copy";
 import { formularioAcesso } from "./forms/acesso";
+import { formularioAdicionarCandidato } from "./forms/adicionar_candidato";
 import { formularioArea } from "./forms/area";
 import { formularioConexoes } from "./forms/conexoes";
 import { formularioConvite } from "./forms/convite";
@@ -20,7 +21,7 @@ import { registrarConsultas } from "./read";
 import { registrarConsultasDeVaga } from "./read-jobs";
 import { registrarRecursoDoFormulario } from "./ui";
 
-export const SERVER_INFO = { name: NOME_PRODUTO.toLowerCase(), version: "0.3.0" } as const;
+export const SERVER_INFO = { name: NOME_PRODUTO.toLowerCase(), version: "0.4.0" } as const;
 
 export function buildMcpServer(ctx: ToolContext): McpServer {
   const server = new McpServer(SERVER_INFO);
@@ -39,6 +40,7 @@ export function buildMcpServer(ctx: ToolContext): McpServer {
     registrarFormulario(server, ctx, formularioPausarVaga);
     registrarFormulario(server, ctx, formularioEncerrarVaga);
     registrarFormulario(server, ctx, formularioPaginaDeCarreiras);
+    registrarFormulario(server, ctx, formularioAdicionarCandidato);
   }
   return server;
 }

@@ -4,18 +4,27 @@ import "server-only";
 import { z } from "zod";
 import { NOME_PRODUTO } from "@/lib/copy";
 import { siteOrigin } from "@/server/oauth/server";
+import { candidaturaSchema } from "@/lib/schemas/applications";
 import { vagaSchema } from "@/lib/schemas/jobs";
 import { AreaV1, EmpresaV1, Erro, ErroCampos, ListaAreas, ListaPessoas, ListaVagas, PessoaV1, ResumoVagaV1, VagaV1 } from "./v1";
 
 // Entrada de vaga: o mesmo schema da 11.1 do formulário (as checagens cruzadas, como cidade fora
 // do remoto e salário máximo ≥ mínimo, não aparecem no JSON Schema, mas valem: voltam em campos).
 const VagaEntrada = vagaSchema;
-const schemas = { Erro, ErroCampos, Empresa: EmpresaV1, Area: AreaV1, Pessoa: PessoaV1, ListaAreas, ListaPessoas, Vaga: VagaV1, ListaVagas, ResumoVaga: ResumoVagaV1, VagaEntrada };
+// Entrada de candidatura: o schema da 11.2 (o mesmo da página e da API pública) mais a vaga.
+const CandidaturaEntrada = candidaturaSchema.extend({ vaga_id: z.uuid() });
+const CandidaturaCriada = z.object({
+  id: z.uuid(),
+  upload_url: z.string().nullable().optional().describe("PUT do currículo, válida por 1 h; null quando não há currículo"),
+  concluir_token: z.string().optional().describe("vai no corpo de /candidaturas/{id}/concluir"),
+  duplicada: z.boolean().optional().describe("true quando a pessoa já se candidatou: o link de acompanhamento é reenviado a ela"),
+});
+const schemas = { CandidaturaEntrada, CandidaturaCriada, Erro, ErroCampos, Empresa: EmpresaV1, Area: AreaV1, Pessoa: PessoaV1, ListaAreas, ListaPessoas, Vaga: VagaV1, ListaVagas, ResumoVaga: ResumoVagaV1, VagaEntrada };
 
 function componentes() {
   const out: Record<string, unknown> = {};
   for (const [nome, s] of Object.entries(schemas)) {
-    const json = z.toJSONSchema(s, { target: "draft-2020-12", unrepresentable: "any", reused: "inline", io: nome === "VagaEntrada" ? "input" : "output" }) as Record<string, unknown>;
+    const json = z.toJSONSchema(s, { target: "draft-2020-12", unrepresentable: "any", reused: "inline", io: nome.endsWith("Entrada") ? "input" : "output" }) as Record<string, unknown>;
     delete json.$schema;
     delete json.id;
     out[nome] = json;
@@ -85,6 +94,22 @@ export function openApiDocument() {
       "/vagas/{id}/publicar": { parameters: [idParam], post: { summary: "Publicar (escopo escrita)", operationId: "publicarVaga", responses: { "200": json("Vaga"), ...erros, "400": invalido, "409": conflito } } },
       "/vagas/{id}/pausar": { parameters: [idParam], post: { summary: "Pausar (escopo escrita)", operationId: "pausarVaga", responses: { "200": json("Vaga"), ...erros, "409": conflito } } },
       "/vagas/{id}/encerrar": { parameters: [idParam], post: { summary: "Encerrar sem candidaturas em andamento (escopo decisao); com candidaturas em andamento, 409 até as propostas", operationId: "encerrarVaga", requestBody: corpoObjeto, responses: { "200": json("Vaga"), ...erros, "400": invalido, "409": conflito } } },
+      "/candidaturas": {
+        post: {
+          summary: "Criar candidatura numa vaga publicada (escopo escrita; origem integracao). Com currículo, suba o arquivo por PUT na upload_url e chame /concluir; o candidato recebe o link de acompanhamento por e-mail.",
+          operationId: "criarCandidatura",
+          requestBody: { required: true, content: { "application/json": { schema: ref("CandidaturaEntrada") } } },
+          responses: { "201": json("CandidaturaCriada"), "200": { ...json("CandidaturaCriada"), description: "Candidatura repetida (mesmo e-mail na vaga)" }, ...erros, "400": invalido, "404": naoEncontrado, "409": conflito },
+        },
+      },
+      "/candidaturas/{id}/concluir": {
+        parameters: [idParam],
+        post: {
+          summary: "Concluir a candidatura depois do upload (escopo escrita). Idempotente.", operationId: "concluirCandidatura",
+          requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["concluir_token"], properties: { concluir_token: { type: "string" } } } } } },
+          responses: { "200": { description: "ok", content: { "application/json": { schema: { type: "object", properties: { id: { type: "string" }, recebida: { type: "boolean" } } } } } }, ...erros, "400": invalido },
+        },
+      },
       "/vagas/{id}/resumo": { parameters: [idParam], get: { summary: "Resumo do funil (contagens)", operationId: "resumoDaVaga", responses: { "200": json("ResumoVaga"), ...erros, "404": naoEncontrado } } },
     },
   };

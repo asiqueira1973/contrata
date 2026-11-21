@@ -2,6 +2,7 @@
 // local, regime, salário (se mostrar) e o JSON-LD JobPosting. Pausada ou encerrada: 200 com "Esta
 // vaga não recebe mais candidaturas" e sem JSON-LD. Rascunho, ou empresa sem página publicada (sem
 // pré-visualização válida): 404. Vaga publicada leva o botão "Candidatar-me" (8.4).
+import { connection } from "next/server";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -92,6 +93,8 @@ function Vaga({ empresa, vaga, previa }: { empresa: EmpresaPublica; vaga: VagaPu
 
 async function Previa({ empresa, vaga, searchParams }: { empresa: EmpresaPublica; vaga: VagaPublica; searchParams: Props["searchParams"] }) {
   const sp = await searchParams;
+  // A validade do token depende da hora: lê o relógio só na requisição, nunca no prerender.
+  await connection();
   const token = typeof sp.previa === "string" ? sp.previa : null;
   if (!previaValida(empresa.id, token)) notFound();
   return <Vaga empresa={empresa} vaga={vaga} previa={token!} />;

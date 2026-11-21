@@ -7,7 +7,7 @@
 A especificação completa está em [`spec.md`](spec.md); os planos de cada épico, em [`plans/`](plans/); o que existe de fato, em [`DOCUMENTACAO-TECNICA.md`](DOCUMENTACAO-TECNICA.md).
 
 ## Estado
-Em implementação. Prontos: guardrails (8.0), fundação (8.1), o conector (8.2: OAuth, servidor MCP com consultas e formulários no chat, chaves de API, API v1) e **vagas e página de carreiras (8.3)**: pelo chat, criar, editar, publicar, pausar e encerrar vagas, com etapas, perguntas e equipe; a vaga publicada aparece em `/{empresa}` e `/{empresa}/vagas/{slug}` (com JSON-LD para o Google), no feed `/{empresa}/vagas.xml`, no `sitemap.xml` e na API pública. Candidaturas chegam no 8.4. O guia completo de auto-hospedagem entra no épico 8.12.
+Em implementação. Prontos: guardrails (8.0), fundação (8.1), o conector (8.2: OAuth, servidor MCP com consultas e formulários no chat, chaves de API, API v1) e **vagas e página de carreiras (8.3)**: pelo chat, criar, editar, publicar, pausar e encerrar vagas, com etapas, perguntas e equipe; a vaga publicada aparece em `/{empresa}` e `/{empresa}/vagas/{slug}` (com JSON-LD para o Google), no feed `/{empresa}/vagas.xml`, no `sitemap.xml` e na API pública; e **candidatura (8.4)**: a pessoa se candidata pela página da vaga, com o currículo subindo direto para o bucket, e acompanha pelo link `/c/{token}` que recebe por e-mail (retirar, baixar e excluir os dados); a empresa também inclui candidatos pelo chat ou pela API v1. O funil chega no 8.5. O guia completo de auto-hospedagem entra no épico 8.12.
 
 ## Rodar localmente
 
@@ -26,7 +26,8 @@ Preencha o `.env.local`:
 - `MCP_PREVIEW_SECRET`: `openssl rand -base64 32` (assina as prévias do conector para clientes sem formulário);
 - `PREVIA_PAGINA_SECRET`: `openssl rand -base64 32` (link de pré-visualização da página de carreiras ainda não publicada);
 - `CRON_SECRET`: `openssl rand -base64 32` (protege a faxina diária, `/api/cron/diario`; na Vercel, o `vercel.json` já agenda 1×/dia);
-- `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`: veja abaixo.
+- `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`: veja abaixo;
+- `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET`: o bucket dos currículos (Cloudflare R2: `S3_ENDPOINT=https://<conta>.r2.cloudflarestorage.com` e `S3_REGION=auto`; configure no bucket um CORS que libere `PUT` vindo do endereço do site). **Vazias, os arquivos ficam em `.armazenamento-local/`**, o que só serve para desenvolvimento.
 
 ```bash
 npm run dev               # http://localhost:3050
@@ -64,8 +65,11 @@ O comando imprime um cookie `rs_sessao=…` para colar no navegador em `localhos
 ### Página de carreiras
 Com o seed, `http://localhost:3050/padaria-exemplo` mostra a página da Padaria Exemplo com duas vagas publicadas. A página só aparece depois que um administrador a publica (peça ao Claude: "publique a página de carreiras"); antes disso, o formulário devolve um link de pré-visualização que vale 10 minutos.
 
+### Candidatura
+Com a página publicada, abra uma vaga e clique em "Candidatar-me". O e-mail com o link de acompanhamento cai em `.caixa-de-saida-local/`; em `/c/{token}` dá para retirar a candidatura, baixar e excluir os dados (o código de exclusão também chega pela caixa local). Quem perdeu o link pede de novo em `/c`.
+
 ### Ver os formulários sem o Claude
-Com `npm run dev`, abra `http://localhost:3050/dev/formularios`. É um host de MCP Apps que só existe em desenvolvimento: cole um token `rsm_` local, escolha a ferramenta (`abrir_formulario_convite`, `abrir_formulario_pessoa`…) e os argumentos, e o formulário abre como abriria no chat, em tema claro ou escuro.
+Com `npm run dev`, abra `http://localhost:3050/dev/formularios`. É um host de MCP Apps que só existe em desenvolvimento: cole um token `rsm_` local, escolha a ferramenta (`abrir_formulario_convite`, `abrir_formulario_adicionar_candidato`…) e os argumentos, e o formulário abre como abriria no chat, em tema claro ou escuro.
 
 ## Testes
 
