@@ -1,8 +1,8 @@
-# Contrata
+# Vaga Aberta
 
-**O sistema de recrutamento e seleção para agentes.** É um ATS de código aberto e gratuito, sem painel: quem recruta opera pelo Claude ou pelo ChatGPT com o conector do Contrata. Consultas são em linguagem natural; cadastro e decisões abrem um formulário dentro do chat, que a pessoa confere e confirma. Candidatos usam páginas web simples. Para automação, há API REST e webhooks.
+**O sistema de recrutamento e seleção para agentes.** É um ATS de código aberto e gratuito, sem painel: quem recruta opera pelo Claude ou pelo ChatGPT com o conector do Vaga Aberta. Consultas são em linguagem natural; cadastro e decisões abrem um formulário dentro do chat, que a pessoa confere e confirma. Candidatos usam páginas web simples. Para automação, há API REST e webhooks.
 
-**Clone e use:** cada empresa hospeda a própria instância; não há serviço aberto a terceiros. "Contrata" é nome de trabalho (spec, pergunta 25.1). Licença MIT.
+**Clone e use:** cada empresa hospeda a própria instância; não há serviço aberto a terceiros. O nome é **Vaga Aberta** (vagaaberta.app.br, spec 25.1); "contrata" segue só nos nomes internos (repositório, pasta, prefixos de evento e cabeçalhos de webhook). Licença MIT.
 
 A especificação completa está em [`spec.md`](spec.md); os planos de cada épico, em [`plans/`](plans/); o que existe de fato, em [`DOCUMENTACAO-TECNICA.md`](DOCUMENTACAO-TECNICA.md).
 
@@ -36,7 +36,7 @@ npm run dev               # http://localhost:3050
 Sem `RESEND_API_KEY`, os e-mails vão para `.caixa-de-saida-local/`.
 
 ## Conectar no Claude ou no ChatGPT
-O endereço do conector é `{NEXT_PUBLIC_SITE_URL}/mcp`. O Claude e o ChatGPT só alcançam HTTPS público, então para usar de verdade a instância precisa estar publicada (ou atrás de um túnel).
+O endereço do conector é `{NEXT_PUBLIC_SITE_URL}/mcp` — em produção, `https://vagaaberta.app.br/mcp`. O Claude e o ChatGPT só alcançam HTTPS público, então para usar de verdade a instância precisa estar publicada (ou atrás de um túnel).
 - **Claude:** Configurações › Conectores › Adicionar conector personalizado.
 - **ChatGPT:** Configurações › Aplicativos e conectores › Criar (modo desenvolvedor).
 
@@ -45,10 +45,10 @@ Ao conectar, você entra com o Google, aceita os Termos, escolhe (ou cria) a emp
 Para automação, crie uma chave de API pelo conector ("crie uma chave de API para o n8n") e use `Authorization: Bearer rsk_…` na API v1 (documento em `/api/v1/openapi.json`).
 
 ### Login com Google (obrigatório)
-O Contrata só aceita login pelo Google (spec 6.1). No [Google Cloud Console](https://console.cloud.google.com/):
-1. Crie um projeto (ex.: "Contrata") e configure a tela de consentimento OAuth com os escopos básicos `openid`, `email` e `profile`.
+O Vaga Aberta só aceita login pelo Google (spec 6.1). No [Google Cloud Console](https://console.cloud.google.com/):
+1. Crie um projeto (ex.: "Vaga Aberta") e configure a tela de consentimento OAuth com os escopos básicos `openid`, `email` e `profile`.
 2. Em **Credenciais → Criar credenciais → ID do cliente OAuth**, tipo "Aplicativo da Web".
-3. Em **URIs de redirecionamento autorizados**, inclua `{NEXT_PUBLIC_SITE_URL}/api/auth/google/callback` (em desenvolvimento, `http://localhost:3050/api/auth/google/callback`).
+3. Em **URIs de redirecionamento autorizados**, inclua `{NEXT_PUBLIC_SITE_URL}/api/auth/google/callback` (em produção, `https://vagaaberta.app.br/api/auth/google/callback`; em desenvolvimento, `http://localhost:3050/api/auth/google/callback`).
 4. Copie o ID e a chave secreta para `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`.
 
 Quem usa Microsoft 365 pode criar uma conta Google com o mesmo e-mail corporativo (não precisa ser Gmail).

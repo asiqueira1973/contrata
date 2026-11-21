@@ -14,7 +14,7 @@ export default defineConfig({
   plugins: [viteSingleFile()],
   resolve: { alias: { "@": resolve(import.meta.dirname, "src") } },
   // copy.ts lê o nome do produto do ambiente; no formulário (navegador) ele vem fixo do build.
-  define: { "process.env.NEXT_PUBLIC_NOME_PRODUTO": JSON.stringify(process.env.NEXT_PUBLIC_NOME_PRODUTO ?? "Contrata") },
+  define: { "process.env.NEXT_PUBLIC_NOME_PRODUTO": JSON.stringify(process.env.NEXT_PUBLIC_NOME_PRODUTO ?? "Vaga Aberta") },
   build: {
     outDir: `../dist/${ENTRADA}`,
     emptyOutDir: true,

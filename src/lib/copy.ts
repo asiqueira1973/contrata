@@ -6,7 +6,7 @@ import { CONVITE_DIAS, CONVITES_PENDENTES_MAX, ETAPAS_MAX, ETAPAS_MIN, PERGUNTA_
 import type { Papel } from "./limits";
 
 // Nome exibido (pergunta 25.1): troca-se por variável, sem mexer no código.
-export const NOME_PRODUTO = process.env.NEXT_PUBLIC_NOME_PRODUTO || "Contrata";
+export const NOME_PRODUTO = process.env.NEXT_PUBLIC_NOME_PRODUTO || "Vaga Aberta";
 
 // Rótulo e explicação de cada papel (15.2, "Equipe — convidar").
 export const PAPEL: Record<Papel, { rotulo: string; explicacao: string }> = {
@@ -53,7 +53,7 @@ export const ERROS: Record<string, string> = {
   precisa_de_membro: "Esta ação precisa de uma pessoa da equipe: conecte o conector pelo login com Google, não por chave de API.",
   previa_divergente: "Os dados mudaram desde a prévia. Mostre a nova prévia à pessoa.",
   previa_invalida: "A prévia venceu ou não é válida. Gere uma nova prévia e mostre à pessoa.",
-  so_no_formulario: "Isso só pode ser feito pelo formulário, com o clique da pessoa. Use o Contrata no Claude ou no ChatGPT.",
+  so_no_formulario: `Isso só pode ser feito pelo formulário, com o clique da pessoa. Use o ${NOME_PRODUTO} no Claude ou no ChatGPT.`,
   escopo_insuficiente: "Esta conexão não tem permissão para isso. Conecte de novo marcando o escopo necessário.",
   papel_insuficiente: "Seu papel na empresa não permite isso.",
   limite_chaves: "A empresa já tem 10 chaves de API ativas. Revogue alguma antes de criar outra.",
@@ -604,7 +604,7 @@ export const copy = {
   // Página inicial provisória (até o 8.12) e convite aceito (6.1, 15.2).
   inicioPublico: {
     titulo: `${NOME_PRODUTO}: recrutamento e seleção para agentes`,
-    texto: "Quem recruta usa o Contrata pelo Claude ou pelo ChatGPT. Para conectar, adicione um conector personalizado com este endereço:",
+    texto: `Quem recruta usa o ${NOME_PRODUTO} pelo Claude ou pelo ChatGPT. Para conectar, adicione um conector personalizado com este endereço:`,
   },
   // Página de carreiras e página da vaga (10.1, 15.2, 16).
   carreiras: {

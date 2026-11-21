@@ -3,7 +3,7 @@
 Descreve o que está **de fato** implementado, na ordem da seção 19 do `spec.md` (v0.4). Toda mudança de schema, trigger, rota, ferramenta ou lógica de tela atualiza este documento no mesmo commit.
 
 ## Estado (21/11/2026)
-Épicos 8.0 (guardrails), 8.1 (fundação), 8.2 (o conector), 8.3 (vagas e página de carreiras), 8.4 (candidatura e link de acompanhamento) e **8.5 (funil: etapas, avaliações, notas e busca)** concluídos no local, com as migrations no remoto (pelo `apply_migration`, mesmo SQL dos arquivos; nenhuma função `rs_` exposta a `anon`/`authenticated`). **Spec v0.4.5: sistema para agentes, sem painel.** Quem recruta conecta o Contrata no Claude ou no ChatGPT (`{site}/mcp`) e, pelo chat, administra a equipe e cria, edita, publica, pausa e encerra vagas; a vaga publicada aparece na página de carreiras, no feed, no sitemap e na API pública. A pessoa se candidata pela página da vaga (upload direto do currículo), acompanha pelo link `/c/{token}` que recebe por e-mail, retira a candidatura, baixa e exclui os dados; a empresa inclui candidatos pelo chat (`adicionar_candidato`) ou pela API v1, e conduz o funil conversando: lista, busca, lê currículos, anota, move de etapa em lote, exporta o CSV, e cada avaliador registra a própria avaliação pelo formulário sem ver a dos outros antes. Pendentes, com o Alexandre: nome e domínio (25.1), DNS na Vercel, cliente OAuth do Google, bucket R2 e, com eles, o teste no Claude, no ChatGPT, no Teste de Pesquisa Aprimorada do Google e o e-mail real pelo Resend. Decisões e devolutivas chegam no 8.6.
+Épicos 8.0 (guardrails), 8.1 (fundação), 8.2 (o conector), 8.3 (vagas e página de carreiras), 8.4 (candidatura e link de acompanhamento) e **8.5 (funil: etapas, avaliações, notas e busca)** concluídos no local, com as migrations no remoto (pelo `apply_migration`, mesmo SQL dos arquivos; nenhuma função `rs_` exposta a `anon`/`authenticated`). **Spec v0.4.6: sistema para agentes, sem painel.** Quem recruta conecta o Contrata no Claude ou no ChatGPT (`{site}/mcp`) e, pelo chat, administra a equipe e cria, edita, publica, pausa e encerra vagas; a vaga publicada aparece na página de carreiras, no feed, no sitemap e na API pública. A pessoa se candidata pela página da vaga (upload direto do currículo), acompanha pelo link `/c/{token}` que recebe por e-mail, retira a candidatura, baixa e exclui os dados; a empresa inclui candidatos pelo chat (`adicionar_candidato`) ou pela API v1, e conduz o funil conversando: lista, busca, lê currículos, anota, move de etapa em lote, exporta o CSV, e cada avaliador registra a própria avaliação pelo formulário sem ver a dos outros antes. Pendentes, com o Alexandre: projeto e DNS de vagaaberta.app.br na Vercel, cliente OAuth do Google, bucket R2 e, com eles, o teste no Claude, no ChatGPT, no Teste de Pesquisa Aprimorada do Google e o e-mail real pelo Resend. Decisões e devolutivas chegam no 8.6.
 
 ---
 
@@ -227,7 +227,7 @@ Resumo do README (o guia completo entra no 8.12): Supabase com as migrations de 
 
 ## 7. Divergências em relação ao spec
 
-Todas já refletidas no `spec.md` (v0.4.5).
+Todas já refletidas no `spec.md` (v0.4.6).
 
 1. **Clone e use (decisão do Alexandre, 20/11/2026):** saiu o pedido de convite da instância e os limites de SaaS; quem cria empresa é a lista `CRIACAO_EMPRESA_EMAILS` (11.33 reescrita).
 2. **Funções do banco por épico:** cada épico cria as funções que usa, com o pgTAP delas.
@@ -285,3 +285,4 @@ Todas já refletidas no `spec.md` (v0.4.5).
 54. **Pendente:** candidatura não recebida (upload parado) segura a etapa até a faxina de 24 h; tirar essa etapa antes disso dá `etapa_com_candidaturas`, mesmo sem candidatura visível.
 55. **Busca da API com 50 por página** (11.28), mesmo com `limite` maior (achado do verifier do 8.5).
 56. **O avaliador vê quantas avaliações ficaram ocultas** (`avaliacoes_ocultas`) e, no histórico, quem já avaliou ou anotou, mas nunca o conteúdo antes de registrar a dele (11.9).
+57. **Nome público Vaga Aberta (25.1, v0.4.6):** tudo o que as pessoas veem usa `NEXT_PUBLIC_NOME_PRODUTO` ou o `NOME_PRODUTO` (padrão "Vaga Aberta" no `copy.ts` e no `vite.config.mts`, que embute o nome no formulário do chat). O nome do servidor MCP é a versão em minúsculas com hífen (`vaga-aberta`). Os nomes internos ficam com "contrata".

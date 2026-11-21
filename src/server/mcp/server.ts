@@ -24,7 +24,7 @@ import { registrarConsultasDeVaga } from "./read-jobs";
 import { registrarOperacoes } from "./operations";
 import { registrarRecursoDoFormulario } from "./ui";
 
-export const SERVER_INFO = { name: NOME_PRODUTO.toLowerCase(), version: "0.5.0" } as const;
+export const SERVER_INFO = { name: NOME_PRODUTO.toLowerCase().replace(/\s+/g, "-"), version: "0.5.0" } as const;
 
 export function buildMcpServer(ctx: ToolContext): McpServer {
   const server = new McpServer(SERVER_INFO);

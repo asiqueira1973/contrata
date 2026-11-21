@@ -1,6 +1,7 @@
 // Vagas pelo conector (épico 8.3): formulário vaga (criar e editar, listas de etapas e perguntas,
 // dono com e sem acesso, área no alcance), consultas (listar_vagas, ver_vaga, resumo_da_vaga),
 // publicar, pausar e encerrar (12.1, 11.1), página de carreiras e o fallback (13.5, v0.4.2).
+import { ERROS } from "@/lib/copy";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/server/db/client";
 import { previaValida } from "@/server/careers/preview";
@@ -188,7 +189,7 @@ describe("publicar, pausar e encerrar (12.1, 11.1)", () => {
   // Equipe dá acesso às candidaturas da vaga: sem formulário, não muda (13.5, v0.4.2).
   it("fallback não mexe na equipe (responsável e avaliadores só pelo formulário)", async () => {
     const r = await callTool(tokens.admin, "registrar_vaga", base({ avaliadores: [membroAval] }), SEM_UI);
-    expect(texto(r)).toBe("Isso só pode ser feito pelo formulário, com o clique da pessoa. Use o Contrata no Claude ou no ChatGPT.");
+    expect(texto(r)).toBe(ERROS.so_no_formulario);
   });
 });
 

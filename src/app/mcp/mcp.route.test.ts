@@ -1,6 +1,7 @@
 // /mcp (8.2; seções 6.3, 13.3 e 13.5): 401 com WWW-Authenticate; ferramentas por capacidade do
 // cliente; visibilidade (salvar_* e opções só do app); anotações; escopo e papel; chave de API;
 // fallback com prévia; chave criada só no formulário.
+import { ERROS } from "@/lib/copy";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { db } from "@/server/db/client";
@@ -131,7 +132,7 @@ describe("fallback com prévia (13.5)", () => {
   it("dar acesso pelo fallback é recusado já na prévia, sem token e sem convite (decisão de 20/11/2026)", async () => {
     const { data: p } = await db().from("rs_pessoas").insert({ empresa_id: empresa.id, nome: "Sem Acesso", email: `sem-${randomUUID()}@teste.exemplo` }).select("id").single();
     const r = await callTool(admin, "registrar_pessoa", { operacao: "dar_acesso", pessoa: p!.id, papel: "administrador", todas: "todas" }, SEM_UI);
-    expect("content" in r && r.content[0].text).toBe("Isso só pode ser feito pelo formulário, com o clique da pessoa. Use o Contrata no Claude ou no ChatGPT.");
+    expect("content" in r && r.content[0].text).toBe(ERROS.so_no_formulario);
     expect(JSON.stringify(r)).not.toContain("token_previa");
     const { count } = await db().from("rs_membros").select("id", { count: "exact", head: true }).eq("empresa_id", empresa.id).eq("papel", "administrador").is("usuario_id", null);
     expect(count).toBe(0);
