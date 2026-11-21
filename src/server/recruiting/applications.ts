@@ -333,7 +333,7 @@ export async function mensagensRecebidas(candidaturaId: string) {
     .eq("candidatura_id", candidaturaId).neq("corpo", "").order("criado_em", { ascending: false });
   if (error) throw error;
   // O link guardado como variável não aparece na página (a pessoa já está nele).
-  return (data ?? []).map((m) => ({ data: m.criado_em, assunto: m.assunto, corpo: m.corpo.replace(/\s*\{\{link_acompanhamento\}\}/g, "") }));
+  return (data ?? []).map((m) => ({ data: m.criado_em, assunto: m.assunto, corpo: m.corpo.replace(/\{\{link_acompanhamento\}\}/g, copy.acompanhamento.esteLink) }));
 }
 
 // Retirar (12.2): ativa → desistiu, com a confirmação por e-mail (11.5) e expurgar_em (11.12).
@@ -380,7 +380,7 @@ export async function exportData(token: string) {
       respostas: [...l.rs_respostas].sort((a, b) => a.pergunta.ordem - b.pergunta.ordem).map((r) => ({ pergunta: r.pergunta.texto, resposta: r.valor })),
       curriculo: cv ? { nome_original: cv.nome_original, url: (await storage().createDownloadUrl(cv.path, DOWNLOAD_URL_SEGUNDOS, cv.nome_original)).url } : null,
       mensagens_recebidas: l.rs_mensagens.filter((m) => m.corpo).sort((a, b) => a.criado_em.localeCompare(b.criado_em))
-        .map((m) => ({ data: m.criado_em, assunto: m.assunto, corpo: m.corpo.replace(/\s*\{\{link_acompanhamento\}\}/g, "") })),
+        .map((m) => ({ data: m.criado_em, assunto: m.assunto, corpo: m.corpo.replace(/\{\{link_acompanhamento\}\}/g, copy.acompanhamento.esteLink) })),
     };
   }));
   await db().rpc("rs_fn_registra_evento", {

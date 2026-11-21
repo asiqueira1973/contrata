@@ -45,7 +45,10 @@ const nextConfig: NextConfig = {
         ],
       },
       // Painel, convite e OAuth não se indexam (seção 17).
-      ...["/painel/:path*", "/convite/:path*", "/entrar"].map((source) => ({
+      // Link do candidato (seção 17): o token não vaza pelo Referer.
+      { source: "/c/:path*", headers: [{ key: "Referrer-Policy", value: "no-referrer" }, { key: "X-Robots-Tag", value: "noindex, nofollow" }] },
+      { source: "/api/c/:path*", headers: [{ key: "Referrer-Policy", value: "no-referrer" }] },
+      ...["/painel/:path*", "/convite/:path*", "/entrar", "/c", "/:empresa/vagas/:slug/candidatar", "/:empresa/links"].map((source) => ({
         source,
         headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow" }],
       })),

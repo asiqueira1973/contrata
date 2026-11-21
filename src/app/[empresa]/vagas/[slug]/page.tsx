@@ -1,7 +1,7 @@
 // [Público] Página da vaga — seções 10.1, 16 e 17; regra 11.20. Publicada: descrição, requisitos,
 // local, regime, salário (se mostrar) e o JSON-LD JobPosting. Pausada ou encerrada: 200 com "Esta
 // vaga não recebe mais candidaturas" e sem JSON-LD. Rascunho, ou empresa sem página publicada (sem
-// pré-visualização válida): 404. O botão "Candidatar-me" entra no épico 8.4.
+// pré-visualização válida): 404. Vaga publicada leva o botão "Candidatar-me" (8.4).
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
@@ -63,6 +63,11 @@ function Vaga({ empresa, vaga, previa }: { empresa: EmpresaPublica; vaga: VagaPu
           <strong>{c.fechada}</strong>
           <Link className={s.link} href={voltar}>{c.verOutras(empresa.nome)}</Link>
         </div>
+      )}
+      {vaga.status === "publicada" && !previa && (
+        <Link className={s.botao} style={{ alignSelf: "flex-start", display: "inline-flex", alignItems: "center" }} href={`/${empresa.slug}/vagas/${vaga.slug}/candidatar`}>
+          {copy.candidatura.botaoVaga}
+        </Link>
       )}
       <dl className={s.fatos}>
         {fatos.map((f) => (

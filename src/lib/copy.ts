@@ -593,6 +593,7 @@ export const copy = {
     nao: "Não",
     escolha: "Escolha…",
     obrigatoria: "obrigatória",
+    opcional: "opcional",
     aceite: (empresa: string) => `Li o aviso de privacidade e concordo que a ${empresa} use meus dados para este processo seletivo.`,
     lerAviso: "Ler o aviso",
     talentos: (empresa: string, meses: number) => `Quero que a ${empresa} guarde meus dados por ${meses} meses para me avisar de outras vagas.`,
@@ -658,6 +659,8 @@ export const copy = {
     linkInvalido: "Link não encontrado. Ele pode ter sido digitado errado ou os dados já foram excluídos.",
     perdiLink: "Perdi o link",
     tituloPagina: "Sua candidatura",
+    // No lugar de {{link_acompanhamento}} nas mensagens mostradas aqui (a pessoa já está no link).
+    esteLink: "esta página.",
   },
   // "Perdi o link" (15.1, 6.2).
   perdiLink: {
