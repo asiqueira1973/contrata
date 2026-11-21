@@ -34,12 +34,15 @@ export function urlDoLink(candidaturaId: string, versao: number): string {
   return urlDoToken(tokenDoLink(candidaturaId, versao));
 }
 
-// Link vigente lido do banco. Recebe: empresa e candidatura. Devolve a URL, ou null se a
-// candidatura não existe ou foi anonimizada.
+// Link vigente lido do banco. Se o hash gravado não é o do link derivado (candidatura de antes do
+// 8.6, com token aleatório), gira para o derivado: o link antigo deixa de valer e este e-mail leva
+// o novo, que funciona. Recebe: empresa e candidatura. Devolve a URL, ou null se a candidatura não
+// existe ou foi anonimizada.
 export async function linkVigente(empresaId: string, candidaturaId: string): Promise<string | null> {
   const { data, error } = await db().from("rs_candidaturas").select("link_versao, token_hash").eq("empresa_id", empresaId).eq("id", candidaturaId).maybeSingle();
   if (error) throw error;
   if (!data || data.token_hash.startsWith("anonimizada:")) return null;
+  if (data.token_hash !== hashDoLink(candidaturaId, data.link_versao)) return giraLink(empresaId, candidaturaId);
   return urlDoLink(candidaturaId, data.link_versao);
 }
 
