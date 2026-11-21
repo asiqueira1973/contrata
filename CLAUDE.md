@@ -1,19 +1,20 @@
 # CLAUDE.md — Contrata
 
-Fonte única de verdade: `spec.md` (v0.4.4). Planos aprovados: `plans/`. Os princípios da seção 0 desempatam dúvidas. Itens da seção 25 → **pare e pergunte**. Referências: `~/assina` (login, R2, Resend, webhooks, OAuth) e `~/agenda-psi/mcp-server` (MCP Apps, formulários, fallback com prévia). Leia antes de reinventar. Mudou schema, rota, ferramenta ou tela → atualize `DOCUMENTACAO-TECNICA.md`, este arquivo e o README no mesmo commit.
+Fonte única de verdade: `spec.md` (v0.4.5). Planos aprovados: `plans/`. Os princípios da seção 0 desempatam dúvidas. Itens da seção 25 → **pare e pergunte**. Referências: `~/assina` (login, R2, Resend, webhooks, OAuth) e `~/agenda-psi/mcp-server` (MCP Apps, formulários, fallback com prévia). Leia antes de reinventar. Mudou schema, rota, ferramenta ou tela → atualize `DOCUMENTACAO-TECNICA.md`, este arquivo e o README no mesmo commit.
 
 ## Regra de ouro
 Se um teste falhar, corrija o código, não o teste; nunca pule nem apague teste que falha.
 Bug: teste que reproduz → ver falhar → commit → `touch .claude/fix-mode` → corrigir → `rm .claude/fix-mode`.
 
 ## Estado
-Spec **v0.4.4: um sistema para agentes, não para humanos**. Quem recruta opera pelo Claude ou pelo ChatGPT; não há painel. Clone e use: quem cria empresa é `CRIACAO_EMPRESA_EMAILS` (11.33). Épicos 8.0, 8.1, 8.2 (o conector), 8.3 (vagas e página de carreiras) e 8.4 (candidatura e link `/c`) concluídos no local, com as migrations no remoto (21/11/2026). Pendentes, com o Alexandre: nome e domínio (25.1), DNS na Vercel, cliente OAuth do Google, bucket R2 e, com eles, o teste no Claude, no ChatGPT, no Teste de Pesquisa Aprimorada e o e-mail real pelo Resend. Próximo: 8.5 (funil), em plan mode. 25.1 decide-se antes do 8.12.
+Spec **v0.4.5: um sistema para agentes, não para humanos**. Quem recruta opera pelo Claude ou pelo ChatGPT; não há painel. Clone e use: quem cria empresa é `CRIACAO_EMPRESA_EMAILS` (11.33). Épicos 8.0, 8.1, 8.2 (o conector), 8.3 (vagas e página de carreiras), 8.4 (candidatura e link `/c`) e 8.5 (funil) concluídos no local, com as migrations no remoto (21/11/2026). Pendentes, com o Alexandre: nome e domínio (25.1), DNS na Vercel, cliente OAuth do Google, bucket R2 e, com eles, o teste no Claude, no ChatGPT, no Teste de Pesquisa Aprimorada e o e-mail real pelo Resend. Próximo: 8.6 (decisões, devolutivas e mensagens), em plan mode. 25.1 decide-se antes do 8.12.
 
 ## Como uma ação nova entra (padrão do 8.2)
 1. Função de domínio em `src/server/<área>/` com `ator` e, se lê candidaturas, `alcance`.
 2. Consulta → `consulta(...)` em `src/server/mcp/read.ts`. Escrita → pasta `src/server/mcp/forms/<acao>/` com `index.ts` (`DefinicaoFormulario`: escopo, papel, entrada, `montar`, `opcoes`, schema) e `save.ts`; registre em `src/server/mcp/server.ts`. O HTML é o genérico (`ui/formulario/`); campo novo = tipo novo em `src/lib/formularios.ts` + desenho em `ui/formulario/main.ts`.
-3. Copy em `copy.mcp` (`titulos`, `descricoes`, `form.<acao>`). Rota da API v1 quando houver porta.
-4. Teste pelo `/mcp` (`callTool` de `tests/helpers.ts`) e veja o formulário em `/dev/formularios`.
+3. Operação direta (classe O, sem formulário: só o que é reversível e não decide sobre a pessoa, 11.34) → `operacao()` em `src/server/mcp/operations.ts` e o nome em `OPERACOES` (`kit.ts`), para sair como escrita. Consulta só para um papel → o último argumento de `consulta()`.
+4. Copy em `copy.mcp` (`titulos`, `descricoes`, `form.<acao>`). Rota da API v1 quando houver porta.
+5. Teste pelo `/mcp` (`callTool` de `tests/helpers.ts`) e veja o formulário em `/dev/formularios`.
 
 ## Regras que não se quebram
 - **Princípio 1, agente primeiro:** cada ação nasce como função de domínio em `src/server/`, depois como ferramenta MCP, depois como rota da API v1 quando houver porta. **Nenhuma tela de painel nova.** Na web ficam só entrar, consentir (`/oauth/autorizar`) e convite, o candidato e as páginas públicas.
@@ -76,3 +77,8 @@ Spec **v0.4.4: um sistema para agentes, não para humanos**. Quem recruta opera 
 - Nada secreto no **assunto** de e-mail: depois do envio a fila apaga só `html` e `texto`.
 - O e-mail do candidato não é verificado: a candidatura nunca altera um cadastro que já existe, e consentimento (talentos) só vale na conclusão.
 - O servidor de desenvolvimento às vezes fica com um módulo velho depois de muitas edições (ex.: `copy.mcp.form.<acao>` indefinido no `/mcp` com o `tsc` e os testes verdes): reinicie o `npm run dev`.
+- **Funil (8.5):** candidatura se lê por `src/server/recruiting/pipeline.ts`, que confere o alcance pela vaga e só enxerga as recebidas. A visão do avaliador (alcance `equipe`) esconde as avaliações dos outros e as notas até ele avaliar (11.9); não devolva `rs_avaliacoes` ou `rs_notas` por outro caminho.
+- Texto escrito pelo candidato (respostas, currículo) vai ao modelo só dentro de `conteudo_do_candidato`, com `copy.funil.conteudoDoCandidato` (20.3).
+- Avaliação é da equipe da vaga, não do papel: o banco recusa com `fora_da_equipe`. Para testar com o seed, ponha o membro em `rs_vaga_equipe` (as vagas do seed não têm equipe).
+- O `TextDecoder` tira o BOM: para conferir o CSV da 14.1, olhe os três primeiros bytes.
+- `rs_tg_atualizado_em` sobrescreve `atualizado_em` em todo `update`: num teste, para mudar a data, faça a ação de verdade (anotar, mover) depois do corte.

@@ -7,7 +7,7 @@
 A especificação completa está em [`spec.md`](spec.md); os planos de cada épico, em [`plans/`](plans/); o que existe de fato, em [`DOCUMENTACAO-TECNICA.md`](DOCUMENTACAO-TECNICA.md).
 
 ## Estado
-Em implementação. Prontos: guardrails (8.0), fundação (8.1), o conector (8.2: OAuth, servidor MCP com consultas e formulários no chat, chaves de API, API v1) e **vagas e página de carreiras (8.3)**: pelo chat, criar, editar, publicar, pausar e encerrar vagas, com etapas, perguntas e equipe; a vaga publicada aparece em `/{empresa}` e `/{empresa}/vagas/{slug}` (com JSON-LD para o Google), no feed `/{empresa}/vagas.xml`, no `sitemap.xml` e na API pública; e **candidatura (8.4)**: a pessoa se candidata pela página da vaga, com o currículo subindo direto para o bucket, e acompanha pelo link `/c/{token}` que recebe por e-mail (retirar, baixar e excluir os dados); a empresa também inclui candidatos pelo chat ou pela API v1. O funil chega no 8.5. O guia completo de auto-hospedagem entra no épico 8.12.
+Em implementação. Prontos: guardrails (8.0), fundação (8.1), o conector (8.2: OAuth, servidor MCP com consultas e formulários no chat, chaves de API, API v1) e **vagas e página de carreiras (8.3)**: pelo chat, criar, editar, publicar, pausar e encerrar vagas, com etapas, perguntas e equipe; a vaga publicada aparece em `/{empresa}` e `/{empresa}/vagas/{slug}` (com JSON-LD para o Google), no feed `/{empresa}/vagas.xml`, no `sitemap.xml` e na API pública; e **candidatura (8.4)**: a pessoa se candidata pela página da vaga, com o currículo subindo direto para o bucket, e acompanha pelo link `/c/{token}` que recebe por e-mail (retirar, baixar e excluir os dados); a empresa também inclui candidatos pelo chat ou pela API v1; e o **funil (8.5)**: listar, buscar, ler currículos, anotar, mover de etapa e exportar o CSV pelo chat ou pela API, com cada avaliador registrando a própria avaliação pelo formulário. Decisões e devolutivas chegam no 8.6. O guia completo de auto-hospedagem entra no épico 8.12.
 
 ## Rodar localmente
 
@@ -69,7 +69,7 @@ Com o seed, `http://localhost:3050/padaria-exemplo` mostra a página da Padaria 
 Com a página publicada, abra uma vaga e clique em "Candidatar-me". O e-mail com o link de acompanhamento cai em `.caixa-de-saida-local/`; em `/c/{token}` dá para retirar a candidatura, baixar e excluir os dados (o código de exclusão também chega pela caixa local). Quem perdeu o link pede de novo em `/c`.
 
 ### Ver os formulários sem o Claude
-Com `npm run dev`, abra `http://localhost:3050/dev/formularios`. É um host de MCP Apps que só existe em desenvolvimento: cole um token `rsm_` local, escolha a ferramenta (`abrir_formulario_convite`, `abrir_formulario_adicionar_candidato`…) e os argumentos, e o formulário abre como abriria no chat, em tema claro ou escuro.
+Com `npm run dev`, abra `http://localhost:3050/dev/formularios`. É um host de MCP Apps que só existe em desenvolvimento: cole um token `rsm_` local, escolha a ferramenta (`abrir_formulario_convite`, `abrir_formulario_avaliacao`…) e os argumentos, e o formulário abre como abriria no chat, em tema claro ou escuro.
 
 ## Testes
 
