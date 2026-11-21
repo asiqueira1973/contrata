@@ -53,12 +53,13 @@ describe("ferramentas por capacidade do cliente (13.5) e visibilidade (princípi
     }
     expect(nomes).toEqual(expect.arrayContaining(["abrir_formulario_convite", "salvar_convite", "abrir_formulario_conexoes", "salvar_conexoes"]));
   });
-  it("cliente sem MCP Apps: só consultas e fallbacks, todos visíveis ao modelo; conexões não tem fallback", async () => {
+  it("cliente sem MCP Apps: só consultas e fallbacks, todos visíveis ao modelo; conexões, convite e acesso não têm fallback", async () => {
     const tools = await listTools(admin, SEM_UI);
     const nomes = tools.map((t) => t.name);
     expect(nomes.some((n) => /^(abrir_formulario|salvar|opcoes)_/.test(n))).toBe(false);
-    expect(nomes).toEqual(expect.arrayContaining(["registrar_convite", "registrar_acesso", "registrar_area", "registrar_pessoa"]));
-    expect(nomes).not.toContain("registrar_conexoes");
+    expect(nomes).toEqual(expect.arrayContaining(["registrar_area", "registrar_pessoa"]));
+    // Mexer em acesso só pelo clique (13.5, decisão de 20/11/2026): o modelo poderia confirmar sozinho.
+    for (const n of ["registrar_conexoes", "registrar_convite", "registrar_acesso"]) expect(nomes).not.toContain(n);
     for (const t of tools) expect(t._meta?.ui?.visibility, t.name).toEqual(["model"]);
   });
   it("cliente que não diz: as duas formas", async () => {
@@ -125,6 +126,14 @@ describe("fallback com prévia (13.5)", () => {
   it("token malformado ou vencido não grava", async () => {
     const r = await callTool(admin, "registrar_area", { operacao: "criar", nome: "Qualquer", confirmar: true, token_previa: "1.abc" }, SEM_UI);
     expect("content" in r && r.content[0].text).toBe("A prévia venceu ou não é válida. Gere uma nova prévia e mostre à pessoa.");
+  });
+  it("dar acesso pelo fallback é recusado já na prévia, sem token e sem convite (decisão de 20/11/2026)", async () => {
+    const { data: p } = await db().from("rs_pessoas").insert({ empresa_id: empresa.id, nome: "Sem Acesso", email: `sem-${randomUUID()}@teste.exemplo` }).select("id").single();
+    const r = await callTool(admin, "registrar_pessoa", { operacao: "dar_acesso", pessoa: p!.id, papel: "administrador", todas: "todas" }, SEM_UI);
+    expect("content" in r && r.content[0].text).toBe("Isso só pode ser feito pelo formulário, com o clique da pessoa. Use o Contrata no Claude ou no ChatGPT.");
+    expect(JSON.stringify(r)).not.toContain("token_previa");
+    const { count } = await db().from("rs_membros").select("id", { count: "exact", head: true }).eq("empresa_id", empresa.id).eq("papel", "administrador").is("usuario_id", null);
+    expect(count).toBe(0);
   });
 });
 

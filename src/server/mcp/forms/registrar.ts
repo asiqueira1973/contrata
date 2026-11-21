@@ -36,7 +36,10 @@ export type DefinicaoFormulario<S extends z.ZodObject> = {
   schema: S;
   // Grava com o ator recebido (formulário: o membro; fallback: o agente). Lança erro de domínio.
   gravar: (dados: z.infer<S>, ctx: ContextoFormulario) => Promise<RespostaSalvar & { ok: true }>;
+  // Sem formulário (13.5), só o que não mexe em acesso: convite e acesso nem têm fallback, e aqui o
+  // formulário diz quais operações recusar (ex.: dar acesso). O modelo poderia confirmar sozinho.
   fallback: boolean;
+  soNoFormulario?: (dados: z.infer<S>) => boolean;
 };
 
 // Valida a entrada do salvar com o schema do formulário; erros por campo, sem valores (20.2).
@@ -121,6 +124,7 @@ export function registrarFormulario<S extends z.ZodObject>(server: McpServer, ct
         const { confirmar, token_previa, ...resto } = args;
         const v = validar(def.schema, resto);
         if (!v.ok) return resposta(v.r as unknown as Record<string, unknown>, c.nadaGravado, true);
+        if (def.soNoFormulario?.(v.dados)) return erro("so_no_formulario");
         const acao = `registrar_${def.acao}`;
         // Sem segredo de 32+ caracteres, o fallback não assina nada (13.5).
         const segredo = process.env.MCP_PREVIEW_SECRET ?? "";

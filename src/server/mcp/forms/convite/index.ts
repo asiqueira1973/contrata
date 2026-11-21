@@ -38,5 +38,5 @@ export const formularioConvite: DefinicaoFormulario<typeof schemaConvite> = {
   },
   schema: schemaConvite,
   gravar: gravarConvite,
-  fallback: true,
+  fallback: false, // dar acesso só pelo clique (13.5, decisão de 20/11/2026)
 };

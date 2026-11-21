@@ -59,4 +59,5 @@ Spec **v0.4.1: um sistema para agentes, não para humanos**. Quem recruta opera 
 - `.meta({ id })` em schema zod faz o `z.toJSONSchema` emitir `$ref` para `#/$defs/…` que o documento OpenAPI não tem. Não use `id` nos schemas da API v1.
 - `registerAppTool` com schema genérico não acha o overload: faça o cast `as unknown as z.ZodObject<z.ZodRawShape>` (como em `forms/registrar.ts`). E nada de `.refine` no schema de formulário: quebra o `.extend` do fallback; a regra condicional vai para o `save.ts`.
 - `guard-decisoes` libera confirmar decisão e mexer em acesso **só** em `src/server/mcp/forms/*/save.ts`; o `index.ts` do formulário e o fallback continuam barrados.
+- **Nada que mexe em acesso tem fallback** (13.5, v0.4.2): formulário de acesso nasce com `fallback: false`; operação de acesso dentro de formulário com fallback vai em `soNoFormulario`.
 - A chave de API (e qualquer segredo) só sai no `structuredContent.segredo` do `salvar_*`, nunca no `content` de texto: o texto vai para o modelo.

@@ -53,6 +53,7 @@ export const ERROS: Record<string, string> = {
   precisa_de_membro: "Esta ação precisa de uma pessoa da equipe: conecte o conector pelo login com Google, não por chave de API.",
   previa_divergente: "Os dados mudaram desde a prévia. Mostre a nova prévia à pessoa.",
   previa_invalida: "A prévia venceu ou não é válida. Gere uma nova prévia e mostre à pessoa.",
+  so_no_formulario: "Isso só pode ser feito pelo formulário, com o clique da pessoa. Use o Contrata no Claude ou no ChatGPT.",
   escopo_insuficiente: "Esta conexão não tem permissão para isso. Conecte de novo marcando o escopo necessário.",
   papel_insuficiente: "Seu papel na empresa não permite isso.",
   limite_chaves: "A empresa já tem 10 chaves de API ativas. Revogue alguma antes de criar outra.",

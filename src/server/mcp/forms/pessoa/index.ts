@@ -85,4 +85,6 @@ export const formularioPessoa: DefinicaoFormulario<typeof schemaPessoa> = {
   schema: schemaPessoa,
   gravar: gravarPessoa,
   fallback: true,
+  // Cadastrar, editar e arquivar têm fallback; dar acesso, não (13.5, decisão de 20/11/2026).
+  soNoFormulario: (d) => d.operacao === "dar_acesso",
 };

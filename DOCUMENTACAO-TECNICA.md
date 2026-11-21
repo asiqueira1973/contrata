@@ -94,10 +94,10 @@ Formulários: cada um registra `abrir_formulario_<acao>` (modelo), `opcoes_<acao
 
 | Formulário | Operações | Papel e escopo | Fallback |
 |---|---|---|---|
-| `convite` | convidar (e-mail, papel, áreas) | administrador, `escrita` | sim |
-| `acesso` | mudar papel e áreas, remover, reenviar convite, cancelar convite | administrador, `escrita` | sim |
+| `convite` | convidar (e-mail, papel, áreas) | administrador, `escrita` | **não** (mexe em acesso) |
+| `acesso` | mudar papel e áreas, remover, reenviar convite, cancelar convite | administrador, `escrita` | **não** (mexe em acesso) |
 | `area` | criar, editar, arquivar | administrador, `escrita` | sim |
-| `pessoa` | cadastrar, editar (recrutador); arquivar, dar acesso (administrador) | recrutador, `escrita` | sim |
+| `pessoa` | cadastrar, editar (recrutador); arquivar, dar acesso (administrador) | recrutador, `escrita` | sim, menos `dar_acesso` (recusado na prévia: `so_no_formulario`) |
 | `conexoes` | revogar a própria conexão (basta `leitura`); revogar credencial de outro e criar chave de API (administrador **com conexão de `escrita`**; a chave nova tem no máximo os escopos da conexão) | qualquer membro, `leitura` | **não**: a chave só aparece no `structuredContent.segredo` do `salvar_conexoes`, nunca no texto |
 
 ### Ação → domínio → portas
@@ -153,3 +153,4 @@ Todas já refletidas no `spec.md` (v0.4).
 13. **O `scope` do pedido de autorização é ignorado:** quem escolhe os escopos é a pessoa, nas caixas do consentimento (todas marcadas até onde o papel permite); o `decidir` corta pelo papel.
 14. **Fallback sem `pendencias`:** a prévia devolve `previa` e `token_previa`; campos que faltam saem como erro de validação, antes da prévia.
 15. **`/oauth/autorizar/decidir`** responde erro de requisição no formato do OAuth (`{error}`), como as outras rotas `/oauth/*`, e não no envelope `{codigo, mensagem}` da API.
+16. **Acesso sem fallback (decisão do Alexandre, 20/11/2026; spec v0.4.2):** a 13.5 dava prévia com token a todo formulário que não fosse decisão, mas a matriz da seção 5 diz que gerir membros e chaves nunca acontece por chamada de máquina. Valeu a matriz: convite, acesso e conexões não têm `registrar_*`, e `registrar_pessoa` recusa `dar_acesso` (`soNoFormulario` na definição do formulário).

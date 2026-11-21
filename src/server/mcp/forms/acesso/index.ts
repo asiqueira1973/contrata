@@ -63,5 +63,5 @@ export const formularioAcesso: DefinicaoFormulario<typeof schemaAcesso> = {
   },
   schema: schemaAcesso,
   gravar: gravarAcesso,
-  fallback: true,
+  fallback: false, // mexer em acesso só pelo clique (13.5, decisão de 20/11/2026)
 };
