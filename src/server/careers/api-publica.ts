@@ -18,3 +18,25 @@ export function vagaDaApiPublica(empresa: EmpresaPublica, v: VagaPublica) {
     publicada_em: v.publicada_em, url: `${siteOrigin()}/${empresa.slug}/vagas/${v.slug}`,
   };
 }
+
+// CORS do POST público de candidatura (13.2; assunção 24.8): no MVP, qualquer origem https (e o
+// próprio site), com os limites da 11.14. Sem credenciais (nada de cookie entre origens).
+export function corsDoPost(req: Request): Record<string, string> {
+  const origem = req.headers.get("origin");
+  const site = siteOrigin();
+  const aceita = !!origem && (origem === site || /^https:\/\/[^/]+$/.test(origem));
+  return {
+    ...(aceita ? { "access-control-allow-origin": origem! } : {}),
+    "access-control-allow-methods": "POST, OPTIONS",
+    "access-control-allow-headers": "content-type",
+    "access-control-max-age": "600",
+    vary: "Origin",
+    "cache-control": "no-store",
+  };
+}
+
+// Junta os cabeçalhos de CORS numa resposta pronta.
+export function comCors(r: Response, cors: Record<string, string>): Response {
+  for (const [k, v] of Object.entries(cors)) r.headers.set(k, v);
+  return r;
+}

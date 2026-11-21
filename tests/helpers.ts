@@ -161,3 +161,28 @@ export async function listTools(token: string, caps: unknown = COM_UI) {
   const r = await mcpRpc(token, "tools/list", {}, caps);
   return r.body.result.tools as { name: string; title?: string; annotations?: Record<string, unknown>; _meta?: { ui?: { visibility?: string[]; resourceUri?: string } } }[];
 }
+
+// Cria e publica uma vaga com a página da empresa publicada (8.4). Devolve: id e slug da vaga.
+export async function createPublishedJob(empresa: { id: string; adminMembroId: string }, extra: Record<string, unknown> = {}) {
+  const ator = { tipo: "membro", membro_id: empresa.adminMembroId };
+  await db().from("rs_empresas").update({ pagina_publicada: true }).eq("id", empresa.id);
+  const { data, error } = await db().rpc("rs_fn_cria_vaga", {
+    p_empresa: empresa.id,
+    p_dados: { titulo: `Vaga ${randomUUID().slice(0, 6)}`, modelo_trabalho: "remoto", descricao: "Descrição da vaga com mais de cinquenta caracteres para publicar.", etapas: [{ nome: "Triagem", tipo: "triagem" }, { nome: "Entrevista", tipo: "entrevista" }], ...extra } as never,
+    p_alcance: { tipo: "todas" } as never, p_ator: ator, p_chave: null as unknown as string,
+  });
+  if (error) throw error;
+  const id = (data as { id: string }).id;
+  const { error: e2 } = await db().rpc("rs_fn_transicao_vaga", { p_vaga: id, p_empresa: empresa.id, p_para: "publicada", p_motivo: null as never, p_alcance: { tipo: "todas" } as never, p_ator: ator, p_max_publicadas: 50 });
+  if (e2) throw e2;
+  const { data: v } = await db().from("rs_vagas").select("slug").eq("id", id).single();
+  return { id, slug: v!.slug };
+}
+
+// Sobe bytes para uma URL de upload do driver local (o que o navegador faz com o PUT).
+export async function uploadTo(url: string, bytes: Uint8Array, contentType = "application/pdf") {
+  const { PUT } = await import("@/app/api/dev/arquivos/[...caminho]/route");
+  const u = new URL(url);
+  const caminho = u.pathname.replace("/api/dev/arquivos/", "").split("/").map(decodeURIComponent);
+  return PUT(new NextRequest(url, { method: "PUT", body: Buffer.from(bytes), headers: { "content-type": contentType } }), { params: Promise.resolve({ caminho }) });
+}
