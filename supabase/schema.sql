@@ -356,6 +356,23 @@ end $$;
 ALTER FUNCTION "public"."rs_fn_aceita_convite"("p_membro" "uuid", "p_usuario" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."rs_fn_area_no_alcance"("p_area" "uuid", "p_alcance" "jsonb") RETURNS boolean
+    LANGUAGE "plpgsql" IMMUTABLE
+    SET "search_path" TO ''
+    AS $$
+begin
+  case p_alcance ->> 'tipo'
+    when 'todas' then return true;
+    when 'areas' then
+      return p_area is not null and p_area::text in (select pg_catalog.jsonb_array_elements_text(p_alcance -> 'area_ids'));
+    else return false;
+  end case;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_area_no_alcance"("p_area" "uuid", "p_alcance" "jsonb") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."rs_fn_arquiva_area"("p_area" "uuid", "p_empresa" "uuid", "p_ator" "jsonb") RETURNS "void"
     LANGUAGE "plpgsql"
     SET "search_path" TO ''
@@ -426,6 +443,30 @@ end $$;
 
 
 ALTER FUNCTION "public"."rs_fn_cancela_convite"("p_membro" "uuid", "p_ator" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_confere_vaga"("p_empresa" "uuid", "p_area" "uuid", "p_dono" "uuid", "p_alcance" "jsonb") RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+begin
+  if p_area is not null and not exists (
+    select 1 from public.rs_areas where id = p_area and empresa_id = p_empresa and arquivada_em is null
+  ) then
+    raise exception 'area_invalida' using errcode = 'P0001';
+  end if;
+  if not public.rs_fn_area_no_alcance(p_area, p_alcance) then
+    raise exception 'fora_do_alcance' using errcode = 'P0001';
+  end if;
+  if p_dono is not null and not exists (
+    select 1 from public.rs_pessoas where id = p_dono and empresa_id = p_empresa and arquivada_em is null
+  ) then
+    raise exception 'pessoa_invalida' using errcode = 'P0001';
+  end if;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_confere_vaga"("p_empresa" "uuid", "p_area" "uuid", "p_dono" "uuid", "p_alcance" "jsonb") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."rs_fn_convida_membro"("p_empresa" "uuid", "p_email" "text", "p_papel" "public"."rs_papel_membro", "p_todas_areas" boolean, "p_areas" "uuid"[], "p_token_hash" "text", "p_expira_em" timestamp with time zone, "p_max_pendentes" integer, "p_ator" "jsonb") RETURNS "uuid"
@@ -543,6 +584,51 @@ end $$;
 ALTER FUNCTION "public"."rs_fn_cria_empresa"("p_usuario" "uuid", "p_slug" "text", "p_nome" "text", "p_email_contato" "text") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."rs_fn_cria_vaga"("p_empresa" "uuid", "p_dados" "jsonb", "p_alcance" "jsonb", "p_ator" "jsonb", "p_chave" "text" DEFAULT NULL::"text") RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare
+  v_area uuid := nullif(p_dados ->> 'area_id', '')::uuid;
+  v_dono uuid := nullif(p_dados ->> 'dono_pessoa_id', '')::uuid;
+  v_id uuid;
+begin
+  if p_chave is not null then
+    select id into v_id from public.rs_vagas where empresa_id = p_empresa and chave_idempotencia = p_chave;
+    if v_id is not null then
+      return pg_catalog.jsonb_build_object('id', v_id, 'criada', false);
+    end if;
+  end if;
+  perform public.rs_fn_confere_vaga(p_empresa, v_area, v_dono, p_alcance);
+  if v_dono is null and v_area is not null then
+    select responsavel_pessoa_id into v_dono from public.rs_areas where id = v_area;
+  end if;
+  insert into public.rs_vagas (empresa_id, slug, titulo, descricao, requisitos, area_id, dono_pessoa_id,
+    modelo_trabalho, cidade, uf, regime, salario_min, salario_max, salario_periodo, mostrar_salario,
+    curriculo_obrigatorio, encerra_em, chave_idempotencia)
+  values (p_empresa,
+    public.rs_fn_slug_vaga(p_empresa, coalesce(nullif(p_dados ->> 'slug', ''), p_dados ->> 'titulo'), null),
+    p_dados ->> 'titulo', coalesce(p_dados ->> 'descricao', ''), nullif(p_dados ->> 'requisitos', ''),
+    v_area, v_dono,
+    coalesce((p_dados ->> 'modelo_trabalho')::public.rs_modelo_trabalho, 'presencial'),
+    nullif(p_dados ->> 'cidade', ''), nullif(p_dados ->> 'uf', ''),
+    coalesce((p_dados ->> 'regime')::public.rs_regime, 'clt'),
+    (p_dados ->> 'salario_min')::numeric, (p_dados ->> 'salario_max')::numeric, nullif(p_dados ->> 'salario_periodo', ''),
+    coalesce((p_dados ->> 'mostrar_salario')::boolean, false), coalesce((p_dados ->> 'curriculo_obrigatorio')::boolean, true),
+    (nullif(p_dados ->> 'encerra_em', ''))::date, p_chave)
+  returning id into v_id;
+  perform public.rs_fn_grava_etapas(v_id, p_dados -> 'etapas');
+  perform public.rs_fn_grava_perguntas(v_id, coalesce(p_dados -> 'perguntas', '[]'));
+  perform public.rs_fn_grava_equipe(v_id, p_empresa, coalesce(p_dados -> 'equipe', '{}'));
+  perform public.rs_fn_registra_evento(p_empresa, v_id, null, 'vaga_criada', p_ator, 'web',
+    pg_catalog.jsonb_build_object('vaga_id', v_id));
+  return pg_catalog.jsonb_build_object('id', v_id, 'criada', true);
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_cria_vaga"("p_empresa" "uuid", "p_dados" "jsonb", "p_alcance" "jsonb", "p_ator" "jsonb", "p_chave" "text") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."rs_fn_da_acesso"("p_pessoa" "uuid", "p_empresa" "uuid", "p_papel" "public"."rs_papel_membro", "p_todas_areas" boolean, "p_areas" "uuid"[], "p_token_hash" "text", "p_expira_em" timestamp with time zone, "p_max_pendentes" integer, "p_ator" "jsonb") RETURNS "uuid"
     LANGUAGE "plpgsql"
     SET "search_path" TO ''
@@ -631,6 +717,32 @@ end $$;
 ALTER FUNCTION "public"."rs_fn_expurga_empresa"("p_empresa" "uuid") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."rs_fn_faxina_vagas_vencidas"("p_lote" integer) RETURNS integer
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare
+  v record;
+  v_n integer := 0;
+begin
+  for v in
+    select id, empresa_id from public.rs_vagas
+     where status = 'publicada' and encerra_em < (pg_catalog.now() at time zone 'America/Sao_Paulo')::date
+     order by encerra_em limit p_lote
+     for update skip locked
+  loop
+    update public.rs_vagas set status = 'pausada' where id = v.id;
+    perform public.rs_fn_registra_evento(v.empresa_id, v.id, null, 'vaga_pausada_prazo',
+      pg_catalog.jsonb_build_object('tipo', 'sistema'), 'cron', pg_catalog.jsonb_build_object('vaga_id', v.id));
+    v_n := v_n + 1;
+  end loop;
+  return v_n;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_faxina_vagas_vencidas"("p_lote" integer) OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."rs_fn_garante_administrador"("p_membro" "uuid") RETURNS "void"
     LANGUAGE "plpgsql"
     SET "search_path" TO ''
@@ -657,6 +769,134 @@ end $$;
 
 
 ALTER FUNCTION "public"."rs_fn_garante_administrador"("p_membro" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_grava_equipe"("p_vaga" "uuid", "p_empresa" "uuid", "p_equipe" "jsonb") RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare
+  v_resp uuid := nullif(p_equipe ->> 'responsavel', '')::uuid;
+  v_dono_membro uuid;
+  v_av uuid;
+begin
+  if v_resp is not null and not exists (
+    select 1 from public.rs_membros where id = v_resp and empresa_id = p_empresa and removido_em is null
+       and usuario_id is not null and papel in ('administrador', 'recrutador')
+  ) then
+    raise exception 'responsavel_invalido' using errcode = 'P0001';
+  end if;
+  delete from public.rs_vaga_equipe where vaga_id = p_vaga;
+  if v_resp is not null then
+    insert into public.rs_vaga_equipe (vaga_id, membro_id, papel_na_vaga) values (p_vaga, v_resp, 'responsavel');
+  end if;
+  for v_av in select distinct (x)::uuid from pg_catalog.jsonb_array_elements_text(coalesce(p_equipe -> 'avaliadores', '[]')) x loop
+    if not exists (select 1 from public.rs_membros where id = v_av and empresa_id = p_empresa
+                   and removido_em is null and usuario_id is not null) then
+      raise exception 'membro_invalido' using errcode = 'P0001';
+    end if;
+    insert into public.rs_vaga_equipe (vaga_id, membro_id, papel_na_vaga)
+    values (p_vaga, v_av, 'avaliador') on conflict (vaga_id, membro_id) do nothing;
+  end loop;
+  select p.membro_id into v_dono_membro from public.rs_vagas v join public.rs_pessoas p on p.id = v.dono_pessoa_id
+   join public.rs_membros m on m.id = p.membro_id
+   where v.id = p_vaga and m.removido_em is null and m.usuario_id is not null;
+  if v_dono_membro is not null then
+    insert into public.rs_vaga_equipe (vaga_id, membro_id, papel_na_vaga)
+    values (p_vaga, v_dono_membro, 'avaliador') on conflict (vaga_id, membro_id) do nothing;
+  end if;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_grava_equipe"("p_vaga" "uuid", "p_empresa" "uuid", "p_equipe" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_grava_etapas"("p_vaga" "uuid", "p_etapas" "jsonb") RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare
+  v_item jsonb;
+  v_ordem integer := 0;
+  v_ids uuid[] := '{}';
+begin
+  if p_etapas is null or pg_catalog.jsonb_typeof(p_etapas) <> 'array'
+     or pg_catalog.jsonb_array_length(p_etapas) not between 1 and 15 then
+    raise exception 'etapas_invalidas' using errcode = 'P0001';
+  end if;
+  for v_item in select * from pg_catalog.jsonb_array_elements(p_etapas) loop
+    if v_item ? 'id' and v_item ->> 'id' is not null then
+      if not exists (select 1 from public.rs_etapas where id = (v_item ->> 'id')::uuid and vaga_id = p_vaga) then
+        raise exception 'etapas_invalidas' using errcode = 'P0001';
+      end if;
+      v_ids := v_ids || (v_item ->> 'id')::uuid;
+    end if;
+  end loop;
+  if exists (select 1 from public.rs_candidaturas c join public.rs_etapas e on e.id = c.etapa_id
+             where e.vaga_id = p_vaga and not (e.id = any (v_ids))) then
+    raise exception 'etapa_com_candidaturas' using errcode = 'P0001';
+  end if;
+  delete from public.rs_etapas where vaga_id = p_vaga and not (id = any (v_ids));
+  -- A ordem é única e adiável (initially deferred): renumerar no meio da transação não colide.
+  for v_item in select * from pg_catalog.jsonb_array_elements(p_etapas) loop
+    v_ordem := v_ordem + 1;
+    if v_item ? 'id' and v_item ->> 'id' is not null then
+      update public.rs_etapas set nome = v_item ->> 'nome', tipo = (v_item ->> 'tipo')::public.rs_tipo_etapa, ordem = v_ordem
+       where id = (v_item ->> 'id')::uuid;
+    else
+      insert into public.rs_etapas (vaga_id, nome, tipo, ordem)
+      values (p_vaga, v_item ->> 'nome', (v_item ->> 'tipo')::public.rs_tipo_etapa, v_ordem);
+    end if;
+  end loop;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_grava_etapas"("p_vaga" "uuid", "p_etapas" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_grava_perguntas"("p_vaga" "uuid", "p_perguntas" "jsonb") RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare
+  v_publicada timestamptz;
+  v_atual jsonb;
+  v_nova jsonb;
+  v_item jsonb;
+  v_ordem integer := 0;
+begin
+  if p_perguntas is null or pg_catalog.jsonb_typeof(p_perguntas) <> 'array'
+     or pg_catalog.jsonb_array_length(p_perguntas) > 10 then
+    raise exception 'perguntas_invalidas' using errcode = 'P0001';
+  end if;
+  select publicada_em into v_publicada from public.rs_vagas where id = p_vaga;
+  if v_publicada is not null then
+    select coalesce(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object('texto', texto, 'tipo', tipo,
+             'opcoes', coalesce(pg_catalog.to_jsonb(opcoes), '[]'::jsonb), 'obrigatoria', obrigatoria,
+             'resposta_esperada', resposta_esperada) order by ordem), '[]'::jsonb)
+      into v_atual from public.rs_perguntas where vaga_id = p_vaga;
+    select coalesce(pg_catalog.jsonb_agg(pg_catalog.jsonb_build_object('texto', p ->> 'texto', 'tipo', p ->> 'tipo',
+             'opcoes', coalesce(p -> 'opcoes', '[]'::jsonb), 'obrigatoria', coalesce((p ->> 'obrigatoria')::boolean, true),
+             'resposta_esperada', p ->> 'resposta_esperada') order by n), '[]'::jsonb)
+      into v_nova from pg_catalog.jsonb_array_elements(p_perguntas) with ordinality as x(p, n);
+    if v_atual is distinct from v_nova then
+      raise exception 'perguntas_congeladas' using errcode = 'P0001';
+    end if;
+    return;
+  end if;
+  delete from public.rs_perguntas where vaga_id = p_vaga;
+  for v_item in select * from pg_catalog.jsonb_array_elements(p_perguntas) loop
+    v_ordem := v_ordem + 1;
+    insert into public.rs_perguntas (vaga_id, ordem, texto, tipo, opcoes, obrigatoria, resposta_esperada)
+    values (p_vaga, v_ordem, v_item ->> 'texto', (v_item ->> 'tipo')::public.rs_tipo_pergunta,
+            case when (v_item ->> 'tipo') = 'escolha_unica'
+                 then array(select pg_catalog.jsonb_array_elements_text(v_item -> 'opcoes')) end,
+            coalesce((v_item ->> 'obrigatoria')::boolean, true), nullif(v_item ->> 'resposta_esperada', ''));
+  end loop;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_grava_perguntas"("p_vaga" "uuid", "p_perguntas" "jsonb") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."rs_fn_muda_acesso"("p_membro" "uuid", "p_papel" "public"."rs_papel_membro", "p_todas_areas" boolean, "p_areas" "uuid"[], "p_ator" "jsonb") RETURNS "void"
@@ -855,6 +1095,156 @@ end $$;
 ALTER FUNCTION "public"."rs_fn_salva_pessoa"("p_empresa" "uuid", "p_id" "uuid", "p_nome" "text", "p_email" "text", "p_cargo" "text", "p_area" "uuid", "p_recebe_resumo" boolean, "p_ator" "jsonb") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."rs_fn_salva_vaga"("p_vaga" "uuid", "p_empresa" "uuid", "p_dados" "jsonb", "p_alcance" "jsonb", "p_ator" "jsonb") RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare
+  v_atual public.rs_vagas;
+  v_area uuid := nullif(p_dados ->> 'area_id', '')::uuid;
+  v_dono uuid := nullif(p_dados ->> 'dono_pessoa_id', '')::uuid;
+  v_slug text;
+begin
+  select * into v_atual from public.rs_vagas where id = p_vaga and empresa_id = p_empresa for update;
+  if v_atual.id is null or not public.rs_fn_vaga_no_alcance(p_vaga, v_atual.area_id, p_alcance) then
+    raise exception 'nao_encontrado' using errcode = 'P0001';
+  end if;
+  if v_atual.status = 'encerrada' then
+    raise exception 'vaga_encerrada' using errcode = 'P0001';
+  end if;
+  if v_area is distinct from v_atual.area_id or v_dono is distinct from v_atual.dono_pessoa_id then
+    perform public.rs_fn_confere_vaga(p_empresa, v_area, v_dono, p_alcance);
+  end if;
+  v_slug := v_atual.slug;
+  if v_atual.publicada_em is null and nullif(p_dados ->> 'slug', '') is not null and p_dados ->> 'slug' <> v_atual.slug then
+    if exists (select 1 from public.rs_vagas where empresa_id = p_empresa and slug = p_dados ->> 'slug' and id <> p_vaga) then
+      raise exception 'slug_vaga_em_uso' using errcode = 'P0001';
+    end if;
+    v_slug := p_dados ->> 'slug';
+  end if;
+  update public.rs_vagas set
+    slug = v_slug, titulo = p_dados ->> 'titulo', descricao = coalesce(p_dados ->> 'descricao', ''),
+    requisitos = nullif(p_dados ->> 'requisitos', ''), area_id = v_area, dono_pessoa_id = v_dono,
+    modelo_trabalho = coalesce((p_dados ->> 'modelo_trabalho')::public.rs_modelo_trabalho, 'presencial'),
+    cidade = nullif(p_dados ->> 'cidade', ''), uf = nullif(p_dados ->> 'uf', ''),
+    regime = coalesce((p_dados ->> 'regime')::public.rs_regime, 'clt'),
+    salario_min = (p_dados ->> 'salario_min')::numeric, salario_max = (p_dados ->> 'salario_max')::numeric,
+    salario_periodo = nullif(p_dados ->> 'salario_periodo', ''),
+    mostrar_salario = coalesce((p_dados ->> 'mostrar_salario')::boolean, false),
+    curriculo_obrigatorio = coalesce((p_dados ->> 'curriculo_obrigatorio')::boolean, true),
+    encerra_em = (nullif(p_dados ->> 'encerra_em', ''))::date
+   where id = p_vaga;
+  if p_dados ? 'etapas' then
+    perform public.rs_fn_grava_etapas(p_vaga, p_dados -> 'etapas');
+  end if;
+  if p_dados ? 'perguntas' then
+    perform public.rs_fn_grava_perguntas(p_vaga, p_dados -> 'perguntas');
+  end if;
+  if p_dados ? 'equipe' then
+    perform public.rs_fn_grava_equipe(p_vaga, p_empresa, p_dados -> 'equipe');
+  elsif v_dono is distinct from v_atual.dono_pessoa_id then
+    -- Dono novo com acesso entra na equipe como avaliador mesmo sem a equipe no pedido (11.31).
+    insert into public.rs_vaga_equipe (vaga_id, membro_id, papel_na_vaga)
+    select p_vaga, p.membro_id, 'avaliador' from public.rs_pessoas p join public.rs_membros m on m.id = p.membro_id
+     where p.id = v_dono and m.removido_em is null and m.usuario_id is not null
+    on conflict (vaga_id, membro_id) do nothing;
+  end if;
+  perform public.rs_fn_registra_evento(p_empresa, p_vaga, null, 'vaga_editada', p_ator, 'web',
+    pg_catalog.jsonb_build_object('vaga_id', p_vaga));
+  if v_dono is distinct from v_atual.dono_pessoa_id then
+    perform public.rs_fn_registra_evento(p_empresa, p_vaga, null, 'vaga_dono_alterado', p_ator, 'web',
+      pg_catalog.jsonb_build_object('vaga_id', p_vaga, 'de', v_atual.dono_pessoa_id, 'para', v_dono));
+  end if;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_salva_vaga"("p_vaga" "uuid", "p_empresa" "uuid", "p_dados" "jsonb", "p_alcance" "jsonb", "p_ator" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_slug_vaga"("p_empresa" "uuid", "p_base" "text", "p_vaga" "uuid") RETURNS "text"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare
+  v_base text;
+  v_slug text;
+  v_n integer := 1;
+begin
+  v_base := pg_catalog.lower(extensions.unaccent(coalesce(p_base, '')));
+  v_base := pg_catalog.regexp_replace(v_base, '[^a-z0-9]+', '-', 'g');
+  v_base := pg_catalog.btrim(pg_catalog.left(v_base, 120), '-');
+  if v_base = '' then
+    v_base := 'vaga';
+  end if;
+  v_slug := v_base;
+  while exists (select 1 from public.rs_vagas where empresa_id = p_empresa and slug = v_slug
+                and id is distinct from p_vaga) loop
+    v_n := v_n + 1;
+    v_slug := v_base || '-' || v_n;
+  end loop;
+  return v_slug;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_slug_vaga"("p_empresa" "uuid", "p_base" "text", "p_vaga" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_transicao_vaga"("p_vaga" "uuid", "p_empresa" "uuid", "p_para" "public"."rs_status_vaga", "p_motivo" "public"."rs_motivo_encerramento_vaga", "p_alcance" "jsonb", "p_ator" "jsonb", "p_max_publicadas" integer) RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare
+  v public.rs_vagas;
+  v_hoje date := (pg_catalog.now() at time zone 'America/Sao_Paulo')::date;
+begin
+  select * into v from public.rs_vagas where id = p_vaga and empresa_id = p_empresa for update;
+  if v.id is null or not public.rs_fn_vaga_no_alcance(p_vaga, v.area_id, p_alcance) then
+    raise exception 'nao_encontrado' using errcode = 'P0001';
+  end if;
+  if not (
+    (v.status = 'rascunho' and p_para in ('publicada', 'encerrada'))
+    or (v.status = 'publicada' and p_para in ('pausada', 'encerrada'))
+    or (v.status = 'pausada' and p_para in ('publicada', 'encerrada'))
+  ) then
+    raise exception 'transicao_vaga_proibida' using errcode = 'P0001';
+  end if;
+  if p_para = 'publicada' then
+    if pg_catalog.char_length(v.descricao) < 50
+       or not exists (select 1 from public.rs_etapas where vaga_id = p_vaga)
+       or (v.modelo_trabalho <> 'remoto' and (v.cidade is null or v.uf is null)) then
+      raise exception 'vaga_incompleta' using errcode = 'P0001';
+    end if;
+    if v.encerra_em is not null and v.encerra_em < v_hoje then
+      raise exception 'encerra_em_passada' using errcode = 'P0001';
+    end if;
+    if (select count(*) from public.rs_vagas where empresa_id = p_empresa and status = 'publicada') >= p_max_publicadas then
+      raise exception 'limite_publicadas' using errcode = 'P0001';
+    end if;
+    update public.rs_vagas set status = 'publicada', publicada_em = coalesce(publicada_em, pg_catalog.now()) where id = p_vaga;
+    perform public.rs_fn_registra_evento(p_empresa, p_vaga, null, 'vaga_publicada', p_ator, 'web',
+      pg_catalog.jsonb_build_object('vaga_id', p_vaga, 'republicada', v.publicada_em is not null));
+  elsif p_para = 'pausada' then
+    update public.rs_vagas set status = 'pausada' where id = p_vaga;
+    perform public.rs_fn_registra_evento(p_empresa, p_vaga, null, 'vaga_pausada', p_ator, 'web',
+      pg_catalog.jsonb_build_object('vaga_id', p_vaga));
+  else
+    if p_motivo is null then
+      raise exception 'motivo_obrigatorio' using errcode = 'P0001';
+    end if;
+    if exists (select 1 from public.rs_candidaturas where vaga_id = p_vaga and situacao = 'ativa') then
+      raise exception 'vaga_com_ativas' using errcode = 'P0001';
+    end if;
+    update public.rs_vagas set status = 'encerrada', encerrada_em = pg_catalog.now(), motivo_encerramento = p_motivo
+     where id = p_vaga;
+    perform public.rs_fn_registra_evento(p_empresa, p_vaga, null, 'vaga_encerrada', p_ator, 'web',
+      pg_catalog.jsonb_build_object('vaga_id', p_vaga, 'motivo', p_motivo));
+  end if;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_transicao_vaga"("p_vaga" "uuid", "p_empresa" "uuid", "p_para" "public"."rs_status_vaga", "p_motivo" "public"."rs_motivo_encerramento_vaga", "p_alcance" "jsonb", "p_ator" "jsonb", "p_max_publicadas" integer) OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."rs_fn_troca_codigo_oauth"("p_codigo_hash" "text", "p_cliente" "uuid", "p_redirect_uri" "text", "p_challenge_do_verifier" "text", "p_token_hash" "text", "p_token_prefixo" "text") RETURNS "uuid"
     LANGUAGE "plpgsql"
     SET "search_path" TO ''
@@ -897,6 +1287,26 @@ end $$;
 
 
 ALTER FUNCTION "public"."rs_fn_troca_codigo_oauth"("p_codigo_hash" "text", "p_cliente" "uuid", "p_redirect_uri" "text", "p_challenge_do_verifier" "text", "p_token_hash" "text", "p_token_prefixo" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_vaga_no_alcance"("p_vaga" "uuid", "p_area" "uuid", "p_alcance" "jsonb") RETURNS boolean
+    LANGUAGE "plpgsql" STABLE
+    SET "search_path" TO ''
+    AS $$
+begin
+  case p_alcance ->> 'tipo'
+    when 'todas' then return true;
+    when 'areas' then
+      return p_area is not null and p_area::text in (select pg_catalog.jsonb_array_elements_text(p_alcance -> 'area_ids'));
+    when 'equipe' then
+      return exists (select 1 from public.rs_vaga_equipe where vaga_id = p_vaga
+                     and membro_id = (p_alcance ->> 'membro_id')::uuid);
+    else return false;
+  end case;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_vaga_no_alcance"("p_vaga" "uuid", "p_area" "uuid", "p_alcance" "jsonb") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."rs_fn_valida_areas"("p_empresa" "uuid", "p_papel" "public"."rs_papel_membro", "p_todas" boolean, "p_areas" "uuid"[]) RETURNS "void"
@@ -1043,6 +1453,29 @@ end $$;
 
 
 ALTER FUNCTION "public"."rs_tg_vaga_congelada"() OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_tg_vaga_encerrada_filhos"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare v_vaga public.rs_vagas;
+begin
+  select * into v_vaga from public.rs_vagas where id = coalesce(new.vaga_id, old.vaga_id);
+  if not found then
+    return case when tg_op = 'DELETE' then old else new end;
+  end if;
+  if pg_catalog.current_setting('rs.expurgo_empresa', true) = v_vaga.empresa_id::text then
+    return case when tg_op = 'DELETE' then old else new end;
+  end if;
+  if v_vaga.status = 'encerrada' then
+    raise exception 'vaga_encerrada' using errcode = 'P0001';
+  end if;
+  return case when tg_op = 'DELETE' then old else new end;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_tg_vaga_encerrada_filhos"() OWNER TO "postgres";
 
 SET default_tablespace = '';
 
@@ -1546,6 +1979,8 @@ CREATE TABLE IF NOT EXISTS "public"."rs_vagas" (
     "motivo_encerramento" "public"."rs_motivo_encerramento_vaga",
     "criado_em" timestamp with time zone DEFAULT "now"() NOT NULL,
     "atualizado_em" timestamp with time zone DEFAULT "now"() NOT NULL,
+    "chave_idempotencia" "text",
+    CONSTRAINT "rs_vagas_chave_idempotencia" CHECK ((("char_length"("chave_idempotencia") >= 1) AND ("char_length"("chave_idempotencia") <= 100))),
     CONSTRAINT "rs_vagas_descricao_tamanho" CHECK (("char_length"("descricao") <= 20000)),
     CONSTRAINT "rs_vagas_encerrada" CHECK ((("status" <> 'encerrada'::"public"."rs_status_vaga") OR (("motivo_encerramento" IS NOT NULL) AND ("encerrada_em" IS NOT NULL)))),
     CONSTRAINT "rs_vagas_local" CHECK ((("modelo_trabalho" = 'remoto'::"public"."rs_modelo_trabalho") OR (("cidade" IS NOT NULL) AND ("uf" IS NOT NULL)))),
@@ -1859,6 +2294,10 @@ CREATE INDEX "rs_credenciais_membro" ON "public"."rs_credenciais" USING "btree" 
 
 
 
+CREATE INDEX "rs_decisoes_candidatura" ON "public"."rs_decisoes" USING "btree" ("candidatura_id");
+
+
+
 CREATE INDEX "rs_decisoes_credencial" ON "public"."rs_decisoes" USING "btree" ("credencial_id");
 
 
@@ -1884,6 +2323,10 @@ CREATE INDEX "rs_decisoes_proposta_por" ON "public"."rs_decisoes" USING "btree" 
 
 
 CREATE INDEX "rs_decisoes_vaga" ON "public"."rs_decisoes" USING "btree" ("vaga_id");
+
+
+
+CREATE INDEX "rs_empresas_criada_por" ON "public"."rs_empresas" USING "btree" ("criada_por_usuario_id");
 
 
 
@@ -2027,6 +2470,10 @@ CREATE INDEX "rs_vagas_empresa_status" ON "public"."rs_vagas" USING "btree" ("em
 
 
 
+CREATE UNIQUE INDEX "rs_vagas_idempotencia" ON "public"."rs_vagas" USING "btree" ("empresa_id", "chave_idempotencia") WHERE ("chave_idempotencia" IS NOT NULL);
+
+
+
 CREATE INDEX "rs_webhooks_empresa" ON "public"."rs_webhooks" USING "btree" ("empresa_id");
 
 
@@ -2076,6 +2523,14 @@ CREATE OR REPLACE TRIGGER "rs_tg_vaga_congelada" BEFORE INSERT OR DELETE OR UPDA
 
 
 CREATE OR REPLACE TRIGGER "rs_tg_vaga_congelada" BEFORE DELETE OR UPDATE ON "public"."rs_vagas" FOR EACH ROW EXECUTE FUNCTION "public"."rs_tg_vaga_congelada"();
+
+
+
+CREATE OR REPLACE TRIGGER "rs_tg_vaga_encerrada_filhos" BEFORE INSERT OR DELETE OR UPDATE ON "public"."rs_etapas" FOR EACH ROW EXECUTE FUNCTION "public"."rs_tg_vaga_encerrada_filhos"();
+
+
+
+CREATE OR REPLACE TRIGGER "rs_tg_vaga_encerrada_filhos" BEFORE INSERT OR DELETE OR UPDATE ON "public"."rs_vaga_equipe" FOR EACH ROW EXECUTE FUNCTION "public"."rs_tg_vaga_encerrada_filhos"();
 
 
 
@@ -2474,6 +2929,11 @@ GRANT ALL ON FUNCTION "public"."rs_fn_aceita_convite"("p_membro" "uuid", "p_usua
 
 
 
+REVOKE ALL ON FUNCTION "public"."rs_fn_area_no_alcance"("p_area" "uuid", "p_alcance" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_area_no_alcance"("p_area" "uuid", "p_alcance" "jsonb") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."rs_fn_arquiva_area"("p_area" "uuid", "p_empresa" "uuid", "p_ator" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_arquiva_area"("p_area" "uuid", "p_empresa" "uuid", "p_ator" "jsonb") TO "service_role";
 
@@ -2486,6 +2946,11 @@ GRANT ALL ON FUNCTION "public"."rs_fn_arquiva_pessoa"("p_pessoa" "uuid", "p_empr
 
 REVOKE ALL ON FUNCTION "public"."rs_fn_cancela_convite"("p_membro" "uuid", "p_ator" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_cancela_convite"("p_membro" "uuid", "p_ator" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_confere_vaga"("p_empresa" "uuid", "p_area" "uuid", "p_dono" "uuid", "p_alcance" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_confere_vaga"("p_empresa" "uuid", "p_area" "uuid", "p_dono" "uuid", "p_alcance" "jsonb") TO "service_role";
 
 
 
@@ -2509,6 +2974,11 @@ GRANT ALL ON FUNCTION "public"."rs_fn_cria_empresa"("p_usuario" "uuid", "p_slug"
 
 
 
+REVOKE ALL ON FUNCTION "public"."rs_fn_cria_vaga"("p_empresa" "uuid", "p_dados" "jsonb", "p_alcance" "jsonb", "p_ator" "jsonb", "p_chave" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_cria_vaga"("p_empresa" "uuid", "p_dados" "jsonb", "p_alcance" "jsonb", "p_ator" "jsonb", "p_chave" "text") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."rs_fn_da_acesso"("p_pessoa" "uuid", "p_empresa" "uuid", "p_papel" "public"."rs_papel_membro", "p_todas_areas" boolean, "p_areas" "uuid"[], "p_token_hash" "text", "p_expira_em" timestamp with time zone, "p_max_pendentes" integer, "p_ator" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_da_acesso"("p_pessoa" "uuid", "p_empresa" "uuid", "p_papel" "public"."rs_papel_membro", "p_todas_areas" boolean, "p_areas" "uuid"[], "p_token_hash" "text", "p_expira_em" timestamp with time zone, "p_max_pendentes" integer, "p_ator" "jsonb") TO "service_role";
 
@@ -2524,8 +2994,28 @@ GRANT ALL ON FUNCTION "public"."rs_fn_expurga_empresa"("p_empresa" "uuid") TO "s
 
 
 
+REVOKE ALL ON FUNCTION "public"."rs_fn_faxina_vagas_vencidas"("p_lote" integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_faxina_vagas_vencidas"("p_lote" integer) TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."rs_fn_garante_administrador"("p_membro" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_garante_administrador"("p_membro" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_grava_equipe"("p_vaga" "uuid", "p_empresa" "uuid", "p_equipe" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_grava_equipe"("p_vaga" "uuid", "p_empresa" "uuid", "p_equipe" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_grava_etapas"("p_vaga" "uuid", "p_etapas" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_grava_etapas"("p_vaga" "uuid", "p_etapas" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_grava_perguntas"("p_vaga" "uuid", "p_perguntas" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_grava_perguntas"("p_vaga" "uuid", "p_perguntas" "jsonb") TO "service_role";
 
 
 
@@ -2564,8 +3054,28 @@ GRANT ALL ON FUNCTION "public"."rs_fn_salva_pessoa"("p_empresa" "uuid", "p_id" "
 
 
 
+REVOKE ALL ON FUNCTION "public"."rs_fn_salva_vaga"("p_vaga" "uuid", "p_empresa" "uuid", "p_dados" "jsonb", "p_alcance" "jsonb", "p_ator" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_salva_vaga"("p_vaga" "uuid", "p_empresa" "uuid", "p_dados" "jsonb", "p_alcance" "jsonb", "p_ator" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_slug_vaga"("p_empresa" "uuid", "p_base" "text", "p_vaga" "uuid") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_slug_vaga"("p_empresa" "uuid", "p_base" "text", "p_vaga" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_transicao_vaga"("p_vaga" "uuid", "p_empresa" "uuid", "p_para" "public"."rs_status_vaga", "p_motivo" "public"."rs_motivo_encerramento_vaga", "p_alcance" "jsonb", "p_ator" "jsonb", "p_max_publicadas" integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_transicao_vaga"("p_vaga" "uuid", "p_empresa" "uuid", "p_para" "public"."rs_status_vaga", "p_motivo" "public"."rs_motivo_encerramento_vaga", "p_alcance" "jsonb", "p_ator" "jsonb", "p_max_publicadas" integer) TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."rs_fn_troca_codigo_oauth"("p_codigo_hash" "text", "p_cliente" "uuid", "p_redirect_uri" "text", "p_challenge_do_verifier" "text", "p_token_hash" "text", "p_token_prefixo" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_troca_codigo_oauth"("p_codigo_hash" "text", "p_cliente" "uuid", "p_redirect_uri" "text", "p_challenge_do_verifier" "text", "p_token_hash" "text", "p_token_prefixo" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_vaga_no_alcance"("p_vaga" "uuid", "p_area" "uuid", "p_alcance" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_vaga_no_alcance"("p_vaga" "uuid", "p_area" "uuid", "p_alcance" "jsonb") TO "service_role";
 
 
 
@@ -2596,6 +3106,11 @@ GRANT ALL ON FUNCTION "public"."rs_tg_situacao_candidatura"() TO "service_role";
 
 REVOKE ALL ON FUNCTION "public"."rs_tg_vaga_congelada"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_tg_vaga_congelada"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_tg_vaga_encerrada_filhos"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_tg_vaga_encerrada_filhos"() TO "service_role";
 
 
 

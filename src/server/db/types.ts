@@ -688,14 +688,14 @@ isOneToOne: false
                   ]
                 },"rs_vagas": {
                   Row: {
-                    "area_id": string | null,"atualizado_em": string,"cidade": string | null,"criado_em": string,"curriculo_obrigatorio": boolean,"descricao": string,"dono_pessoa_id": string | null,"empresa_id": string,"encerra_em": string | null,"encerrada_em": string | null,"id": string,"modelo_trabalho": Database["public"]['Enums']["rs_modelo_trabalho"],"mostrar_salario": boolean,"motivo_encerramento": Database["public"]['Enums']["rs_motivo_encerramento_vaga"] | null,"publicada_em": string | null,"regime": Database["public"]['Enums']["rs_regime"],"requisitos": string | null,"salario_max": number | null,"salario_min": number | null,"salario_periodo": string | null,"slug": string,"status": Database["public"]['Enums']["rs_status_vaga"],"titulo": string,"uf": string | null
+                    "area_id": string | null,"atualizado_em": string,"chave_idempotencia": string | null,"cidade": string | null,"criado_em": string,"curriculo_obrigatorio": boolean,"descricao": string,"dono_pessoa_id": string | null,"empresa_id": string,"encerra_em": string | null,"encerrada_em": string | null,"id": string,"modelo_trabalho": Database["public"]['Enums']["rs_modelo_trabalho"],"mostrar_salario": boolean,"motivo_encerramento": Database["public"]['Enums']["rs_motivo_encerramento_vaga"] | null,"publicada_em": string | null,"regime": Database["public"]['Enums']["rs_regime"],"requisitos": string | null,"salario_max": number | null,"salario_min": number | null,"salario_periodo": string | null,"slug": string,"status": Database["public"]['Enums']["rs_status_vaga"],"titulo": string,"uf": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "area_id"?: string | null,"atualizado_em"?: string,"cidade"?: string | null,"criado_em"?: string,"curriculo_obrigatorio"?: boolean,"descricao"?: string,"dono_pessoa_id"?: string | null,"empresa_id": string,"encerra_em"?: string | null,"encerrada_em"?: string | null,"id"?: string,"modelo_trabalho"?: Database["public"]['Enums']["rs_modelo_trabalho"],"mostrar_salario"?: boolean,"motivo_encerramento"?: Database["public"]['Enums']["rs_motivo_encerramento_vaga"] | null,"publicada_em"?: string | null,"regime"?: Database["public"]['Enums']["rs_regime"],"requisitos"?: string | null,"salario_max"?: number | null,"salario_min"?: number | null,"salario_periodo"?: string | null,"slug": string,"status"?: Database["public"]['Enums']["rs_status_vaga"],"titulo": string,"uf"?: string | null
+                    "area_id"?: string | null,"atualizado_em"?: string,"chave_idempotencia"?: string | null,"cidade"?: string | null,"criado_em"?: string,"curriculo_obrigatorio"?: boolean,"descricao"?: string,"dono_pessoa_id"?: string | null,"empresa_id": string,"encerra_em"?: string | null,"encerrada_em"?: string | null,"id"?: string,"modelo_trabalho"?: Database["public"]['Enums']["rs_modelo_trabalho"],"mostrar_salario"?: boolean,"motivo_encerramento"?: Database["public"]['Enums']["rs_motivo_encerramento_vaga"] | null,"publicada_em"?: string | null,"regime"?: Database["public"]['Enums']["rs_regime"],"requisitos"?: string | null,"salario_max"?: number | null,"salario_min"?: number | null,"salario_periodo"?: string | null,"slug": string,"status"?: Database["public"]['Enums']["rs_status_vaga"],"titulo": string,"uf"?: string | null
                   }
                   Update: {
-                    "area_id"?: string | null,"atualizado_em"?: string,"cidade"?: string | null,"criado_em"?: string,"curriculo_obrigatorio"?: boolean,"descricao"?: string,"dono_pessoa_id"?: string | null,"empresa_id"?: string,"encerra_em"?: string | null,"encerrada_em"?: string | null,"id"?: string,"modelo_trabalho"?: Database["public"]['Enums']["rs_modelo_trabalho"],"mostrar_salario"?: boolean,"motivo_encerramento"?: Database["public"]['Enums']["rs_motivo_encerramento_vaga"] | null,"publicada_em"?: string | null,"regime"?: Database["public"]['Enums']["rs_regime"],"requisitos"?: string | null,"salario_max"?: number | null,"salario_min"?: number | null,"salario_periodo"?: string | null,"slug"?: string,"status"?: Database["public"]['Enums']["rs_status_vaga"],"titulo"?: string,"uf"?: string | null
+                    "area_id"?: string | null,"atualizado_em"?: string,"chave_idempotencia"?: string | null,"cidade"?: string | null,"criado_em"?: string,"curriculo_obrigatorio"?: boolean,"descricao"?: string,"dono_pessoa_id"?: string | null,"empresa_id"?: string,"encerra_em"?: string | null,"encerrada_em"?: string | null,"id"?: string,"modelo_trabalho"?: Database["public"]['Enums']["rs_modelo_trabalho"],"mostrar_salario"?: boolean,"motivo_encerramento"?: Database["public"]['Enums']["rs_motivo_encerramento_vaga"] | null,"publicada_em"?: string | null,"regime"?: Database["public"]['Enums']["rs_regime"],"requisitos"?: string | null,"salario_max"?: number | null,"salario_min"?: number | null,"salario_periodo"?: string | null,"slug"?: string,"status"?: Database["public"]['Enums']["rs_status_vaga"],"titulo"?: string,"uf"?: string | null
                   }
                   Relationships: [
                     {
@@ -747,6 +747,9 @@ isOneToOne: false
             "rs_fn_aceita_convite":
 { Args: { "p_membro": string,"p_usuario": string }; Returns: boolean
                            },
+"rs_fn_area_no_alcance":
+{ Args: { "p_alcance": Json,"p_area": string }; Returns: boolean
+                           },
 "rs_fn_arquiva_area":
 { Args: { "p_area": string,"p_ator": Json,"p_empresa": string }; Returns: undefined
                            },
@@ -755,6 +758,9 @@ isOneToOne: false
                            },
 "rs_fn_cancela_convite":
 { Args: { "p_ator": Json,"p_membro": string }; Returns: undefined
+                           },
+"rs_fn_confere_vaga":
+{ Args: { "p_alcance": Json,"p_area": string,"p_dono": string,"p_empresa": string }; Returns: undefined
                            },
 "rs_fn_convida_membro":
 { Args: { "p_areas": (string)[],"p_ator": Json,"p_email": string,"p_empresa": string,"p_expira_em": string,"p_max_pendentes": number,"p_papel": Database["public"]['Enums']["rs_papel_membro"],"p_todas_areas": boolean,"p_token_hash": string }; Returns: string
@@ -768,6 +774,9 @@ isOneToOne: false
 "rs_fn_cria_empresa":
 { Args: { "p_email_contato": string,"p_nome": string,"p_slug": string,"p_usuario": string }; Returns: string
                            },
+"rs_fn_cria_vaga":
+{ Args: { "p_alcance": Json,"p_ator": Json,"p_chave"?: string,"p_dados": Json,"p_empresa": string }; Returns: Json
+                           },
 "rs_fn_da_acesso":
 { Args: { "p_areas": (string)[],"p_ator": Json,"p_empresa": string,"p_expira_em": string,"p_max_pendentes": number,"p_papel": Database["public"]['Enums']["rs_papel_membro"],"p_pessoa": string,"p_todas_areas": boolean,"p_token_hash": string }; Returns: string
                            },
@@ -777,8 +786,20 @@ isOneToOne: false
 "rs_fn_expurga_empresa":
 { Args: { "p_empresa": string }; Returns: undefined
                            },
+"rs_fn_faxina_vagas_vencidas":
+{ Args: { "p_lote": number }; Returns: number
+                           },
 "rs_fn_garante_administrador":
 { Args: { "p_membro": string }; Returns: undefined
+                           },
+"rs_fn_grava_equipe":
+{ Args: { "p_empresa": string,"p_equipe": Json,"p_vaga": string }; Returns: undefined
+                           },
+"rs_fn_grava_etapas":
+{ Args: { "p_etapas": Json,"p_vaga": string }; Returns: undefined
+                           },
+"rs_fn_grava_perguntas":
+{ Args: { "p_perguntas": Json,"p_vaga": string }; Returns: undefined
                            },
 "rs_fn_muda_acesso":
 { Args: { "p_areas": (string)[],"p_ator": Json,"p_membro": string,"p_papel": Database["public"]['Enums']["rs_papel_membro"],"p_todas_areas": boolean }; Returns: undefined
@@ -801,8 +822,20 @@ isOneToOne: false
 "rs_fn_salva_pessoa":
 { Args: { "p_area": string,"p_ator": Json,"p_cargo": string,"p_email": string,"p_empresa": string,"p_id": string,"p_nome": string,"p_recebe_resumo": boolean }; Returns: string
                            },
+"rs_fn_salva_vaga":
+{ Args: { "p_alcance": Json,"p_ator": Json,"p_dados": Json,"p_empresa": string,"p_vaga": string }; Returns: undefined
+                           },
+"rs_fn_slug_vaga":
+{ Args: { "p_base": string,"p_empresa": string,"p_vaga": string }; Returns: string
+                           },
+"rs_fn_transicao_vaga":
+{ Args: { "p_alcance": Json,"p_ator": Json,"p_empresa": string,"p_max_publicadas": number,"p_motivo": Database["public"]['Enums']["rs_motivo_encerramento_vaga"],"p_para": Database["public"]['Enums']["rs_status_vaga"],"p_vaga": string }; Returns: undefined
+                           },
 "rs_fn_troca_codigo_oauth":
 { Args: { "p_challenge_do_verifier": string,"p_cliente": string,"p_codigo_hash": string,"p_redirect_uri": string,"p_token_hash": string,"p_token_prefixo": string }; Returns: string
+                           },
+"rs_fn_vaga_no_alcance":
+{ Args: { "p_alcance": Json,"p_area": string,"p_vaga": string }; Returns: boolean
                            },
 "rs_fn_valida_areas":
 { Args: { "p_areas": (string)[],"p_empresa": string,"p_papel": Database["public"]['Enums']["rs_papel_membro"],"p_todas": boolean }; Returns: undefined
