@@ -3,13 +3,13 @@
 // campos pelas condições, valida o básico e chama salvar_<acao>. Quem grava é o clique da pessoa.
 // Sem rede própria: tudo passa por callServerTool (CSP connect-src 'none').
 import type { App } from "@modelcontextprotocol/ext-apps";
-import { copy } from "@/lib/copy";
-import { campoVisivel, valoresVisiveis, type ArquivoValor, type Campo, type Formulario, type ItemLista, type Opcao, type RespostaSalvar, type SubCampo, type Valor } from "@/lib/formularios";
+import { COPY_FORMULARIO } from "@/lib/copy";
+import { campoVisivel, valoresVisiveis, type ArquivoValor, type Campo, type Formulario, type ItemLista, type Opcao, type RespostaSalvar, type SubCampo, type Valor, type Valores } from "@/lib/formularios";
 import { $, criarFormulario, el } from "../shared/app";
 import { lembrar, lerLembranca, storageDaPagina } from "../shared/memoria";
 import { errosLocais, inicial, reduzir, type Estado, type Evento } from "./state";
 
-const t = copy.mcp.ui;
+const t = COPY_FORMULARIO;
 const storage = storageDaPagina();
 let estado: Estado = inicial();
 // O App é criado no fim do arquivo; os handlers só rodam depois do connect.
@@ -151,13 +151,20 @@ function montarCampo(c: Campo): void {
 
 // Lista de itens que se repetem (etapas, perguntas). Digitar só atualiza o estado (o foco fica);
 // adicionar, remover, subir e descer redesenham os itens. Erros de item: "<lista>.<i>.<subcampo>".
+// Texto do botão principal, com a contagem de itens de uma lista quando o formulário pede (16).
+function textoDoBotao(form: Formulario, valores: Valores): string {
+  if (!form.botaoContagem) return form.botao;
+  const n = Array.isArray(valores[form.botaoContagem.lista]) ? (valores[form.botaoContagem.lista] as unknown[]).length : 0;
+  return form.botaoContagem.texto.replace("{n}", String(n));
+}
+
 function montarLista(c: Extract<Campo, { tipo: "lista" }>, erro: HTMLElement) {
   const grupo = el("fieldset", { className: "lista", "aria-describedby": erro.id }, el("legend", {}, c.rotulo));
   const itensEl = el("div", { className: "itens" });
   const adicionar = el("button", { type: "button", className: "texto" }, c.adicionar);
   grupo.append(itensEl);
   if (c.somenteLeitura) grupo.append(el("p", { className: "rodape" }, t.somenteLeitura));
-  else grupo.append(adicionar);
+  else if (!c.fixa) grupo.append(adicionar);
   let partes: { i: number; sc: SubCampo; bloco: HTMLElement; erro: HTMLElement }[] = [];
   const itens = () => (Array.isArray(estado.valores[c.nome]) ? (estado.valores[c.nome] as ItemLista[]) : []);
   const mudar = (novos: ItemLista[]) => despachar({ tipo: "valor", nome: c.nome, valor: novos });
@@ -167,7 +174,7 @@ function montarLista(c: Extract<Campo, { tipo: "lista" }>, erro: HTMLElement) {
     const lista = itens();
     itensEl.replaceChildren(
       ...lista.map((item, i) => {
-        const nomeItem = `${c.rotuloItem} ${i + 1}`;
+        const nomeItem = typeof item._titulo === "string" ? item._titulo : `${c.rotuloItem} ${i + 1}`;
         const cab = el("div", { className: "item-cab" }, el("strong", {}, nomeItem));
         if (!c.somenteLeitura) {
           const botao = (texto: string, rotulo: string, acao: () => ItemLista[]) => {
@@ -183,11 +190,13 @@ function montarLista(c: Extract<Campo, { tipo: "lista" }>, erro: HTMLElement) {
             [novos[a], novos[b]] = [novos[b], novos[a]];
             return novos;
           };
-          if (i > 0) cab.append(botao("↑", t.subir(nomeItem), () => troca(i, i - 1)));
-          if (i < lista.length - 1) cab.append(botao("↓", t.descer(nomeItem), () => troca(i, i + 1)));
+          if (!c.fixa && i > 0) cab.append(botao("↑", t.subir(nomeItem), () => troca(i, i - 1)));
+          if (!c.fixa && i < lista.length - 1) cab.append(botao("↓", t.descer(nomeItem), () => troca(i, i + 1)));
           if (lista.length > (c.min ?? 0)) cab.append(botao("✕", t.remover(nomeItem), () => itens().filter((_, j) => j !== i)));
         }
         const card = el("div", { className: "item" }, cab);
+        if (typeof item._aviso === "string") card.append(el("p", { className: "aviso-item", role: "note" }, item._aviso));
+        if (typeof item._info === "string") card.append(el("p", { className: "rodape" }, item._info));
         for (const sc of c.subcampos) card.append(montarSubcampo(c, sc, i, item));
         return card;
       }),
@@ -214,7 +223,7 @@ function montarLista(c: Extract<Campo, { tipo: "lista" }>, erro: HTMLElement) {
       select.addEventListener("change", () => set(select.value));
       sbloco.append(el("label", { for: id }, sc.rotulo), select);
     } else {
-      const input = sc.tipo === "linhas" ? el("textarea", { id, rows: 3 }) : el("input", { id, type: "text", autocomplete: "off" });
+      const input = sc.tipo === "linhas" || sc.tipo === "textarea" ? el("textarea", { id, rows: sc.tipo === "textarea" ? 6 : 3 }) : el("input", { id, type: "text", autocomplete: "off" });
       if (sc.max) input.maxLength = sc.max;
       input.setAttribute("aria-describedby", serro.id);
       input.value = Array.isArray(atual) ? atual.join("\n") : typeof atual === "string" ? atual : "";
@@ -266,7 +275,7 @@ function montar(form: Formulario): void {
   }
   const geral = el("p", { id: "erro-geral", className: "erro geral", role: "alert", hidden: true });
   const cancelar = el("button", { type: "button", id: "cancelar", className: "texto" }, t.cancelar);
-  const salvar = el("button", { type: "submit", id: "salvar", className: "primario" }, form.botao);
+  const salvar = el("button", { type: "submit", id: "salvar", className: "primario" }, textoDoBotao(form, estado.valores));
   cancelar.addEventListener("click", cancelarFormulario);
   $<HTMLFormElement>("form").append(geral, el("div", { className: "acoes" }, cancelar, salvar));
 }
@@ -308,7 +317,7 @@ function desenhar(): void {
   const salvar = document.getElementById("salvar") as HTMLButtonElement | null;
   if (salvar) {
     salvar.disabled = travado;
-    salvar.textContent = s.fase === "salvando" ? t.salvando : s.form.botao;
+    salvar.textContent = s.fase === "salvando" ? t.salvando : textoDoBotao(s.form, s.valores);
   }
   $("form").hidden = s.fase === "sucesso" || s.fase === "cancelado";
   $("cancelado").hidden = s.fase !== "cancelado";

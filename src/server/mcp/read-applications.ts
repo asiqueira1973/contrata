@@ -10,6 +10,8 @@ import { FILTRO_PARADAS_DIAS, LISTA_PADRAO } from "@/lib/limits";
 import { lerCursor, proximoCursor } from "@/server/api/v1";
 import { DomainError } from "@/server/http";
 import { exportApplications, getApplication, history, listApplications, readResume, type FiltrosCandidaturas } from "@/server/recruiting/pipeline";
+import { listProposals } from "@/server/recruiting/decisions";
+import { listTemplates } from "@/server/messages/templates";
 import { acharCandidatura, acharEtapa } from "./candidaturas";
 import type { ToolContext } from "./kit";
 import { consulta } from "./read";
@@ -126,4 +128,16 @@ export function registrarConsultasDeCandidatura(server: McpServer, ctx: ToolCont
     z.object({ ...filtrosArgs, vaga: z.string().describe("título da vaga (ou parte dele) ou o id") }),
     "recrutador",
   );
+
+  consulta(
+    server, ctx, "listar_propostas",
+    async (a) => {
+      const itens = await listProposals(ctx, { status: a.status ?? "pendente" });
+      return { itens, ...(!itens.length ? { mensagem: copy.mcp.form.propostas.vazio } : {}) };
+    },
+    z.object({ status: z.enum(["pendente", "confirmada", "descartada", "expirada"]).optional().describe("padrão: pendente") }),
+    "recrutador",
+  );
+
+  consulta(server, ctx, "listar_modelos_mensagem", async () => ({ itens: await listTemplates(ctx.empresa.id) }));
 }

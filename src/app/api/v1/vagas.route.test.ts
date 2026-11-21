@@ -1,6 +1,6 @@
 // API v1 de vagas (8.3; 13.2): escopos, criação com Idempotency-Key, 11.1 com erros por campo,
-// PATCH e PUT de etapas, perguntas e equipe, publicar, pausar, encerrar (409 com candidatura em
-// andamento, até o 8.6), resumo e filtros.
+// PATCH e PUT de etapas, perguntas e equipe, publicar, pausar, encerrar (com candidatura em
+// andamento vira proposta 202, 8.6), resumo e filtros.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { Validator } from "@seriousme/openapi-schema-validator";
 import { db } from "@/server/db/client";
@@ -96,15 +96,19 @@ describe("API v1 — vagas", () => {
     expect(s.vaga.status).toBe("publicada");
     expect((await pausar(req(`/api/v1/vagas/${id}/pausar`, escrita, "POST"), params({ id }))).status).toBe(200);
   });
-  it("encerrar exige escopo decisao e motivo; com candidatura em andamento dá 409 (decisão, 11.7)", async () => {
+  it("encerrar exige escopo decisao e motivo; com candidatura em andamento vira proposta 202 com devolutiva (11.5, 11.7; 8.6)", async () => {
     expect((await encerrar(req(`/api/v1/vagas/${id}/encerrar`, escrita, "POST", { motivo: "preenchida" }), params({ id }))).status).toBe(403);
     expect((await encerrar(req(`/api/v1/vagas/${id}/encerrar`, decisao, "POST", {}), params({ id }))).status).toBe(400);
     const { data: c } = await db().from("rs_candidatos").insert({ empresa_id: empresa.id, email: `c-${empresa.slug}@teste.exemplo`, nome: "Pessoa" }).select("id").single();
     const { data: et } = await db().from("rs_etapas").select("id").eq("vaga_id", id).eq("ordem", 1).single();
     await db().from("rs_candidaturas").insert({ empresa_id: empresa.id, vaga_id: id, candidato_id: c!.id, etapa_id: et!.id, origem: "pagina", token_hash: `t-${id}`, consentimento_versao: "1", consentimento_em: new Date().toISOString(), recebida_em: new Date().toISOString() });
-    const r = await encerrar(req(`/api/v1/vagas/${id}/encerrar`, decisao, "POST", { motivo: "preenchida" }), params({ id }));
-    expect(r.status).toBe(409);
-    expect((await r.json()).codigo).toBe("vaga_com_ativas");
+    const semDevolutiva = await encerrar(req(`/api/v1/vagas/${id}/encerrar`, decisao, "POST", { motivo: "preenchida" }), params({ id }));
+    expect(semDevolutiva.status).toBe(400);
+    const r = await encerrar(req(`/api/v1/vagas/${id}/encerrar`, decisao, "POST", { motivo: "preenchida", devolutiva: "A vaga foi preenchida. Obrigado por participar." }), params({ id }));
+    expect(r.status).toBe(202);
+    expect((await r.json()).decisao_id).toBeTruthy();
+    const { data: ainda } = await db().from("rs_vagas").select("status").eq("id", id).single();
+    expect(ainda!.status).not.toBe("encerrada");
     const outra = (await (await criar(req("/api/v1/vagas", escrita, "POST", vaga({ titulo: "Sem ninguém" })))).json()).id;
     const ok = await encerrar(req(`/api/v1/vagas/${outra}/encerrar`, decisao, "POST", { motivo: "cancelada" }), params({ id: outra }));
     expect(ok.status).toBe(200);

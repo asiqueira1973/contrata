@@ -48,6 +48,8 @@ const naoEncontrado = { description: "Não encontrada", content: { "application/
 const conflito = { description: "Conflito com o estado da vaga", content: { "application/json": { schema: ref("Erro") } } };
 const idParam = { name: "id", in: "path", required: true, schema: { type: "string", format: "uuid" } };
 const corpoObjeto = { required: true, content: { "application/json": { schema: { type: "object" } } } };
+// Resposta de proposta (11.7): a decisão só acontece com o clique de alguém da equipe.
+const proposta = { description: "Proposta criada; espera confirmação no chat", content: { "application/json": { schema: { type: "object", properties: { decisao_id: { type: "string", format: "uuid" }, mensagem: { type: "string" } } } } } };
 
 export function openApiDocument() {
   return {
@@ -93,7 +95,27 @@ export function openApiDocument() {
       "/vagas/{id}/equipe": { parameters: [idParam], put: { summary: "Substituir equipe {responsavel, avaliadores}", operationId: "trocarEquipe", requestBody: corpoObjeto, responses: { "200": json("Vaga"), ...erros, "400": invalido } } },
       "/vagas/{id}/publicar": { parameters: [idParam], post: { summary: "Publicar (escopo escrita)", operationId: "publicarVaga", responses: { "200": json("Vaga"), ...erros, "400": invalido, "409": conflito } } },
       "/vagas/{id}/pausar": { parameters: [idParam], post: { summary: "Pausar (escopo escrita)", operationId: "pausarVaga", responses: { "200": json("Vaga"), ...erros, "409": conflito } } },
-      "/vagas/{id}/encerrar": { parameters: [idParam], post: { summary: "Encerrar sem candidaturas em andamento (escopo decisao); com candidaturas em andamento, 409 até as propostas", operationId: "encerrarVaga", requestBody: corpoObjeto, responses: { "200": json("Vaga"), ...erros, "400": invalido, "409": conflito } } },
+      "/vagas/{id}/encerrar": { parameters: [idParam], post: { summary: "Encerrar a vaga (escopo decisao): sem candidaturas em andamento, encerra ({motivo}); com candidaturas em andamento vira proposta ({motivo, devolutiva, justificativa?}) que alguém da equipe confirma no chat", operationId: "encerrarVaga", requestBody: corpoObjeto, responses: { "200": json("Vaga"), "202": proposta, ...erros, "400": invalido, "409": conflito } } },
+      "/candidaturas/{id}/reprovar": {
+        parameters: [idParam],
+        post: { summary: "Propor reprovação ({motivo, devolutiva de 20 a 3.000, justificativa?}). Sempre 202: só acontece quando alguém da equipe confirmar no chat (11.7)", operationId: "reprovarCandidatura", requestBody: corpoObjeto, responses: { "202": proposta, ...erros, "400": invalido, "404": naoEncontrado, "409": conflito } },
+      },
+      "/candidaturas/{id}/contratar": {
+        parameters: [idParam],
+        post: { summary: "Propor contratação ({mensagem?, justificativa?}). Sempre 202 (11.7)", operationId: "contratarCandidatura", requestBody: corpoObjeto, responses: { "202": proposta, ...erros, "400": invalido, "404": naoEncontrado, "409": conflito } },
+      },
+      "/candidaturas/{id}/mensagens": {
+        parameters: [idParam],
+        post: { summary: "Mensagem ao candidato ({modelo?, assunto?, corpo?, justificativa?}, escopo escrita): 201 se a empresa usa mensagens diretas (até 200 por dia), 202 com proposta se usa confirmação (11.8)", operationId: "enviarMensagem", requestBody: corpoObjeto,
+          responses: { "201": { description: "Enviada", content: { "application/json": { schema: { type: "object", properties: { mensagem_id: { type: "string" } } } } } }, "202": proposta, ...erros, "400": invalido, "404": naoEncontrado, "429": { description: "Cota diária de mensagens", content: { "application/json": { schema: ref("Erro") } } } } },
+      },
+      "/decisoes": {
+        get: { summary: "Propostas de decisão (leitura); filtro status. Confirmar e descartar só pelo chat", operationId: "listarDecisoes",
+          parameters: [{ name: "status", in: "query", required: false, schema: { type: "string", enum: ["pendente", "confirmada", "descartada", "expirada"] } }],
+          responses: { "200": { description: "ok", content: { "application/json": { schema: { type: "object", properties: { itens: { type: "array", items: { type: "object" } } } } } } }, ...erros, "400": invalido } },
+      },
+      "/decisoes/{id}": { parameters: [idParam], get: { summary: "Ver uma proposta (leitura)", operationId: "verDecisao", responses: { "200": { description: "ok", content: { "application/json": { schema: { type: "object" } } } }, ...erros, "404": naoEncontrado } } },
+      "/modelos-mensagem": { get: { summary: "Modelos de mensagem: os padrão com o que a empresa personalizou (leitura)", operationId: "listarModelosMensagem", responses: { "200": { description: "ok", content: { "application/json": { schema: { type: "object", properties: { itens: { type: "array", items: { type: "object" } } } } } } }, ...erros } } },
       "/candidaturas": {
         get: {
           summary: "Candidaturas recebidas (leitura). Padrão: só as em andamento; situacao=todas traz todas. q busca no nome, e-mail, cidade, respostas e texto do currículo.",

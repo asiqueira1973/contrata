@@ -147,3 +147,14 @@ fieldset.lista legend { font-weight: var(--font-weight-medium, 500); padding: 0;
 button.mini { padding: 0 10px; }
 fieldset.lista > button.texto { align-self: flex-start; }
 input[type='number'], input[type='date'] { max-width: 220px; }
+
+/* Aviso de um item de lista (8.6): proposta que não vale mais, no tom dos avisos do formulário. */
+.aviso-item {
+  margin: 0;
+  padding: 8px 10px;
+  border-radius: 8px;
+  background: var(--aviso-fundo);
+  color: var(--aviso-texto);
+  font-size: 14px;
+  line-height: 1.4;
+}

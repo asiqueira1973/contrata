@@ -83,6 +83,14 @@ export async function montarMensagem(ctx: ContextoVagas, id: string, tipo: TipoM
   };
 }
 
+// Texto final ao candidato, para o formulário mostrar e deixar editar (11.7): variáveis trocadas,
+// menos {{link_acompanhamento}}, que fica para o envio. Recebe: contexto, candidatura e o texto.
+export async function textoFinal(ctx: ContextoVagas, id: string, texto: TextoMensagem): Promise<TextoMensagem & { nome: string; vaga: string }> {
+  const d = await dados(ctx.empresa.id, id);
+  const v = await valores(ctx, d);
+  return { assunto: renderizar(texto.assunto, v), corpo: renderizar(texto.corpo, v, { manterLink: true }), nome: d.nome, vaga: d.vaga.titulo };
+}
+
 // Entrega as notificações das mensagens gravadas (depois do commit), pela chave.
 export async function entregar(empresa: { id: string; nome: string }, mensagens: MensagemPronta[]): Promise<void> {
   const chaves = mensagens.map((m) => m.notificacao.chave);

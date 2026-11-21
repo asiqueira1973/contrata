@@ -65,7 +65,7 @@ export async function consultar(fn: () => Promise<Record<string, unknown>>): Pro
 type Config = { title?: string; annotations?: Record<string, unknown> } & Record<string, unknown>;
 
 // Operações diretas do agente (classe O, 11.34): gravam sem formulário, então são escrita.
-export const OPERACOES = new Set(["mover_etapa", "adicionar_nota"]);
+export const OPERACOES = new Set(["mover_etapa", "adicionar_nota", "propor_decisao"]);
 
 // Todo registro de ferramenta ganha título e dicas: leitura (consultas, opções e abrir_formulario_*,
 // que não gravam) ou escrita (salvar_*, registrar_* e as operações da classe O). openWorldHint é sempre false: a ferramenta

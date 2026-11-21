@@ -6,9 +6,10 @@ import "server-only";
 import type { McpServer } from "@modelcontextprotocol/server";
 import { z } from "zod";
 import { ERROS, copy } from "@/lib/copy";
-import { LISTA_MAX, MOVER_LOTE_MAX, NOTA_MAX } from "@/lib/limits";
+import { DECISOES_LOTE_MAX, LISTA_MAX, MOVER_LOTE_MAX, NOTA_MAX, type Escopo } from "@/lib/limits";
 import { errorCode } from "@/server/error-code";
 import { DomainError } from "@/server/http";
+import { MOTIVOS_ENCERRAMENTO, MOTIVOS_REPROVACAO, proposeDecision } from "@/server/recruiting/decisions";
 import { addNote, listApplications, moveStage } from "@/server/recruiting/pipeline";
 import { acharCandidatura, acharEtapa, vagaDaCandidatura } from "./candidaturas";
 import { acharPorNome } from "./forms/comum";
@@ -19,13 +20,13 @@ type Resultado = { texto: string; estrutura: Record<string, unknown> };
 
 // Registra uma operação: escrita, recrutador ou mais, visível ao modelo. Erro de regra vira a
 // mensagem da copy; o resto, a genérica (sem dado pessoal no log, 20.2).
-function operacao<E extends z.ZodObject>(server: McpServer, ctx: ToolContext, nome: string, entrada: E, fn: (args: z.infer<E>) => Promise<Resultado>) {
-  if (bloqueio(ctx, "escrita", "recrutador")) return;
+function operacao<E extends z.ZodObject>(server: McpServer, ctx: ToolContext, nome: string, entrada: E, fn: (args: z.infer<E>) => Promise<Resultado>, escopo: Escopo = "escrita") {
+  if (bloqueio(ctx, escopo, "recrutador")) return;
   server.registerTool(
     nome,
     { title: copy.mcp.titulos[nome], description: copy.mcp.descricoes[nome], inputSchema: entrada as unknown as z.ZodObject<z.ZodRawShape>, _meta: { ui: { visibility: ["model"] } } },
     async (args: unknown) => {
-      const b = bloqueio(ctx, "escrita", "recrutador");
+      const b = bloqueio(ctx, escopo, "recrutador");
       if (b) return erro(b);
       try {
         const r = await fn(args as z.infer<E>);
@@ -95,4 +96,40 @@ export function registrarOperacoes(server: McpServer, ctx: ToolContext): void {
       return { texto: copy.funil.notaAdicionada, estrutura: { candidatura_id: id, nota_id: r.id } };
     },
   );
+
+  // propor_decisao (11.7, 13.3): só para cliente SEM formulário. Cria proposta pendente; quem
+  // confirma é uma pessoa no formulário de propostas. Escopo decisao, recrutador+.
+  if (ctx.ui !== "sim") {
+    operacao(
+      server, ctx, "propor_decisao",
+      z.object({
+        tipo: z.enum(["reprovar", "contratar", "encerrar_vaga", "enviar_mensagem"]).describe("o que propor"),
+        candidaturas: z.array(z.string().min(1)).max(DECISOES_LOTE_MAX).optional().describe("ids das candidaturas (ou nomes); não vale para encerrar_vaga"),
+        vaga: z.string().optional().describe("título ou id da vaga (encerrar_vaga, ou para desempatar nomes)"),
+        motivo: z.enum(MOTIVOS_REPROVACAO).optional().describe("motivo interno da reprovação (não vai ao candidato)"),
+        motivo_encerramento: z.enum(MOTIVOS_ENCERRAMENTO).optional(),
+        devolutiva: z.string().optional().describe("texto ao candidato (reprovar e encerrar_vaga: 20 a 3.000 caracteres)"),
+        mensagem: z.string().optional().describe("mensagem opcional ao contratar"),
+        assunto: z.string().optional(),
+        corpo: z.string().optional().describe("texto de enviar_mensagem"),
+        justificativa: z.string().max(2000).optional().describe("por que você propõe (aparece para quem confirma)"),
+      }),
+      async (a) => {
+        const payload = { motivo: a.motivo, motivo_encerramento: a.motivo_encerramento, devolutiva: a.devolutiva, mensagem: a.mensagem, assunto: a.assunto, corpo: a.corpo };
+        const limpo = Object.fromEntries(Object.entries(payload).filter(([, v]) => v !== undefined));
+        if (a.tipo === "encerrar_vaga") {
+          const v = await acharVaga(ctx, a.vaga);
+          if (!v) throw new DomainError("vaga_nao_encontrada", 404);
+          const r = await proposeDecision(ctx, { tipo: a.tipo, vaga: v.id, payload: limpo, justificativa: a.justificativa });
+          return { texto: r.mensagem, estrutura: { decisoes: [r.decisao_id] } };
+        }
+        const ids = await idsDasCandidaturas(ctx, a.candidaturas ?? [], a.vaga);
+        if (!ids.length) throw new DomainError("candidatura_nao_encontrada", 404);
+        const criadas: string[] = [];
+        for (const id of ids) criadas.push((await proposeDecision(ctx, { tipo: a.tipo, candidatura: id, payload: limpo, justificativa: a.justificativa })).decisao_id);
+        return { texto: copy.decisoes.propostaCriada, estrutura: { decisoes: criadas } };
+      },
+      "decisao",
+    );
+  }
 }

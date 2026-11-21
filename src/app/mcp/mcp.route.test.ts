@@ -2,6 +2,7 @@
 // cliente; visibilidade (salvar_* e opções só do app); anotações; escopo e papel; chave de API;
 // fallback com prévia; chave criada só no formulário.
 import { ERROS } from "@/lib/copy";
+import { OPERACOES } from "@/server/mcp/kit";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { randomUUID } from "node:crypto";
 import { db } from "@/server/db/client";
@@ -71,7 +72,7 @@ describe("ferramentas por capacidade do cliente (13.5) e visibilidade (princípi
     for (const t of await listTools(admin, null)) {
       expect(t.title, t.name).toBeTruthy();
       const formulario = /^(salvar|registrar)_/.test(t.name);
-      const operacao = ["mover_etapa", "adicionar_nota"].includes(t.name);
+      const operacao = OPERACOES.has(t.name);
       expect(t.annotations?.readOnlyHint, t.name).toBe(!(formulario || operacao));
       expect(t.annotations?.destructiveHint, t.name).toBe(formulario);
       expect(t.annotations?.openWorldHint, t.name).toBe(false);

@@ -4,7 +4,9 @@
 // Sem zod e sem "server-only": o formulário (navegador) importa este arquivo.
 
 // Um item de lista (ex.: uma etapa, uma pergunta). Chaves que o formulário não desenha (ex.: o
-// id de uma etapa que já existe) voltam intactas no salvar.
+// id de uma etapa que já existe) voltam intactas no salvar. `_titulo` troca o "Item N" do
+// cabeçalho; `_aviso` aparece logo abaixo dele (ex.: proposta que não vale mais, 8.6); `_info`, um
+// texto de apoio (quem propôs e por quê).
 export type ItemLista = Record<string, string | boolean | string[]>;
 // Arquivo escolhido no formulário (8.4): lido no navegador e mandado em base64 pelo callServerTool
 // (o formulário não tem rede própria). O servidor confere tipo e tamanho pelos bytes.
@@ -27,7 +29,8 @@ export type SubCampo =
   | (Base & { tipo: "texto"; max?: number })
   | (Base & { tipo: "select"; opcoes: Opcao[]; vazio?: string })
   | (Base & { tipo: "marcar" })
-  | (Base & { tipo: "linhas"; max?: number });
+  | (Base & { tipo: "linhas"; max?: number })
+  | (Base & { tipo: "textarea"; max?: number });
 export type Campo =
   | (Base & { tipo: "texto" | "email" | "textarea"; max?: number })
   | (Base & { tipo: "select"; opcoes: string | Opcao[]; vazio?: string })
@@ -41,7 +44,9 @@ export type Campo =
   // Itens que se repetem (etapas, perguntas): adicionar, remover, subir e descer. `novo` é o item
   // que entra ao clicar em adicionar; `somenteLeitura` mostra sem deixar mudar (perguntas de vaga
   // já publicada, 11.1). Erros de item chegam como "<nome>.<índice>.<subcampo>".
-  | (Base & { tipo: "lista"; subcampos: SubCampo[]; novo: ItemLista; rotuloItem: string; adicionar: string; min?: number; max?: number; somenteLeitura?: boolean })
+  // `fixa`: os itens vêm prontos do servidor (decisões, propostas, 8.6): não se adiciona nem
+  // reordena, só se tira um item do lote.
+  | (Base & { tipo: "lista"; subcampos: SubCampo[]; novo: ItemLista; rotuloItem: string; adicionar: string; min?: number; max?: number; somenteLeitura?: boolean; fixa?: boolean })
   // Arquivo (currículo): `aceita` é o atributo accept do input; `maxBytes`, o teto conferido no navegador.
   | (Base & { tipo: "arquivo"; aceita: string; tipos: string[]; maxBytes: number; erroTipo: string; remover: string });
 
@@ -56,6 +61,8 @@ export type Formulario = {
   // Ferramenta do app que traz as listas de opções nomeadas (campos com `opcoes: "<chave>"`).
   ferramentaOpcoes?: string;
   avisos?: string[];
+  // Botão com a contagem de itens de uma lista (16): "Reprovar e enviar {n}".
+  botaoContagem?: { lista: string; texto: string };
 };
 
 export type ErroDeCampo = { campo: string | null; mensagem: string };

@@ -135,6 +135,26 @@ export const ERROS: Record<string, string> = {
   revisao_texto_longo: "Escreva até 1.000 caracteres.",
 };
 
+// Textos do formulário genérico do chat (ui/formulario). Exportados à parte para o build do
+// formulário levar só eles (o HTML tem teto de 300 KB, seção 17); copy.mcp.ui aponta para cá.
+export const COPY_FORMULARIO = {
+  cancelar: "Cancelar",
+  cancelado: "Formulário fechado. Nada foi gravado.",
+  salvando: "Salvando…",
+  salvo: "Salvo.",
+  erroOpcoes: "Não foi possível carregar as opções.",
+  tentarDeNovo: "Tentar de novo",
+  inesperado: "Não foi possível salvar agora. Tente de novo.",
+  obrigatorio: "Preencha este campo.",
+  escolha: "Escolha…",
+  canceladoModelo: (titulo: string) => `A pessoa fechou o formulário "${titulo}" sem salvar. Nada foi gravado.`,
+  salvoModelo: (resumo: string) => `Salvo pela pessoa no formulário: ${resumo}`,
+  subir: (item: string) => `Subir ${item}`,
+  descer: (item: string) => `Descer ${item}`,
+  remover: (item: string) => `Remover ${item}`,
+  somenteLeitura: "Só leitura",
+};
+
 export const copy = {
   appName: NOME_PRODUTO,
   carregando: "Carregando…",
@@ -333,6 +353,9 @@ export const copy = {
       exportar_candidaturas: "Exportar candidaturas (CSV)",
       mover_etapa: "Mover de etapa",
       adicionar_nota: "Adicionar nota",
+      listar_propostas: "Propostas para confirmar",
+      listar_modelos_mensagem: "Modelos de mensagem",
+      propor_decisao: "Propor uma decisão",
     } as Record<string, string>,
     descricoes: {
       quem_sou_eu: `Diz em qual empresa este conector está, quem é o membro, o papel dele e o que ele pode fazer no ${NOME_PRODUTO}. Use no começo da conversa.`,
@@ -357,6 +380,11 @@ export const copy = {
         "Move de 1 a 100 candidaturas em andamento da mesma vaga para uma etapa (pelo nome ou id da etapa). É tudo ou nada: se uma não puder, nenhuma muda. Fica registrado como feito por você em nome da pessoa. Mover não reprova nem aprova ninguém. Só recrutador ou administrador.",
       adicionar_nota:
         "Adiciona uma nota interna a uma candidatura (a equipe vê; a pessoa candidata não). Fica assinada como feita por você em nome da pessoa. Escreva só fatos do processo: nada sobre idade, gênero, raça, religião, deficiência, estado civil ou outra característica pessoal. Só recrutador ou administrador.",
+      listar_propostas:
+        "Lista as propostas de decisão (reprovar, contratar, encerrar vaga, mensagem) que esperam confirmação de alguém da equipe, com quem propôs, a justificativa e se ainda valem. Para confirmar ou descartar, abra o formulário de propostas.",
+      listar_modelos_mensagem: "Lista os modelos de mensagem da empresa (os padrão e os personalizados), com assunto e texto. Use a chave no formulário de mensagem ou de decisões.",
+      propor_decisao:
+        "Só para quando o formulário não aparece: cria uma proposta de decisão (reprovar, contratar, encerrar a vaga com pessoas em andamento ou mandar mensagem) que fica esperando um recrutador ou administrador confirmar. Nada acontece com o candidato agora. Escreva a devolutiva em tom respeitoso, sem citar idade, gênero, raça, religião, deficiência, estado civil ou qualquer característica pessoal, e explique na justificativa o motivo.",
     } as Record<string, string>,
     // Texto devolvido ao modelo quando um formulário abre: nada foi gravado.
     formularioAberto: (titulo: string) =>
@@ -370,26 +398,100 @@ export const copy = {
     tituloSalvar: (titulo: string) => `Salvar: ${titulo}`,
     tituloFallback: (titulo: string) => `${titulo} sem formulário`,
     tituloOpcoes: (titulo: string) => `Opções: ${titulo}`,
-    // Formulário genérico (ui/formulario)
-    ui: {
-      cancelar: "Cancelar",
-      cancelado: "Formulário fechado. Nada foi gravado.",
-      salvando: "Salvando…",
-      salvo: "Salvo.",
-      erroOpcoes: "Não foi possível carregar as opções.",
-      tentarDeNovo: "Tentar de novo",
-      inesperado: "Não foi possível salvar agora. Tente de novo.",
-      obrigatorio: "Preencha este campo.",
-      escolha: "Escolha…",
-      canceladoModelo: (titulo: string) => `A pessoa fechou o formulário "${titulo}" sem salvar. Nada foi gravado.`,
-      salvoModelo: (resumo: string) => `Salvo pela pessoa no formulário: ${resumo}`,
-      subir: (item: string) => `Subir ${item}`,
-      descer: (item: string) => `Descer ${item}`,
-      remover: (item: string) => `Remover ${item}`,
-      somenteLeitura: "Só leitura",
-    },
+    // Formulário genérico (ui/formulario): COPY_FORMULARIO, exportado à parte (acima).
+    ui: COPY_FORMULARIO,
     // Formulários do 8.2 (seção 10.2).
     form: {
+      decisoes: {
+        titulo: "Decisões",
+        // Texto literal da 13.3 / 20.4.
+        descricao:
+          "Abre o formulário em que uma pessoa da equipe confere e confirma reprovações, contratações e encerramentos. Nada acontece até ela clicar em Confirmar. Escreva a devolutiva em tom respeitoso, sem citar idade, gênero, raça, religião, deficiência, estado civil ou qualquer característica pessoal, e explique na justificativa o motivo.",
+        itens: "Decisões",
+        item: "Decisão",
+        motivo: "Motivo (só para a equipe)",
+        motivoEncerramento: "Motivo",
+        assunto: "Assunto do e-mail",
+        devolutiva: "Mensagem que a pessoa vai receber (por e-mail)",
+        mensagemContratar: "Mensagem que a pessoa vai receber (opcional; em branco, nenhuma)",
+        dicaVariaveis: "{{nome}} e {{vaga}} são trocados para cada pessoa.",
+        reprovar: (nome: string, vaga: string) => `Reprovar ${nome} · ${vaga}`,
+        contratar: (nome: string, vaga: string) => `Contratar ${nome} · ${vaga}`,
+        reabrir: (nome: string, vaga: string) => `Reabrir ${nome} · ${vaga}`,
+        encerrar: (vaga: string) => `Encerrar ${vaga}`,
+        encerrarAviso: (n: number) => (n === 1 ? "1 pessoa em andamento vai receber esta mensagem." : `${n} pessoas em andamento vão receber esta mensagem.`),
+        reabrirAviso: "Volta para a última etapa. Não manda e-mail: se quiser avisar a pessoa, mande uma mensagem depois.",
+        justificativa: (texto: string) => `Por que o agente propôs: ${texto}`,
+        botaoReprovar: "Reprovar e enviar {n}",
+        botaoConfirmar: "Confirmar {n}",
+        nenhuma: "Não achei as candidaturas ou a vaga. Use listar_candidaturas e passe os ids.",
+        resumo: (ok: number, falhas: string[]) =>
+          `${ok === 1 ? "1 decisão confirmada" : `${ok} decisões confirmadas`}.${falhas.length ? ` Não foram: ${falhas.join("; ")}.` : ""}`,
+      },
+      propostas: {
+        titulo: "Propostas",
+        descricao:
+          "Abre o formulário em que uma pessoa da equipe confere as propostas de decisão feitas por integrações ou pelo agente sem formulário, ajusta o texto ao candidato e confirma ou descarta cada uma. Nada acontece até ela clicar.",
+        itens: "Propostas",
+        item: "Proposta",
+        acao: "O que fazer",
+        confirmar: "Confirmar",
+        descartar: "Descartar",
+        assunto: "Assunto do e-mail",
+        texto: "Mensagem que a pessoa vai receber",
+        motivoDescarte: "Por que descartar (opcional)",
+        info: (por: string, data: string, justificativa: string | null) => `Proposto por ${por} em ${data}.${justificativa ? ` Justificativa: ${justificativa}` : ""}`,
+        titulo_item: (tipo: string, nome: string, vaga: string) => `${tipo}: ${nome} · ${vaga}`,
+        botao: "Confirmar {n}",
+        vazio: "Nada para confirmar. Quando uma integração propuser reprovar, contratar ou encerrar, a proposta aparece aqui.",
+        resumo: (conf: number, desc: number, expiradas: string[]) =>
+          [`${conf} confirmada${conf === 1 ? "" : "s"}`, `${desc} descartada${desc === 1 ? "" : "s"}`].join(", ") + "." +
+          (expiradas.length ? ` Não valiam mais: ${expiradas.join("; ")}.` : ""),
+      },
+      mensagem: {
+        titulo: "Mensagem ao candidato",
+        descricao:
+          "Abre o formulário para mandar uma mensagem por e-mail a uma pessoa candidata, a partir de um modelo ou com texto livre. A pessoa da equipe confere e clica em Enviar; nada sai antes disso. Escreva em tom respeitoso e só sobre o processo.",
+        candidatura: "Para quem",
+        modelo: "Modelo",
+        semModelo: "Texto livre",
+        assunto: "Assunto",
+        corpo: "Mensagem",
+        dicaVariaveis: "Variáveis: {{nome}}, {{nome_completo}}, {{vaga}}, {{empresa}}, {{link_acompanhamento}}, {{link_vaga}}, {{recrutador}}, {{link_agenda}}.",
+        botao: "Enviar",
+        resumo: (nome: string) => `Mensagem enviada para ${nome}.`,
+      },
+      modelos_mensagem: {
+        titulo: "Modelos de mensagem",
+        descricao:
+          "Abre o formulário para editar os modelos de mensagem da empresa (devolutivas, convite para entrevista, contratação…) ou criar um novo, com pré-visualização e \"Voltar ao padrão\". Nada é gravado até a pessoa clicar em Salvar.",
+        operacao: "O que fazer",
+        editar: "Editar um modelo",
+        criar: "Criar um modelo novo",
+        padrao: "Voltar ao padrão",
+        modelo: "Modelo",
+        chave: "Chave (letras minúsculas, números e _)",
+        nome: "Nome",
+        assunto: "Assunto",
+        corpo: "Texto",
+        previa: (assunto: string, corpo: string) => `Prévia com dados fictícios — ${assunto}: ${corpo}`,
+        resumoSalvo: (nome: string) => `Modelo "${nome}" salvo.`,
+        resumoPadrao: (nome: string) => `Modelo "${nome}" voltou ao padrão.`,
+      },
+      resposta_revisao: {
+        titulo: "Resposta ao pedido de revisão",
+        descricao:
+          "Abre o formulário para responder o pedido de revisão de uma pessoa reprovada: a mensagem que ela vai receber e, se a equipe decidir, a reabertura da candidatura. Nada é gravado até a pessoa da equipe clicar em Responder.",
+        candidatura: "Pedido de",
+        assunto: "Assunto",
+        corpo: "Resposta",
+        reabrir: "Reabrir a candidatura (volta para a última etapa)",
+        pedido: (nome: string, texto: string | null) => (texto ? `${nome} escreveu: "${texto}"` : `${nome} pediu revisão sem escrever um texto.`),
+        nenhum: "Nenhum pedido de revisão esperando resposta.",
+        assuntoPadrao: "Sobre o seu pedido de revisão",
+        botao: "Responder",
+        resumo: (nome: string, reaberta: boolean) => `Resposta enviada para ${nome}${reaberta ? " e candidatura reaberta" : ""}.`,
+      },
       avaliacao: {
         titulo: "Avaliação",
         descricao:

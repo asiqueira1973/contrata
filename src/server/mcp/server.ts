@@ -8,6 +8,11 @@ import { formularioAcesso } from "./forms/acesso";
 import { formularioAdicionarCandidato } from "./forms/adicionar_candidato";
 import { formularioArea } from "./forms/area";
 import { formularioAvaliacao } from "./forms/avaliacao";
+import { formularioDecisoes } from "./forms/decisoes";
+import { formularioMensagem } from "./forms/mensagem";
+import { formularioModelos } from "./forms/modelos_mensagem";
+import { formularioPropostas } from "./forms/propostas";
+import { formularioRespostaRevisao } from "./forms/resposta_revisao";
 import { formularioConexoes } from "./forms/conexoes";
 import { formularioConvite } from "./forms/convite";
 import { formularioEncerrarVaga } from "./forms/encerrar_vaga";
@@ -24,7 +29,7 @@ import { registrarConsultasDeVaga } from "./read-jobs";
 import { registrarOperacoes } from "./operations";
 import { registrarRecursoDoFormulario } from "./ui";
 
-export const SERVER_INFO = { name: NOME_PRODUTO.toLowerCase().replace(/\s+/g, "-"), version: "0.5.0" } as const;
+export const SERVER_INFO = { name: NOME_PRODUTO.toLowerCase().replace(/\s+/g, "-"), version: "0.6.0" } as const;
 
 export function buildMcpServer(ctx: ToolContext): McpServer {
   const server = new McpServer(SERVER_INFO);
@@ -47,6 +52,11 @@ export function buildMcpServer(ctx: ToolContext): McpServer {
     registrarFormulario(server, ctx, formularioPaginaDeCarreiras);
     registrarFormulario(server, ctx, formularioAdicionarCandidato);
     registrarFormulario(server, ctx, formularioAvaliacao);
+    registrarFormulario(server, ctx, formularioDecisoes);
+    registrarFormulario(server, ctx, formularioPropostas);
+    registrarFormulario(server, ctx, formularioMensagem);
+    registrarFormulario(server, ctx, formularioModelos);
+    registrarFormulario(server, ctx, formularioRespostaRevisao);
   }
   return server;
 }
