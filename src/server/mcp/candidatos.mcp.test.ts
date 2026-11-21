@@ -63,6 +63,15 @@ describe("adicionar_candidato (11.2, 13.3)", () => {
     const { count } = await db().from("rs_candidatos").select("id", { count: "exact", head: true }).eq("empresa_id", empresa.id).eq("email", "rui@teste.exemplo");
     expect(count).toBe(0);
   });
+  it("currículo pelo chat acima de 3 MB é recusado no campo (o corpo do /mcp na Vercel vai até 4,5 MB)", async () => {
+    const grande = new Uint8Array(3 * 1024 * 1024 + 1);
+    grande.set(pdf("x").subarray(0, 64));
+    const r = estrutura(await callTool(tokens.admin, "salvar_adicionar_candidato", {
+      vaga: vagaLoja.id, nome: "Gil Rocha", email: "gil@teste.exemplo", curriculo: arquivo(grande),
+    }));
+    expect(r.ok).toBe(false);
+    expect((r.erros as { campo: string }[])[0].campo).toBe("curriculo");
+  });
   it("recrutador limitado não inclui em vaga fora do alcance", async () => {
     const r = estrutura(await callTool(tokens.limitado, "salvar_adicionar_candidato", { vaga: vagaFin.id, nome: "Lia Reis", email: "lia@teste.exemplo" }));
     expect(r.ok).toBe(false);

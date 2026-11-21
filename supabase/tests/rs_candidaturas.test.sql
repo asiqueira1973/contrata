@@ -136,5 +136,28 @@ select is(public.rs_fn_faxina_candidaturas_abandonadas(200), array[pg_temp.id('e
 select is((select count(*)::int from public.rs_candidaturas where id in (pg_temp.id('c4'), pg_temp.id('c3'))), 1, 'só a não recebida sai');
 select is((select count(*)::int from public.rs_candidatos where email = 'caio@teste.dev'), 0, 'o cadastro sem candidatura sai junto');
 
+-- Achados do verifier do 8.4
+-- (a) talentos só vale na conclusão: candidatura abandonada não deixa consentimento.
+insert into fx select 'ct', (public.rs_fn_cria_candidatura(pg_temp.id('e'), pg_temp.id('v'), pg_temp.cand('tal@teste.dev'),
+  jsonb_build_array(jsonb_build_object('pergunta_id', pg_temp.id('p1'), 'valor', 'sim')), 'pagina', pg_temp.publico(), '2026-11-20', true, 'tok-t', 10000) ->> 'id')::uuid;
+select is((select talentos_consentido_em from public.rs_candidatos where email operator(extensions.=) 'tal@teste.dev'::extensions.citext), null,
+          'o consentimento de talentos não vale antes de concluir');
+select pg_temp.conclui(pg_temp.id('ct'), 'rec:ct');
+select isnt((select talentos_consentido_em from public.rs_candidatos where email operator(extensions.=) 'tal@teste.dev'::extensions.citext), null,
+          'o consentimento de talentos vale na conclusão');
+-- (b) candidatura nova não sobrescreve o cadastro que já existe.
+insert into fx select 'v3', (public.rs_fn_cria_vaga(pg_temp.id('e'), jsonb_build_object('titulo', 'Repositor', 'modelo_trabalho', 'remoto',
+  'descricao', repeat('Descrição longa da vaga. ', 4), 'etapas', '[{"nome":"Triagem","tipo":"triagem"}]'::jsonb),
+  '{"tipo":"todas"}', pg_temp.ator('m')) ->> 'id')::uuid;
+select public.rs_fn_transicao_vaga(pg_temp.id('v3'), pg_temp.id('e'), 'publicada', null, '{"tipo":"todas"}', pg_temp.ator('m'), 50);
+insert into fx select 'cz', (public.rs_fn_cria_candidatura(pg_temp.id('e'), pg_temp.id('v3'), pg_temp.cand('tal@teste.dev', '{"nome":"Outro Nome","telefone":"11999998888"}'),
+  '[]', 'pagina', pg_temp.publico(), '2026-11-20', false, 'tok-z', 10000) ->> 'id')::uuid;
+select is((select nome || '/' || coalesce(telefone, '-') from public.rs_candidatos where email operator(extensions.=) 'tal@teste.dev'::extensions.citext),
+          'Pessoa Teste/-', 'quem se candidata com um e-mail já cadastrado não muda o cadastro');
+-- (c) vaga fechada entre criar e concluir: não conclui.
+select public.rs_fn_transicao_vaga(pg_temp.id('v3'), pg_temp.id('e'), 'pausada', null, '{"tipo":"todas"}', pg_temp.ator('m'), 50);
+select throws_ok(format('select pg_temp.conclui(%L, %L)', pg_temp.id('cz'), 'rec:cz'), 'P0001', 'vaga_fechada',
+                 'concluir depois de a vaga sair do ar é recusado');
+
 select * from finish();
 rollback;
