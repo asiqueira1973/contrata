@@ -130,5 +130,21 @@ update public.rs_decisoes set expira_em = now() - interval '1 minute' where id =
 select is(public.rs_fn_faxina_decisoes(200) >= 1, true, 'faxina expira as vencidas');
 select is((select status::text from public.rs_decisoes where id = pg_temp.id('d3')), 'expirada', 'proposta vencida');
 
+-- Defesa em profundidade (achado do verifier do 8.6): só membro reabre e executa, mesmo chamando direto.
+select throws_ok(format('select public.rs_fn_reabre_candidatura(%L, %L, %L, %L)', pg_temp.id('a'), pg_temp.id('e'), pg_temp.todas(), pg_temp.api()),
+  'P0001', 'decisao_so_por_pessoa', 'reabrir com ator que não é membro é recusado');
+select throws_ok(format('select public.rs_fn_executa_decisao(%L, %L, %L, null, %L, %L, %L, null)', pg_temp.id('e'), 'contratar', pg_temp.id('d'),
+  '{}', '{}', pg_temp.api()), 'P0001', 'decisao_so_por_pessoa', 'executar com ator que não é membro é recusado');
+-- Encerrar vaga com mais de 1.000 em andamento é recusado (11.7).
+select pg_temp.vaga('vg');
+insert into public.rs_candidatos (empresa_id, email, nome)
+  select pg_temp.id('e'), 'massa' || g || '@de.teste.dev', 'Massa ' || g from generate_series(1, 1001) g;
+insert into public.rs_candidaturas (empresa_id, vaga_id, candidato_id, etapa_id, origem, token_hash, consentimento_versao, consentimento_em, recebida_em)
+  select pg_temp.id('e'), pg_temp.id('vg'), k.id, (select id from public.rs_etapas where vaga_id = pg_temp.id('vg') order by ordem limit 1),
+         'pagina', 'massa-' || k.id, '2026-11-20', now(), now()
+    from public.rs_candidatos k where k.email like 'massa%@de.teste.dev';
+select throws_ok(format('select public.rs_fn_decide(%L, %L, null, %L, %L, %L, %L, %L)', pg_temp.id('e'), 'encerrar_vaga', pg_temp.id('vg'),
+  '{"motivo_encerramento":"cancelada"}', '{}', pg_temp.todas(), pg_temp.ator('m')), 'P0001', 'lote_grande_demais', 'mais de 1.000 em andamento: encerra-se em partes');
+
 select * from finish();
 rollback;

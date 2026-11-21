@@ -102,11 +102,12 @@ describe("API v1 — vagas", () => {
     const { data: c } = await db().from("rs_candidatos").insert({ empresa_id: empresa.id, email: `c-${empresa.slug}@teste.exemplo`, nome: "Pessoa" }).select("id").single();
     const { data: et } = await db().from("rs_etapas").select("id").eq("vaga_id", id).eq("ordem", 1).single();
     await db().from("rs_candidaturas").insert({ empresa_id: empresa.id, vaga_id: id, candidato_id: c!.id, etapa_id: et!.id, origem: "pagina", token_hash: `t-${id}`, consentimento_versao: "1", consentimento_em: new Date().toISOString(), recebida_em: new Date().toISOString() });
-    const semDevolutiva = await encerrar(req(`/api/v1/vagas/${id}/encerrar`, decisao, "POST", { motivo: "preenchida" }), params({ id }));
-    expect(semDevolutiva.status).toBe(400);
-    const r = await encerrar(req(`/api/v1/vagas/${id}/encerrar`, decisao, "POST", { motivo: "preenchida", devolutiva: "A vaga foi preenchida. Obrigado por participar." }), params({ id }));
+    // 12.1: sem devolutiva no corpo, vale o modelo padrão do motivo (devolutiva_vaga_preenchida).
+    const r = await encerrar(req(`/api/v1/vagas/${id}/encerrar`, decisao, "POST", { motivo: "preenchida" }), params({ id }));
     expect(r.status).toBe(202);
-    expect((await r.json()).decisao_id).toBeTruthy();
+    const { decisao_id } = await r.json();
+    const { data: prop } = await db().from("rs_decisoes").select("payload").eq("id", decisao_id).single();
+    expect((prop!.payload as { devolutiva: string }).devolutiva).toContain("foi preenchida");
     const { data: ainda } = await db().from("rs_vagas").select("status").eq("id", id).single();
     expect(ainda!.status).not.toBe("encerrada");
     const outra = (await (await criar(req("/api/v1/vagas", escrita, "POST", vaga({ titulo: "Sem ninguém" })))).json()).id;

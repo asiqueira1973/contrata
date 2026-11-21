@@ -202,3 +202,19 @@ describe("candidatar (9.2, 11.2)", () => {
     expect((await r.json()).codigo).toBe("vaga_fechada");
   });
 });
+
+describe("motivo interno fora do titular (11.5; 8.6)", () => {
+  it("nem o /c nem a exportação dos dados mostram o motivo da reprovação", async () => {
+    const r = await candidatar("reprovada@teste.exemplo");
+    const { error } = await db().rpc("rs_fn_decide", {
+      p_empresa: empresa.id, p_tipo: "reprovar", p_candidatura: r.id, p_vaga: null as never, p_payload: { motivo: "pretensao_salarial" } as never,
+      p_mensagens: { [r.id]: { tipo: "devolutiva", assunto: "Sobre", corpo: "Obrigado pelo interesse; seguimos com outras pessoas.",
+        notificacao: { tipo: "mensagem_candidato", destinatario: "reprovada@teste.exemplo", chave: `m:${r.id}`, assunto: "a", html: "h", texto: "t" } } } as never,
+      p_alcance: { tipo: "todas" } as never, p_ator: { tipo: "membro", membro_id: empresa.adminMembroId, origem: "formulario" } as never,
+    });
+    expect(error).toBeNull();
+    const token = linkDe(emails.filter((e) => e.to === "reprovada@teste.exemplo")[0].text)!;
+    const exportado = JSON.stringify(await (await exportarGet(apiRequest(`/api/c/${token}/exportar`), params({ token }))).json());
+    expect(exportado).not.toMatch(/pretensao_salarial|Pretensão salarial|motivo_reprovacao/i);
+  });
+});

@@ -172,6 +172,36 @@ describe("mensagens e modelos (11.8, 11.29)", () => {
   });
 });
 
+describe("achados do verifier do 8.6", () => {
+  it("encerrar vaga com 120 em andamento manda todas as devolutivas", async () => {
+    const grande = await createPublishedJob(empresa, { curriculo_obrigatorio: false });
+    for (let i = 0; i < 120; i++) await createReceivedApplication(empresa.id, grande.id, { nome: `Pessoa ${i}`, email: `p${i}@grande.exemplo` });
+    const antes = emails.length;
+    const r = estrutura(await callTool(tokens.admin, "salvar_decisoes", { itens: [{ tipo: "encerrar_vaga", vaga: grande.id, motivo_encerramento: "cancelada", assunto: "Sobre {{vaga}}", texto: "Olá, {{nome}}. A vaga foi cancelada; obrigado por participar." }] }));
+    expect(r.ok).toBe(true);
+    expect(emails.length - antes).toBe(120);
+    const { count } = await db().from("rs_notificacoes").select("id", { count: "exact", head: true }).eq("empresa_id", empresa.id).eq("status", "pendente");
+    expect(count).toBe(0);
+  }, 120_000);
+  it("mais de 50 decisões de uma vez é recusado", async () => {
+    const itens = Array.from({ length: 51 }, () => ({ tipo: "reabrir", candidatura: ids.ana }));
+    const r = await callTool(tokens.admin, "salvar_decisoes", { itens });
+    expect("isError" in r && r.isError).toBe(true);
+    expect(await situacao(ids.ana)).toBe("ativa");
+  });
+  it("confirmar proposta de contratar com a mensagem apagada não manda mensagem", async () => {
+    const id = await createReceivedApplication(empresa.id, vaga.id, { nome: "Hugo Paz", email: "hugo@decisoes.exemplo" });
+    await callTool(tokens.admin, "propor_decisao", { tipo: "contratar", candidaturas: [id], mensagem: "Bem-vindo à equipe, Hugo!" }, SEM_UI);
+    const f = estrutura(await callTool(tokens.admin, "abrir_formulario_propostas"));
+    const item = (f.valores as { itens: { decisao: string; texto: string }[] }).itens.find((i) => i.texto.includes("Hugo"))!;
+    const antes = emails.filter((e) => e.to === "hugo@decisoes.exemplo").length;
+    const r = estrutura(await callTool(tokens.admin, "salvar_propostas", { itens: [{ decisao: item.decisao, acao: "confirmar", assunto: "", texto: "" }] }));
+    expect(r.ok).toBe(true);
+    expect(await situacao(id)).toBe("contratada");
+    expect(emails.filter((e) => e.to === "hugo@decisoes.exemplo").length).toBe(antes);
+  });
+});
+
 describe("link de quem se candidatou antes do link derivado (decisão 1 do 8.6)", () => {
   it("a mensagem sai com um link que funciona mesmo que o banco tenha o hash antigo", async () => {
     const id = await createReceivedApplication(empresa.id, vaga.id, { nome: "Gil Antigo", email: "gil@decisoes.exemplo" });
