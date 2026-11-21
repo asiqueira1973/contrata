@@ -98,7 +98,9 @@ describe("API v1 — funil", () => {
     expect(bia.notas.map((x: { texto: string }) => x.texto)).toEqual(["Referências conferidas."]);
   });
   it("atualizada_desde traz só o que mudou depois", async () => {
-    const corte = new Date().toISOString();
+    // O corte vem do relógio do banco (o do Docker pode estar à frente do Node): a última mudança gravada.
+    const { data: ultima } = await db().from("rs_candidaturas").select("atualizado_em").eq("empresa_id", empresa.id).order("atualizado_em", { ascending: false }).limit(1).single();
+    const corte = new Date(new Date(ultima!.atualizado_em).getTime() + 1).toISOString();
     await anotar(req(`/api/v1/candidaturas/${ids.bia}/notas`, escrita, "POST", { texto: "Pediu retorno até sexta." }), params({ id: ids.bia }));
     expect(await nomes(await listar(req(`/api/v1/candidaturas?atualizada_desde=${encodeURIComponent(corte)}`, leitura)))).toEqual(["Bia Santos"]);
   });

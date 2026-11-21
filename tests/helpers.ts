@@ -7,6 +7,7 @@ import type { Papel } from "@/lib/limits";
 import { signSession } from "@/server/auth/session";
 import { db } from "@/server/db/client";
 import { generateCredential } from "@/server/credentials/keys";
+import { hashDoLink } from "@/server/messages/link";
 import { setMailerForTests, type EmailMessage } from "@/server/email/mailer";
 
 export const SITE = "http://localhost:3050";
@@ -200,7 +201,8 @@ export async function createReceivedApplication(empresaId: string, vagaId: strin
   const { error: e2 } = await db().rpc("rs_fn_conclui_candidatura", {
     p_candidatura: id, p_empresa: empresaId, p_arquivo: null as never, p_mensagem: { assunto: "Recebemos", corpo: "Acompanhe: {{link_acompanhamento}}" } as never,
     p_notificacao: { tipo: "candidatura_recebida", destinatario: pessoa.email, chave: `rec:${id}`, assunto: "Recebemos", html: "<p>x</p>", texto: "x" } as never,
-    p_ator: ator as never, p_token_hash: `f-${randomUUID()}`,
+    // O link de verdade (8.6): o hash do token derivado da versão 0.
+    p_ator: ator as never, p_token_hash: hashDoLink(id, 0),
   });
   if (e2) throw e2;
   return id;
