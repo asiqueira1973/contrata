@@ -135,6 +135,11 @@ select throws_ok(format('select public.rs_fn_reabre_candidatura(%L, %L, %L, %L)'
   'P0001', 'decisao_so_por_pessoa', 'reabrir com ator que não é membro é recusado');
 select throws_ok(format('select public.rs_fn_executa_decisao(%L, %L, %L, null, %L, %L, %L, null)', pg_temp.id('e'), 'contratar', pg_temp.id('d'),
   '{}', '{}', pg_temp.api()), 'P0001', 'decisao_so_por_pessoa', 'executar com ator que não é membro é recusado');
+-- Confirmar fora do alcance (11.32): a proposta não existe para quem não enxerga a vaga.
+insert into fx select 'd5', public.rs_fn_propoe_decisao(pg_temp.id('e'), 'contratar', pg_temp.id('d'), null, '{}', null, pg_temp.api(), pg_temp.todas());
+select throws_ok(format('select public.rs_fn_confirma_decisao(%L, %L, %L, null, %L, %L)', pg_temp.id('d5'), pg_temp.id('e'),
+  '{"tipo":"areas","area_ids":[]}', '{}', pg_temp.ator('m')), 'P0001', 'nao_encontrado', 'fora do alcance a proposta não é confirmada');
+select is((select status::text from public.rs_decisoes where id = pg_temp.id('d5')), 'pendente', 'e continua pendente');
 -- Encerrar vaga com mais de 1.000 em andamento é recusado (11.7).
 select pg_temp.vaga('vg');
 insert into public.rs_candidatos (empresa_id, email, nome)
