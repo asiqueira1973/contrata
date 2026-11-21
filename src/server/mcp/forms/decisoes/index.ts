@@ -59,7 +59,7 @@ export const formularioDecisoes: DefinicaoFormulario<typeof schemaDecisoes> = {
       const v = await acharVaga(ctx, args.vaga);
       if (v) {
         const vaga = await getJob(ctx, v.id);
-        const { count } = await db().from("rs_candidaturas").select("id", { count: "exact", head: true }).eq("vaga_id", v.id).eq("situacao", "ativa").not("recebida_em", "is", null);
+        const { count } = await db().from("rs_candidaturas").select("id", { count: "exact", head: true }).eq("empresa_id", ctx.empresa.id).eq("vaga_id", v.id).eq("situacao", "ativa").not("recebida_em", "is", null);
         const motivo = (args.motivo_encerramento as string) || "preenchida";
         const modelo = await getTemplate(ctx.empresa.id, motivo === "cancelada" ? "devolutiva_vaga_cancelada" : "devolutiva_vaga_preenchida");
         itens.push({ _titulo: c.encerrar(vaga.titulo), _aviso: c.encerrarAviso(count ?? 0), tipo: "encerrar_vaga", vaga: v.id,

@@ -11,7 +11,8 @@ import type { schemaPropostas } from "./index";
 export async function gravarPropostas(dados: z.infer<typeof schemaPropostas>, ctx: ContextoFormulario) {
   const r = await confirmProposals(ctx, dados.itens.map((i) => ({
     decisao: i.decisao, acao: i.acao, motivo: i.motivo ?? null,
-    texto: i.acao === "confirmar" && (i.texto ?? "").trim() ? { assunto: (i.assunto ?? "").trim() || copy.modelos.devolutiva_padrao.assunto, corpo: i.texto!.trim() } : null,
+    // O texto do formulário vai sempre que veio (apagado também: contratar sem mensagem).
+    texto: i.acao === "confirmar" && i.texto !== undefined ? { assunto: (i.assunto ?? "").trim() || copy.modelos.devolutiva_padrao.assunto, corpo: i.texto.trim() } : null,
   })));
   const conf = r.filter((x, n) => x.ok && dados.itens[n].acao === "confirmar").length;
   const desc = r.filter((x, n) => x.ok && dados.itens[n].acao === "descartar").length;

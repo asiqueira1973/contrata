@@ -180,7 +180,8 @@ describe("achados do verifier do 8.6", () => {
     const r = estrutura(await callTool(tokens.admin, "salvar_decisoes", { itens: [{ tipo: "encerrar_vaga", vaga: grande.id, motivo_encerramento: "cancelada", assunto: "Sobre {{vaga}}", texto: "Olá, {{nome}}. A vaga foi cancelada; obrigado por participar." }] }));
     expect(r.ok).toBe(true);
     expect(emails.length - antes).toBe(120);
-    const { count } = await db().from("rs_notificacoes").select("id", { count: "exact", head: true }).eq("empresa_id", empresa.id).eq("status", "pendente");
+    // Só as devolutivas: as "candidatura recebida" do ajudante de teste ficam pendentes de propósito.
+    const { count } = await db().from("rs_notificacoes").select("id", { count: "exact", head: true }).eq("empresa_id", empresa.id).eq("tipo", "mensagem_candidato").eq("status", "pendente");
     expect(count).toBe(0);
   }, 120_000);
   it("mais de 50 decisões de uma vez é recusado", async () => {

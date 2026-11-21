@@ -6,13 +6,13 @@ import "server-only";
 import { randomUUID } from "node:crypto";
 import { z } from "zod";
 import { copy } from "@/lib/copy";
-import { MENSAGENS_API_POR_DIA } from "@/lib/limits";
+import { ENCERRAR_VAGA_ATIVAS_MAX, MENSAGENS_API_POR_DIA } from "@/lib/limits";
 import { db } from "@/server/db/client";
 import type { Database } from "@/server/db/types";
 import { deliverLater } from "@/server/email/outbox";
 import { mensagemCandidato } from "@/server/email/templates";
 import { CamposInvalidos, DomainError } from "@/server/http";
-import { linkVigente } from "@/server/messages/link";
+import { hashDoLink, linkVigente, urlDoLink } from "@/server/messages/link";
 import { conferirVariaveis, getTemplate, listTemplates, primeiroNome, renderizar, type Valores } from "@/server/messages/templates";
 import { atorJson } from "@/server/org/actor";
 import { siteOrigin } from "@/server/oauth/server";
@@ -51,8 +51,8 @@ async function remetente(ctx: ContextoVagas, vagaId: string): Promise<{ nome: st
     membroId = data?.membro_id ?? ctx.ator.membroId;
   }
   if (!membroId) return { nome: "", link_agenda: "" };
-  const { data: m } = await db().from("rs_membros").select("link_agenda").eq("id", membroId).maybeSingle();
-  const { data: p } = await db().from("rs_pessoas").select("nome").eq("membro_id", membroId).maybeSingle();
+  const { data: m } = await db().from("rs_membros").select("link_agenda").eq("empresa_id", ctx.empresa.id).eq("id", membroId).maybeSingle();
+  const { data: p } = await db().from("rs_pessoas").select("nome").eq("empresa_id", ctx.empresa.id).eq("membro_id", membroId).maybeSingle();
   return { nome: p?.nome ?? "", link_agenda: m?.link_agenda ?? "" };
 }
 
@@ -70,9 +70,13 @@ async function valores(ctx: ContextoVagas, d: DadosCandidatura): Promise<Valores
 export async function montarMensagem(ctx: ContextoVagas, id: string, tipo: TipoMensagem, texto: TextoMensagem): Promise<MensagemPronta> {
   conferirVariaveis({ assunto: texto.assunto, corpo: texto.corpo });
   const d = await dados(ctx.empresa.id, id);
+  return montarCom(d, await valores(ctx, d), await linkVigente(ctx.empresa.id, id), tipo, texto);
+}
+
+// Monta a mensagem com os dados já carregados (uma pessoa, ou cada pessoa de uma vaga em lote).
+function montarCom(d: DadosCandidatura, v: Valores, url: string | null, tipo: TipoMensagem, texto: TextoMensagem): MensagemPronta {
   if (!d.email) throw new DomainError("candidatura_anonimizada", 409);
-  const v = await valores(ctx, d);
-  const url = await linkVigente(ctx.empresa.id, id);
+  const id = d.id;
   const assunto = renderizar(texto.assunto, v);
   const guardado = renderizar(texto.corpo, v, { manterLink: true });
   const corpoEmail = renderizar(texto.corpo, { ...v, link_acompanhamento: url ?? "" });
@@ -91,13 +95,42 @@ export async function textoFinal(ctx: ContextoVagas, id: string, texto: TextoMen
   return { assunto: renderizar(texto.assunto, v), corpo: renderizar(texto.corpo, v, { manterLink: true }), nome: d.nome, vaga: d.vaga.titulo };
 }
 
+// Mensagens de todas as candidaturas em andamento recebidas de uma vaga (encerrar vaga, 11.5): a
+// mesma devolutiva, com as variáveis de cada pessoa. Carrega tudo de uma vez (até 1.000) e confere o
+// teto antes de montar. Devolve o mapa candidatura → mensagem.
+export async function mensagensDaVaga(ctx: ContextoVagas, vagaId: string, texto: TextoMensagem): Promise<Record<string, MensagemPronta>> {
+  conferirVariaveis({ assunto: texto.assunto, corpo: texto.corpo });
+  const { data, error } = await db().from("rs_candidaturas")
+    .select("id, vaga_id, link_versao, token_hash, candidato:candidato_id(nome, email), vaga:vaga_id(titulo, slug), empresa:empresa_id(nome, slug, email_contato, cor_destaque)")
+    .eq("empresa_id", ctx.empresa.id).eq("vaga_id", vagaId).eq("situacao", "ativa").not("recebida_em", "is", null).limit(ENCERRAR_VAGA_ATIVAS_MAX + 1);
+  if (error) throw error;
+  type Linha = { id: string; vaga_id: string; link_versao: number; token_hash: string; candidato: { nome: string; email: string | null }; vaga: DadosCandidatura["vaga"]; empresa: DadosCandidatura["empresa"] };
+  const linhas = (data ?? []) as unknown as Linha[];
+  if (linhas.length > ENCERRAR_VAGA_ATIVAS_MAX) throw new DomainError("lote_grande_demais", 409);
+  const out: Record<string, MensagemPronta> = {};
+  if (!linhas.length) return out;
+  const r = await remetente(ctx, vagaId);
+  for (const l of linhas) {
+    const d: DadosCandidatura = { id: l.id, vaga_id: l.vaga_id, nome: l.candidato.nome, email: l.candidato.email, vaga: l.vaga, empresa: l.empresa };
+    if (!d.email) continue;
+    const v: Valores = { nome: primeiroNome(d.nome), nome_completo: d.nome, vaga: d.vaga.titulo, empresa: d.empresa.nome,
+      link_vaga: `${siteOrigin()}/${d.empresa.slug}/vagas/${d.vaga.slug}`, recrutador: r.nome, link_agenda: r.link_agenda };
+    // Link: o derivado da versão atual; hash antigo gira (raro, candidaturas de antes do 8.6).
+    const url = l.token_hash === hashDoLink(l.id, l.link_versao) ? urlDoLink(l.id, l.link_versao) : await linkVigente(ctx.empresa.id, l.id);
+    out[l.id] = montarCom(d, v, url, "devolutiva", texto);
+  }
+  return out;
+}
+
 // Entrega as notificações das mensagens gravadas (depois do commit), pela chave.
 export async function entregar(empresa: { id: string; nome: string }, mensagens: MensagemPronta[]): Promise<void> {
   const chaves = mensagens.map((m) => m.notificacao.chave);
-  if (!chaves.length) return;
-  const { data, error } = await db().from("rs_notificacoes").select("id").eq("empresa_id", empresa.id).in("chave_idempotencia", chaves).eq("status", "pendente");
-  if (error) throw error;
-  for (const n of data ?? []) await deliverLater(n.id, empresa.nome);
+  // Em lotes: muitas chaves numa consulta passam do tamanho de URL do PostgREST (achado do verifier).
+  for (let i = 0; i < chaves.length; i += 50) {
+    const { data, error } = await db().from("rs_notificacoes").select("id").eq("empresa_id", empresa.id).in("chave_idempotencia", chaves.slice(i, i + 50)).eq("status", "pendente");
+    if (error) throw error;
+    for (const n of data ?? []) await deliverLater(n.id, empresa.nome);
+  }
 }
 
 // Texto de uma mensagem: o modelo (com o que a empresa personalizou) ou o texto livre; o texto

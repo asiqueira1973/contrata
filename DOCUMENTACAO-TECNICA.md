@@ -325,3 +325,12 @@ Todas já refletidas no `spec.md` (v0.4.7).
 61. **`resposta_revisao` com fallback sem reabrir:** reabrir é decisão (11.23), então só no formulário e com o escopo `decisao`; a mensagem pode ir pelo fallback.
 62. **Modelo `contratacao`** (sem texto no spec) e as copies de `revisao_pedida` e `decisoes_pendentes` escritas no tom da 15.4; o modelo `confirmacao` não é personalizável ainda (o e-mail de candidatura recebida segue fixo).
 63. **Pendente:** o aviso de revisão vai ao responsável da vaga ou, sem ele, aos administradores; o alerta de prazo de 15 dias para responder fica para o resumo diário do 8.10.
+64. **Achados do verifier do 8.6, corrigidos com teste:**
+   - encerrar vaga com 100+ pessoas falhava depois do commit, porque a busca das notificações por chave passava do limite de URL; agora entrega em lotes de 50;
+   - as mensagens da vaga são montadas de uma vez, com o teto de 1.000 conferido antes;
+   - apagar a mensagem ao confirmar uma proposta de contratar passa a valer;
+   - encerrar pela API sem devolutiva usa o modelo padrão do motivo (12.1);
+   - o banco exige membro também em `rs_fn_reabre_candidatura` e `rs_fn_executa_decisao`, e `rs_fn_confirma_decisao` confere o alcance primeiro (migration `20261122150000_rs_decisoes_ajustes.sql`);
+   - filtro por empresa em todas as consultas novas;
+   - o aviso de revisão cai para os administradores quando o responsável foi removido.
+65. **Cota de mensagens diretas da API** conta só as de chaves (`ator_tipo = 'api'`), como diz a 11.8; tokens do conector não mandam mensagem pela API v1 (a API só aceita chaves).

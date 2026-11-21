@@ -14,7 +14,8 @@ import { enqueue } from "@/server/email/outbox";
 import { decisoesPendentes } from "@/server/email/templates";
 import { atorJson } from "@/server/org/actor";
 import { alcanceJson, type ContextoVagas } from "./jobs";
-import { entregar, montarMensagem, type MensagemPronta, type TextoMensagem } from "./messages";
+import { getTemplate } from "@/server/messages/templates";
+import { entregar, mensagensDaVaga, montarMensagem, type MensagemPronta, type TextoMensagem } from "./messages";
 
 type Enums = Database["public"]["Enums"];
 export type TipoDecisao = Enums["rs_tipo_decisao"];
@@ -40,17 +41,6 @@ export type ResultadoItem = { ok: true } | { ok: false; codigo: string };
 function conferirDevolutiva(texto: TextoMensagem | null, campo: string) {
   const n = texto?.corpo.trim().length ?? 0;
   if (n < DEVOLUTIVA_MIN || n > DEVOLUTIVA_MAX) throw new CamposInvalidos([{ campo, codigo: "devolutiva_obrigatoria" }]);
-}
-
-// Mensagens de cada candidatura ativa recebida de uma vaga (encerrar vaga: a mesma devolutiva,
-// com as variáveis de cada pessoa).
-async function mensagensDaVaga(ctx: Ctx, vagaId: string, texto: TextoMensagem): Promise<Record<string, MensagemPronta>> {
-  const { data, error } = await db().from("rs_candidaturas").select("id").eq("empresa_id", ctx.empresa.id).eq("vaga_id", vagaId)
-    .eq("situacao", "ativa").not("recebida_em", "is", null);
-  if (error) throw error;
-  const out: Record<string, MensagemPronta> = {};
-  for (const c of data ?? []) out[c.id] = await montarMensagem(ctx, c.id, "devolutiva", texto);
-  return out;
 }
 
 // Executa um item decidido pelo membro (o ator do contexto é o membro, origem formulário).
@@ -132,7 +122,13 @@ const payloadSchemas = {
 // Cria uma proposta pendente (API v1 com escopo decisao; propor_decisao sem formulário). Nunca
 // executa. Recebe: contexto (api ou agente), tipo, alvo, payload e justificativa. Devolve o id.
 export async function proposeDecision(ctx: Ctx, p: { tipo: TipoDecisao; candidatura?: string; vaga?: string; payload: unknown; justificativa?: string | null }) {
-  const s = payloadSchemas[p.tipo].safeParse(p.payload ?? {});
+  let entrada = (p.payload ?? {}) as Record<string, unknown>;
+  // 12.1: encerrar a vaga sem devolutiva usa o modelo padrão do motivo (preenchida ou cancelada).
+  if (p.tipo === "encerrar_vaga" && !(typeof entrada.devolutiva === "string" && entrada.devolutiva.trim())) {
+    const m = await getTemplate(ctx.empresa.id, entrada.motivo_encerramento === "cancelada" ? "devolutiva_vaga_cancelada" : "devolutiva_vaga_preenchida");
+    if (m) entrada = { ...entrada, devolutiva: m.corpo, assunto: typeof entrada.assunto === "string" ? entrada.assunto : m.assunto };
+  }
+  const s = payloadSchemas[p.tipo].safeParse(entrada);
   if (!s.success) {
     const campos = [...new Set(s.error.issues.map((i) => String(i.path[0])))];
     throw new CamposInvalidos(campos.map((campo) => ({ campo, codigo: campo === "devolutiva" ? "devolutiva_obrigatoria" : "campo_invalido" })));
@@ -248,8 +244,9 @@ function itemDaProposta(p: Proposta, texto: TextoMensagem | null): ItemDecisao {
       texto: texto ?? { assunto: pl.assunto ?? assuntoPadrao, corpo: pl.devolutiva ?? "" } };
   }
   if (p.tipo === "contratar") {
-    const corpo = texto?.corpo ?? pl.mensagem;
-    return { tipo: "contratar", candidatura: p.candidatura!.id, texto: corpo ? { assunto: texto?.assunto ?? pl.assunto ?? copy.modelos.contratacao.assunto, corpo } : null };
+    // Texto editado no formulário vence o da proposta; apagado = sem mensagem.
+    const corpo = texto ? texto.corpo.trim() : pl.mensagem ?? "";
+    return { tipo: "contratar", candidatura: p.candidatura!.id, texto: corpo ? { assunto: texto?.assunto || pl.assunto || copy.modelos.contratacao.assunto, corpo } : null };
   }
   if (p.tipo === "encerrar_vaga") {
     return { tipo: "encerrar_vaga", vaga: p.vaga!.id, motivo_encerramento: (pl.motivo_encerramento ?? "outro") as (typeof MOTIVOS_ENCERRAMENTO)[number],

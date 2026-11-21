@@ -360,14 +360,17 @@ export async function requestReview(token: string, texto: unknown): Promise<void
   const { data: vagaId, error } = await db().rpc("rs_fn_pede_revisao", { p_candidatura: c.id, p_texto: t || (null as never) });
   if (error) throw error;
   // Quem recebe: o responsável da vaga; sem ele, os administradores ativos.
-  const { data: resp } = await db().from("rs_vaga_equipe").select("membro_id").eq("vaga_id", vagaId as string).eq("papel_na_vaga", "responsavel");
-  let membros = (resp ?? []).map((r) => r.membro_id);
+  const { data: resp } = await db().from("rs_vaga_equipe").select("membro_id, membro:membro_id(empresa_id, removido_em, usuario_id)")
+    .eq("vaga_id", vagaId as string).eq("papel_na_vaga", "responsavel");
+  // Responsável removido ou sem conta não conta: cai para os administradores.
+  let membros = ((resp ?? []) as unknown as { membro_id: string; membro: { empresa_id: string; removido_em: string | null; usuario_id: string | null } | null }[])
+    .filter((r) => r.membro && r.membro.empresa_id === c.empresa.id && !r.membro.removido_em && r.membro.usuario_id).map((r) => r.membro_id);
   if (!membros.length) {
     const { data: adms } = await db().from("rs_membros").select("id").eq("empresa_id", c.empresa.id).eq("papel", "administrador").is("removido_em", null).not("usuario_id", "is", null);
     membros = (adms ?? []).map((m) => m.id);
   }
   const { data: usuarios } = membros.length
-    ? await db().from("rs_membros").select("id, usuario:usuario_id(email)").in("id", membros).is("removido_em", null)
+    ? await db().from("rs_membros").select("id, usuario:usuario_id(email)").eq("empresa_id", c.empresa.id).in("id", membros).is("removido_em", null)
     : { data: [] };
   const email = revisaoPedida({ empresa: c.empresa.nome, nome: c.candidato.nome, vaga: c.vaga.titulo, texto: t || null });
   for (const u of (usuarios ?? []) as unknown as { id: string; usuario: { email: string } | null }[]) {

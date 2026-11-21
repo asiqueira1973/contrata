@@ -761,7 +761,7 @@ Todas as funções em `plpgsql`, `SECURITY INVOKER`, `search_path=''`, chamadas 
 - [x] Ferramentas: `quem_sou_eu`, `listar_equipe`, `listar_areas`, `listar_pessoas` (consulta); formulários de convite (convidar, reenviar, cancelar), acesso (mudar papel e áreas, remover), áreas (criar, editar, arquivar), pessoas (cadastrar, editar, arquivar, dar acesso), conexões (listar e revogar), chaves de API (criar, revogar; a chave aparece **só no formulário**, nunca no texto devolvido ao modelo) — todas sobre o domínio do 8.1, com os mesmos testes de alcance, último administrador e revogação de tokens.
 - [x] `GET /api/v1/empresa`, `/areas`, `/pessoas`; `/docs/api` serve o OpenAPI 3.1 gerado dos schemas zod.
 - [x] Retirada do painel web: `/painel/*`, o menu lateral e as rotas `/api/painel/*` saem; ficam `/entrar`, `/oauth/autorizar`, `/convite/{token}` e `POST /sair`. Os testes de rota do 8.1 viram testes das ferramentas, sem perder nenhuma asserção.
-- [x] `/convite/{token}` termina em "Conecte o Contrata" com o passo a passo (em `/convite/aceito`; a página `/docs/mcp` entra no 8.12).
+- [x] `/convite/{token}` termina em "Conecte o Vaga Aberta" com o passo a passo (em `/convite/aceito`; a página `/docs/mcp` entra no 8.12).
 - [x] Todas as respostas de erro seguem `{codigo, mensagem}` (13.2) e nenhuma traz dado pessoal.
 - [ ] Fluxo do épico feito no Claude **e** no ChatGPT (modo desenvolvedor), e no MCP Inspector sem MCP Apps (fallback).
 
@@ -1371,7 +1371,7 @@ scripts/  tests/  plans/
 | `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET` | não | arquivos (R2 por padrão) |
 | `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET` | não | login Google (obrigatórios) |
 | `SESSION_SECRET` | não | JWT das sessões e HMAC dos códigos de exclusão do candidato |
-| `LINK_CANDIDATO_SECRET` | sim | (v0.4.7) deriva o link `/c/{token}` do candidato; trocar invalida todos os links já enviados |
+| `LINK_CANDIDATO_SECRET` | não | (v0.4.7) deriva o link `/c/{token}` do candidato; trocar invalida todos os links já enviados |
 | `CHAVES_ENC_KEY` | não | AES-256-GCM do segredo dos webhooks |
 | `RESEND_API_KEY`, `EMAIL_REMETENTE` | não | e-mail |
 | `CRON_SECRET` | não | faxina |

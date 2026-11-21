@@ -23,7 +23,7 @@ export const schemaRespostaRevisao = z.object({
 async function pendentes(ctx: Parameters<DefinicaoFormulario<typeof schemaRespostaRevisao>["opcoes"]>[0]) {
   const { itens } = await listApplications(ctx, { situacao: "todas" }, { inicio: 0, limite: 200 });
   if (!itens.length) return [];
-  const { data } = await db().from("rs_candidaturas").select("id, revisao_texto").in("id", itens.map((i) => i.id))
+  const { data } = await db().from("rs_candidaturas").select("id, revisao_texto").eq("empresa_id", ctx.empresa.id).in("id", itens.map((i) => i.id))
     .not("revisao_pedida_em", "is", null).is("revisao_respondida_em", null);
   const texto = new Map((data ?? []).map((d) => [d.id, d.revisao_texto as string | null]));
   return itens.filter((i) => texto.has(i.id)).map((i) => ({ ...i, texto: texto.get(i.id) ?? null }));

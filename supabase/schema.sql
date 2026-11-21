@@ -657,7 +657,8 @@ begin
     raise exception 'decisao_so_por_pessoa' using errcode = 'P0001';
   end if;
   select * into d from public.rs_decisoes where id = p_decisao and empresa_id = p_empresa for update;
-  if d.id is null then
+  -- Alcance antes de tudo: fora dele a proposta não existe para quem clica.
+  if d.id is null or public.rs_fn_alvo_da_decisao(p_empresa, d.tipo, d.candidatura_id, d.vaga_id, p_alcance) = 'nao_encontrado' then
     raise exception 'nao_encontrado' using errcode = 'P0001';
   end if;
   if d.status <> 'pendente' then
@@ -1200,6 +1201,10 @@ declare
   v_n integer := 0;
   v_dados jsonb := pg_catalog.jsonb_build_object('decisao_id', p_decisao);
 begin
+  -- Defesa em profundidade (11.7): o executor também exige um membro como ator.
+  if p_ator ->> 'tipo' <> 'membro' then
+    raise exception 'decisao_so_por_pessoa' using errcode = 'P0001';
+  end if;
   if p_tipo = 'reprovar' then
     perform public.rs_fn_encerra_candidatura(p_candidatura, p_empresa, 'reprovada', p_ator,
       coalesce(nullif(p_payload ->> 'motivo', ''), 'outro')::public.rs_motivo_reprovacao, p_mensagens -> p_candidatura::text, v_dados);
@@ -1725,6 +1730,10 @@ declare
   v_vaga public.rs_vagas;
   v_etapa uuid;
 begin
+  -- Reabrir é decisão (11.23): só com um membro como ator, mesmo chamada direto.
+  if p_ator ->> 'tipo' <> 'membro' then
+    raise exception 'decisao_so_por_pessoa' using errcode = 'P0001';
+  end if;
   select * into v from public.rs_candidaturas where id = p_candidatura and empresa_id = p_empresa and recebida_em is not null for update;
   select * into v_vaga from public.rs_vagas where id = v.vaga_id;
   if v.id is null or not public.rs_fn_vaga_no_alcance(v_vaga.id, v_vaga.area_id, p_alcance) then

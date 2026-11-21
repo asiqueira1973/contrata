@@ -319,7 +319,7 @@ export async function history(ctx: ContextoVagas, id: string) {
   const etapa = (x: unknown) => (typeof x === "string" ? vaga.etapas.find((e) => e.id === x)?.nome : undefined);
   // Assunto das mensagens (mensagem_enviada guarda só o id, 11.6).
   const idsMsg = eventos.map((e) => (e.dados as { mensagem_id?: string } | null)?.mensagem_id).filter((x): x is string => !!x);
-  const { data: msgs } = idsMsg.length ? await db().from("rs_mensagens").select("id, assunto").in("id", idsMsg) : { data: [] };
+  const { data: msgs } = idsMsg.length ? await db().from("rs_mensagens").select("id, assunto").eq("empresa_id", ctx.empresa.id).in("id", idsMsg) : { data: [] };
   const assuntos = new Map((msgs ?? []).map((m) => [m.id as string, m.assunto as string]));
   return {
     candidatura_id: c.id,
