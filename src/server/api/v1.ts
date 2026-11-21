@@ -95,4 +95,35 @@ export const ResumoVagaV1 = z.object({
   situacoes: z.record(z.string(), z.number().int()),
   sinalizadas: z.number().int(), paradas: z.number().int(), idade_media_dias: z.number().nullable(),
 });
+// ---------------------------------------------------------------- candidaturas (8.5)
+const SITUACAO = z.enum(["ativa", "reprovada", "desistiu", "contratada", "encerrada_vaga"]);
+const RECOMENDACAO = z.enum(["forte_sim", "sim", "nao", "forte_nao"]);
+export const CandidaturaNaListaV1 = z.object({
+  id: z.uuid(), nome: z.string(), vaga: z.object({ id: z.uuid(), titulo: z.string() }), etapa: z.object({ id: z.uuid(), nome: z.string() }).nullable(),
+  situacao: SITUACAO, sinalizada: z.boolean(), recebida_em: z.string(), movida_em: z.string(), encerrada_em: z.string().nullable(), atualizado_em: z.string(),
+});
+export const ListaCandidaturas = z.object({ itens: z.array(CandidaturaNaListaV1), proximo_cursor: z.string().nullable() });
+// A API vê todas as avaliações (11.9) e não avalia.
+export const CandidaturaV1 = z.object({
+  id: z.uuid(), vaga: z.object({ id: z.uuid(), titulo: z.string() }),
+  etapa: z.object({ id: z.uuid(), nome: z.string(), tipo: z.enum(["triagem", "entrevista", "avaliacao", "proposta"]) }).nullable(),
+  situacao: SITUACAO, origem: z.string(), sinalizada: z.boolean(), recebida_em: z.string(), movida_em: z.string(), encerrada_em: z.string().nullable(), atualizado_em: z.string(),
+  pessoa: z.object({ nome: z.string(), email: z.string().nullable(), telefone: z.string().nullable(), linkedin_url: z.string().nullable(), cidade: z.string().nullable() }),
+  respostas: z.array(z.object({ pergunta: z.string(), resposta: z.string(), selo: z.string().optional() })),
+  avaliacoes: z.array(z.object({ etapa: z.string(), etapa_id: z.uuid(), membro: z.string(), membro_id: z.uuid(), recomendacao: RECOMENDACAO, comentario: z.string(), atualizado_em: z.string() })),
+  notas: z.array(z.object({ id: z.uuid(), texto: z.string(), criado_em: z.string(), autor: z.string() })),
+  mensagens: z.array(z.object({ tipo: z.string(), assunto: z.string(), corpo: z.string(), criado_em: z.string(), entrega: z.string().nullable() })),
+  curriculo: z.object({ nome: z.string(), bytes: z.number().int(), extracao_status: z.enum(["pendente", "ok", "sem_texto", "falhou"]) }).nullable(),
+});
+export const CurriculoV1 = z.object({
+  candidatura_id: z.uuid(),
+  curriculo: z.object({
+    nome: z.string(), mime: z.string(), bytes: z.number().int(), extracao_status: z.enum(["pendente", "ok", "sem_texto", "falhou"]),
+    texto: z.string().optional(), url: z.string().optional(), url_expira_em: z.string().optional(),
+  }).nullable(),
+  aviso: z.string().optional(),
+});
+export const Movidas = z.object({ movidas: z.number().int(), etapa: z.object({ id: z.uuid(), nome: z.string() }) });
+export const NotaCriada = z.object({ id: z.uuid() });
+
 export const ErroCampos = Erro.extend({ campos: z.array(z.object({ campo: z.string(), codigo: z.string(), mensagem: z.string() })).optional() });

@@ -52,6 +52,14 @@ const STATUS: Record<string, number> = {
   transicao_proibida: 409,
   candidatura_anonimizada: 409,
   link_invalido: 404,
+  candidatura_nao_encontrada: 404,
+  etapa_nao_encontrada: 404,
+  lote_invalido: 400,
+  candidatura_nao_ativa: 409,
+  etapa_de_outra_vaga: 409,
+  nota_invalida: 400,
+  fora_da_equipe: 403,
+  comentario_invalido: 400,
 };
 
 // Resposta de erro padrão. Recebe: código e status (opcional). Devolve: Response JSON.

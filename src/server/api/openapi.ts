@@ -6,7 +6,7 @@ import { NOME_PRODUTO } from "@/lib/copy";
 import { siteOrigin } from "@/server/oauth/server";
 import { candidaturaSchema } from "@/lib/schemas/applications";
 import { vagaSchema } from "@/lib/schemas/jobs";
-import { AreaV1, EmpresaV1, Erro, ErroCampos, ListaAreas, ListaPessoas, ListaVagas, PessoaV1, ResumoVagaV1, VagaV1 } from "./v1";
+import { AreaV1, CandidaturaV1, CurriculoV1, EmpresaV1, Erro, ErroCampos, ListaAreas, ListaCandidaturas, ListaPessoas, ListaVagas, Movidas, NotaCriada, PessoaV1, ResumoVagaV1, VagaV1 } from "./v1";
 
 // Entrada de vaga: o mesmo schema da 11.1 do formulário (as checagens cruzadas, como cidade fora
 // do remoto e salário máximo ≥ mínimo, não aparecem no JSON Schema, mas valem: voltam em campos).
@@ -19,7 +19,7 @@ const CandidaturaCriada = z.object({
   concluir_token: z.string().optional().describe("vai no corpo de /candidaturas/{id}/concluir"),
   duplicada: z.boolean().optional().describe("true quando a pessoa já se candidatou: o link de acompanhamento é reenviado a ela"),
 });
-const schemas = { CandidaturaEntrada, CandidaturaCriada, Erro, ErroCampos, Empresa: EmpresaV1, Area: AreaV1, Pessoa: PessoaV1, ListaAreas, ListaPessoas, Vaga: VagaV1, ListaVagas, ResumoVaga: ResumoVagaV1, VagaEntrada };
+const schemas = { CandidaturaEntrada, CandidaturaCriada, Candidatura: CandidaturaV1, ListaCandidaturas, Curriculo: CurriculoV1, Movidas, NotaCriada, Erro, ErroCampos, Empresa: EmpresaV1, Area: AreaV1, Pessoa: PessoaV1, ListaAreas, ListaPessoas, Vaga: VagaV1, ListaVagas, ResumoVaga: ResumoVagaV1, VagaEntrada };
 
 function componentes() {
   const out: Record<string, unknown> = {};
@@ -95,11 +95,58 @@ export function openApiDocument() {
       "/vagas/{id}/pausar": { parameters: [idParam], post: { summary: "Pausar (escopo escrita)", operationId: "pausarVaga", responses: { "200": json("Vaga"), ...erros, "409": conflito } } },
       "/vagas/{id}/encerrar": { parameters: [idParam], post: { summary: "Encerrar sem candidaturas em andamento (escopo decisao); com candidaturas em andamento, 409 até as propostas", operationId: "encerrarVaga", requestBody: corpoObjeto, responses: { "200": json("Vaga"), ...erros, "400": invalido, "409": conflito } } },
       "/candidaturas": {
+        get: {
+          summary: "Candidaturas recebidas (leitura). Padrão: só as em andamento; situacao=todas traz todas. q busca no nome, e-mail, cidade, respostas e texto do currículo.",
+          operationId: "listarCandidaturas",
+          parameters: [
+            ...paginacao,
+            { name: "vaga_id", in: "query", required: false, schema: { type: "string", format: "uuid" } },
+            { name: "etapa_id", in: "query", required: false, schema: { type: "string", format: "uuid" } },
+            { name: "situacao", in: "query", required: false, schema: { type: "string", enum: ["ativa", "reprovada", "desistiu", "contratada", "encerrada_vaga", "todas"] } },
+            { name: "sinalizada", in: "query", required: false, schema: { type: "boolean" } },
+            { name: "parada_desde", in: "query", required: false, schema: { type: "string", format: "date-time" } },
+            { name: "q", in: "query", required: false, schema: { type: "string", maxLength: 200 } },
+            { name: "atualizada_desde", in: "query", required: false, schema: { type: "string", format: "date-time" } },
+            { name: "ordem", in: "query", required: false, schema: { type: "string", enum: ["chegada", "movimentacao"] } },
+          ],
+          responses: { "200": json("ListaCandidaturas"), ...erros, "400": invalido },
+        },
         post: {
           summary: "Criar candidatura numa vaga publicada (escopo escrita; origem integracao). Com currículo, suba o arquivo por PUT na upload_url e chame /concluir; o candidato recebe o link de acompanhamento por e-mail.",
           operationId: "criarCandidatura",
           requestBody: { required: true, content: { "application/json": { schema: ref("CandidaturaEntrada") } } },
           responses: { "201": json("CandidaturaCriada"), "200": { ...json("CandidaturaCriada"), description: "Candidatura repetida (mesmo e-mail na vaga)" }, ...erros, "400": invalido, "404": naoEncontrado, "409": conflito },
+        },
+      },
+      "/candidaturas/{id}": {
+        parameters: [idParam],
+        get: { summary: "Ver candidatura: dados, respostas, avaliações, notas, mensagens e metadados do currículo (leitura)", operationId: "verCandidatura", responses: { "200": json("Candidatura"), ...erros, "404": naoEncontrado } },
+      },
+      "/candidaturas/{id}/curriculo": {
+        parameters: [idParam, { name: "formato", in: "query", required: false, schema: { type: "string", enum: ["arquivo"] } }],
+        get: { summary: "Texto extraído do currículo; com formato=arquivo, URL de 5 minutos para o arquivo original (leitura)", operationId: "lerCurriculo", responses: { "200": json("Curriculo"), ...erros, "404": naoEncontrado } },
+      },
+      "/candidaturas/{id}/mover": {
+        parameters: [idParam],
+        post: {
+          summary: "Mover a candidatura em andamento para outra etapa da mesma vaga (escopo escrita)", operationId: "moverCandidatura",
+          requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["etapa_id"], properties: { etapa_id: { type: "string", format: "uuid" } } } } } },
+          responses: { "200": json("Movidas"), ...erros, "400": invalido, "404": naoEncontrado, "409": conflito },
+        },
+      },
+      "/candidaturas/mover": {
+        post: {
+          summary: "Mover de 1 a 100 candidaturas em andamento da mesma vaga; tudo ou nada (escopo escrita)", operationId: "moverCandidaturas",
+          requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["ids", "etapa_id"], properties: { ids: { type: "array", minItems: 1, maxItems: 100, items: { type: "string", format: "uuid" } }, etapa_id: { type: "string", format: "uuid" } } } } } },
+          responses: { "200": json("Movidas"), ...erros, "400": invalido, "404": naoEncontrado, "409": conflito },
+        },
+      },
+      "/candidaturas/{id}/notas": {
+        parameters: [idParam],
+        post: {
+          summary: "Adicionar nota interna (escopo escrita); fica assinada com o nome da chave", operationId: "adicionarNota",
+          requestBody: { required: true, content: { "application/json": { schema: { type: "object", required: ["texto"], properties: { texto: { type: "string", minLength: 1, maxLength: 10000 } } } } } },
+          responses: { "201": json("NotaCriada"), ...erros, "400": invalido, "404": naoEncontrado },
         },
       },
       "/candidaturas/{id}/concluir": {
