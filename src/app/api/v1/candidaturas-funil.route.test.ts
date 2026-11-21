@@ -60,6 +60,12 @@ describe("API v1 — funil", () => {
     expect(await nomes(await listar(req("/api/v1/candidaturas?q=confeitaria", leitura)))).toEqual(["Ana Lima"]);
     expect((await listar(req("/api/v1/candidaturas?vaga_id=x", leitura))).status).toBe(400);
   });
+  it("busca (q) devolve até 50 por página mesmo com limite maior (11.28)", async () => {
+    for (let i = 0; i < 51; i++) await createReceivedApplication(empresa.id, outra.id, { nome: `Zeca Teste ${i}`, email: `zeca${i}@api-funil.exemplo` });
+    const r = await (await listar(req("/api/v1/candidaturas?q=zeca&limite=200", leitura))).json();
+    expect(r.itens).toHaveLength(50);
+    expect(r.proximo_cursor).toBeTruthy();
+  });
   it("currículo em texto e, com formato=arquivo, URL de 5 min", async () => {
     const t = await (await curriculo(req(`/api/v1/candidaturas/${ids.ana}/curriculo`, leitura), params({ id: ids.ana }))).json();
     expect(t.curriculo.texto).toContain("confeitaria");
