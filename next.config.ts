@@ -4,16 +4,25 @@ import type { NextConfig } from "next";
 // Cabeçalhos de segurança da seção 17, com a CSP "sem nonce" do Assina: com nonce, toda página
 // precisaria de renderização dinâmica, inclusive as públicas. Os scripts têm 'unsafe-inline'
 // (os scripts embutidos do Next), mas nunca 'unsafe-eval' em produção.
-// O domínio do armazenamento (R2/S3) entra em img-src/connect-src/frame-src no épico 8.4.
+// O armazenamento (S3/R2, 8.4) entra em connect-src (o navegador faz o PUT do currículo direto) e em
+// img-src/frame-src (logo e visualização, 8.9). Sem S3_ENDPOINT (dev), o upload vai para o próprio site.
 // form-action: o consentimento do OAuth do MCP (8.2) volta para o redirect_uri do cliente.
 const isDev = process.env.NODE_ENV === "development";
+const armazenamento = (() => {
+  try {
+    return process.env.S3_ENDPOINT ? ` ${new URL(process.env.S3_ENDPOINT).origin}` : "";
+  } catch {
+    return "";
+  }
+})();
 const csp = [
   "default-src 'self'",
   `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
   "style-src 'self' 'unsafe-inline'",
-  "img-src 'self' data: blob: https://lh3.googleusercontent.com",
+  `img-src 'self' data: blob: https://lh3.googleusercontent.com${armazenamento}`,
   "font-src 'self' data:",
-  `connect-src 'self'${isDev ? " ws:" : ""}`,
+  `connect-src 'self'${armazenamento}${isDev ? " ws:" : ""}`,
+  `frame-src 'self'${armazenamento}`,
   "object-src 'none'",
   "base-uri 'self'",
   "form-action 'self' https: http://localhost:* http://127.0.0.1:*",

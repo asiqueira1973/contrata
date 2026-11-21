@@ -131,3 +131,40 @@ export const PAGINA_PUBLICA_CACHE_S = 60;
 export const IDEMPOTENCIA_MAX = 100;
 // Fuso de "hoje" (11.19).
 export const FUSO = "America/Sao_Paulo";
+
+// Candidatura (11.2, 11.4, 11.13, 11.14; 8.4).
+export const CURRICULO_MAX_BYTES = 5 * 1024 * 1024;
+export const CURRICULO_TIPOS = {
+  pdf: "application/pdf",
+  docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+} as const;
+export const CANDIDATO_NOME_MIN = 2;
+export const CANDIDATO_NOME_MAX = 120;
+export const CANDIDATO_CIDADE_MAX = 120;
+export const RESPOSTA_CURTA_MAX = 200;
+export const RESPOSTA_LONGA_MAX = 3000;
+export const RESPOSTA_NUMERO_MAX = 1e9;
+export const NOME_ARQUIVO_MAX = 200;
+// Upload direto: URL de 1 h; download do currículo e do JSON de dados: 5 min (14.2).
+export const UPLOAD_URL_SEGUNDOS = 3600;
+export const DOWNLOAD_URL_SEGUNDOS = 300;
+// Concluir a candidatura: o token de conclusão vale 1 h (o mesmo prazo do upload).
+export const CONCLUIR_TOKEN_SEGUNDOS = 3600;
+// Extração do texto do currículo em segundo plano (seção 17: < 10 s para 5 MB; folga até 15 s).
+export const EXTRACAO_TIMEOUT_MS = 15_000;
+export const TEXTO_EXTRAIDO_MAX = 100_000;
+// Anti-abuso (11.14): 10 candidaturas por IP por hora; 10.000 por vaga; 5 GB por empresa.
+// "Perdi o link": 5 pedidos por IP e 3 por e-mail por hora (o spec não diz; mesma ordem de grandeza).
+export const CANDIDATURAS_POR_IP_HORA = 10;
+export const CANDIDATURAS_POR_VAGA_MAX = 10_000;
+export const USO_EMPRESA_MAX_BYTES = 5 * 1024 ** 3;
+export const LINKS_POR_IP_HORA = 5;
+export const LINKS_POR_EMAIL_HORA = 3;
+// Código de exclusão (11.13): 6 dígitos, 10 min, 5 tentativas; 1 por minuto e 5 por hora.
+export const CODIGO_DIGITOS = 6;
+export const CODIGO_VALIDADE_S = 600;
+export const CODIGO_INTERVALO_S = 60;
+export const CODIGOS_POR_HORA = 5;
+export const CODIGO_TENTATIVAS = 5;
+// Versão do aviso de privacidade padrão (15.5).
+export const AVISO_PRIVACIDADE_VERSAO = "2026-11-20";
