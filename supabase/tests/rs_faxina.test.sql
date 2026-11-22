@@ -76,6 +76,32 @@ select is((select nome from public.rs_candidatos c join public.rs_candidaturas x
   'Pessoa removida', 'e a pessoa é anonimizada');
 select is((select (r ->> 'candidaturas')::int from (select public.rs_fn_faxina_expurgos(200) as r) s), 0, 'rodar de novo não faz nada');
 
+-- Achados do verifier (8.10)
+-- A1: quem fica no banco de talentos depois do expurgo mantém o link /c (aviso, renovar, excluir).
+insert into fx select 't1', pg_temp.cand('t1', true, true);
+select pg_temp.encerra(pg_temp.id('t1'));
+select public.rs_fn_faxina_expurgos(200);
+select is((select token_hash like 'anonimizada:%' from public.rs_candidaturas where id = pg_temp.id('t1')), false, 'a candidatura que guarda o currículo mantém o link');
+select is((select count(*)::int from public.rs_respostas where candidatura_id = pg_temp.id('t1')), 0, 'e o resto é anonimizado');
+select is((select (r ->> 'candidaturas')::int from (select public.rs_fn_faxina_expurgos(200) r) s), 0, 'e não volta a ser expurgada');
+update public.rs_candidatos set talentos_expira_em = now() + interval '10 days', talentos_avisado_em = null
+  where id = (select candidato_id from public.rs_candidaturas where id = pg_temp.id('t1'));
+select is((select count(*)::int from jsonb_array_elements(public.rs_fn_faxina_talentos(200) -> 'avisar') a where a ->> 'candidatura_id' = pg_temp.id('t1')::text), 1,
+  'o aviso de 30 dias sai com o link dessa candidatura');
+-- B1: com duas candidaturas expurgadas, só o currículo mais recente fica.
+insert into fx select 'v2', (public.rs_fn_cria_vaga(pg_temp.id('e'), jsonb_build_object('titulo', 'Vaga Y', 'modelo_trabalho', 'remoto',
+  'curriculo_obrigatorio', false, 'descricao', repeat('Descrição longa da vaga. ', 4),
+  'etapas', '[{"nome":"Triagem","tipo":"triagem"}]'::jsonb), pg_temp.todas(), pg_temp.ator('m')) ->> 'id')::uuid;
+select public.rs_fn_transicao_vaga(pg_temp.id('v2'), pg_temp.id('e'), 'publicada', null, pg_temp.todas(), pg_temp.ator('m'), 50);
+update fx set id = pg_temp.id('v2') where k = 'v';
+insert into fx select 't2', pg_temp.cand('t1', false, true);
+select pg_temp.encerra(pg_temp.id('t2'));
+update fx set id = (select id from public.rs_vagas where titulo = 'Vaga X' and empresa_id = pg_temp.id('e')) where k = 'v';
+select public.rs_fn_faxina_expurgos(200);
+select is((select count(*)::int from public.rs_arquivos a join public.rs_candidaturas x on x.id = a.candidatura_id
+            where x.candidato_id = (select candidato_id from public.rs_candidaturas where id = pg_temp.id('t1')) and a.tipo = 'curriculo'), 1,
+  'só um currículo guardado');
+
 -- Empresas a expurgar
 select is((select count(*)::int from public.rs_fn_empresas_a_expurgar(10) x where x = pg_temp.id('e')), 0, 'empresa ativa não');
 
@@ -115,6 +141,8 @@ select is((select count(*)::int from jsonb_array_elements(public.rs_fn_resumo_do
 -- Pedir acesso
 select is((select public.rs_fn_pede_acesso(pg_temp.id('e'), pg_temp.id('dono')) ->> 'nome'), 'Dora Dona', 'pede acesso');
 select is((select count(*)::int from public.rs_eventos where empresa_id = pg_temp.id('e') and tipo = 'acesso_pedido'), 1, 'evento acesso_pedido');
+select public.rs_fn_pede_acesso(pg_temp.id('e'), pg_temp.id('dono'));
+select is((select count(*)::int from public.rs_eventos where empresa_id = pg_temp.id('e') and tipo = 'acesso_pedido'), 1, 'pedir de novo no mesmo dia não repete o evento (B2)');
 select throws_ok(format('select public.rs_fn_pede_acesso(%L, %L)', gen_random_uuid(), pg_temp.id('dono')), 'P0001', 'nao_encontrado', 'outra empresa não');
 
 -- Expurgo da empresa com nota de integração, avaliação e mensagem ligada à notificação (achado do 8.10)

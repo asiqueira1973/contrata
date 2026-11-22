@@ -112,6 +112,39 @@ describe("e-mails (12.4)", () => {
   });
 });
 
+describe("achados do verifier (8.10)", () => {
+  it("A3: arquivo que não sai do bucket fica anotado e sai na próxima rodada", async () => {
+    const a = await comCurriculo("Gil Arquivo", "gil@arquivo.exemplo");
+    await withdraw(tokenDoLink(a.id, 0));
+    await db().from("rs_candidaturas").update({ expurgar_em: new Date(Date.now() - 86_400_000).toISOString() }).eq("id", a.id);
+    const s = storage();
+    const original = s.delete.bind(s);
+    s.delete = async () => {
+      throw new Error("s3_falhou");
+    };
+    try {
+      await purgeExpired(200);
+    } finally {
+      s.delete = original;
+    }
+    expect(await storage().read(a.path, 1000)).not.toBeNull();
+    await purgeExpired(200);
+    expect(await storage().read(a.path, 1000)).toBeNull();
+  });
+  it("A4: o resumo diário respeita o prazo", async () => {
+    expect(await dailyDigest(TERCA, 0)).toBe(0);
+  });
+  it("A2: o resumo semanal passa por todas as vagas, não só o primeiro lote", async () => {
+    const outra = await createPublishedJob(empresa, { curriculo_obrigatorio: false, dono_pessoa_id: dono });
+    const titulo = (await db().from("rs_vagas").select("titulo").eq("id", outra.id).single()).data!.titulo;
+    const antes = emails.length;
+    await weeklyOwnerDigest(1, new Date("2026-11-30T12:00:00-03:00"));
+    const assuntos = emails.slice(antes).filter((x) => x.to === "dora@faxina.exemplo").map((x) => x.subject);
+    expect(assuntos.length).toBeGreaterThanOrEqual(2);
+    expect(assuntos.some((a) => a.startsWith(titulo))).toBe(true);
+  });
+});
+
 describe("resumos (11.11, 11.31)", () => {
   it("diário: só contagens por vaga, à equipe quando não há responsável, uma vez por dia", async () => {
     const c = await createReceivedApplication(empresa.id, vaga.id, { nome: "Caio Parado", email: "caio@parado.exemplo" });
