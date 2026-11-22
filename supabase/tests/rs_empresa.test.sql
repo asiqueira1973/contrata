@@ -93,5 +93,22 @@ update public.rs_empresas set excluida_em = now() - interval '8 days' where id =
 select throws_ok(format('select public.rs_fn_desfaz_exclusao(%L, %L)', pg_temp.id('e'), pg_temp.ator('m')), 'P0001', 'prazo_vencido', 'em 8 dias não');
 select is((select count(*)::int from public.rs_eventos where empresa_id = pg_temp.id('e') and tipo in ('empresa_excluida', 'exclusao_desfeita')), 2, 'trilha');
 
+-- Achados do verifier (8.9)
+-- A2: concluir candidatura com a empresa excluída é recusado (e as duas se travam pela empresa).
+update public.rs_empresas set excluida_em = null where id = pg_temp.id('e');
+insert into fx select 'meia', (public.rs_fn_cria_candidatura(pg_temp.id('e'), pg_temp.id('v'), '{"nome":"Pessoa meia","email":"meia@em.teste.dev"}',
+  '[]', 'pagina', pg_temp.publico(), '2026-11-20', false, 'tok-meia-' || gen_random_uuid(), 10000) ->> 'id')::uuid;
+select lives_ok(format('select public.rs_fn_exclui_empresa(%L, %L, %L)', pg_temp.id('e'), 'em-padaria', pg_temp.ator('m')), 'exclui com a candidatura ainda não concluída');
+select throws_ok(format($q$select public.rs_fn_conclui_candidatura(%L, %L, null, '{"assunto":"a","corpo":"b"}',
+  '{"tipo":"candidatura_recebida","destinatario":"x@teste.dev","chave":"rec:meia","assunto":"a","html":"h","texto":"t"}', %L, 'fin-meia')$q$,
+  pg_temp.id('meia'), pg_temp.id('e'), pg_temp.publico()), 'P0001', 'vaga_fechada', 'empresa excluída não recebe candidatura concluída');
+update public.rs_empresas set excluida_em = null where id = pg_temp.id('e');
+
+-- A7: o texto extra que já existia (antes do 8.9) entra no histórico com a versão dele ao ser trocado.
+update public.rs_empresas set aviso_privacidade_extra = 'Texto antigo.' where id = pg_temp.id('e');
+select public.rs_fn_salva_empresa(pg_temp.id('e'), '{"aviso_privacidade_extra":"Texto novo."}', '2026-11-20+bbbb2222', pg_temp.ator('m'), '2026-11-20+aaaa0000');
+select is((select texto_extra from public.rs_avisos_privacidade where empresa_id = pg_temp.id('e') and versao = '2026-11-20+aaaa0000'), 'Texto antigo.',
+  'o texto anterior fica guardado com a versão dele');
+
 select * from finish();
 rollback;

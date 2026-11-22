@@ -98,6 +98,33 @@ describe("formulário empresa (8.9; 11.20)", () => {
   });
 });
 
+describe("achados do verifier (8.9)", () => {
+  it("A1: SVG de verdade mantém viewBox, gradiente e recorte", async () => {
+    const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1000 300" preserveAspectRatio="xMidYMid meet"><defs><linearGradient id="g" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#0b5cad"/></linearGradient><clipPath id="c"><rect width="10" height="10"/></clipPath></defs><path d="M0 0h10v10z" fill="url(#g)" clip-path="url(#c)"/></svg>`;
+    expect(estrutura(await callTool(tokens.admin, "salvar_empresa", { logo: { nome: "logo.svg", tipo: "image/svg+xml", base64: b64(svg) } })).ok).toBe(true);
+    const { data } = await db().from("rs_empresas").select("logo_path").eq("id", empresa.id).single();
+    const guardado = new TextDecoder().decode((await storage().read(data!.logo_path!, 2_000_000))!);
+    expect(guardado).toContain('viewBox="0 0 1000 300"');
+    expect(guardado).toContain('preserveAspectRatio="xMidYMid meet"');
+    expect(guardado).toContain("<linearGradient");
+    expect(guardado).toContain('gradientUnits="userSpaceOnUse"');
+    expect(guardado).toContain("<clipPath");
+  });
+  it("A3: logo inválido não deixa gravar o resto pela metade", async () => {
+    const antes = (estrutura(await callTool(tokens.admin, "quem_sou_eu")).empresa as { cor_destaque: string }).cor_destaque;
+    const r = await callTool(tokens.admin, "salvar_empresa", { cor_destaque: "#1d1d1f", logo: { nome: "x", tipo: "image/png", base64: b64("não sou imagem") } });
+    expect(estrutura(r).ok).toBe(false);
+    expect((estrutura(await callTool(tokens.admin, "quem_sou_eu")).empresa as { cor_destaque: string }).cor_destaque).toBe(antes);
+  });
+  it("A5: contraste logo abaixo de 4,5:1 não passa pelo arredondamento", async () => {
+    const r = await callTool(tokens.admin, "salvar_empresa", { cor_destaque: "#007fb1" });
+    expect(campos(r).map((e) => e.campo)).toEqual(["cor_destaque"]);
+  });
+  it("A6: texto extra só com quebras de linha conta como vazio", async () => {
+    expect(estrutura(await callTool(tokens.admin, "salvar_empresa", { aviso_privacidade_extra: "\n\n" })).ok).toBe(true);
+  });
+});
+
 describe("aviso de privacidade (15.5)", () => {
   it("texto extra: versão nova na candidatura, texto guardado e devolvido no JSON do titular", async () => {
     expect(estrutura(await callTool(tokens.admin, "salvar_empresa", { aviso_privacidade_extra: "Também guardamos para vagas da mesma área." })).ok).toBe(true);
