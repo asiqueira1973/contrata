@@ -6,6 +6,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Suspense, type CSSProperties } from "react";
+import { operador } from "@/server/org/operador";
 import { copy } from "@/lib/copy";
 import { ApplicationForm } from "@/features/candidate/application-form";
 import s from "@/features/candidate/candidate.module.css";
@@ -52,7 +53,7 @@ async function Corpo({ params }: { params: Props["params"] }) {
           <ApplicationForm
             empresaSlug={empresa.slug} empresaNome={empresa.nome} vagaSlug={slug} vagaTitulo={vaga.titulo}
             curriculoObrigatorio={vaga.curriculo_obrigatorio} perguntas={vaga.perguntas}
-            aviso={copy.avisoPrivacidade(empresa.nome, empresa.email_contato, empresa.retencao_dias)}
+            aviso={copy.avisoPrivacidade(empresa.nome, empresa.email_contato, empresa.retencao_dias, operador().nome)}
             avisoExtra={empresa.aviso_privacidade_extra} talentosMeses={empresa.talentos_meses}
           />
           <Link className={s.link} href={`/${empresa.slug}/links`}>{c.perdiLink}</Link>

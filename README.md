@@ -1,13 +1,112 @@
 # Vaga Aberta
 
-**O sistema de recrutamento e seleção para agentes.** É um ATS de código aberto e gratuito, sem painel: quem recruta opera pelo Claude ou pelo ChatGPT com o conector do Vaga Aberta. Consultas são em linguagem natural; cadastro e decisões abrem um formulário dentro do chat, que a pessoa confere e confirma. Candidatos usam páginas web simples. Para automação, há API REST e webhooks.
+**O sistema de recrutamento e seleção para agentes.** É um ATS de código aberto e gratuito, sem painel: quem recruta opera pelo Claude ou pelo ChatGPT com o conector do Vaga Aberta. Consultas são em linguagem natural; cadastro e decisões abrem um formulário dentro do chat, que a pessoa confere e confirma. Candidatos usam páginas web simples (carreiras, candidatura e o link de acompanhamento). Para automação, há API REST e webhooks.
 
-**Clone e use:** cada empresa hospeda a própria instância; não há serviço aberto a terceiros. O nome é **Vaga Aberta** (vagaaberta.app.br, spec 25.1); "contrata" segue só nos nomes internos (repositório, pasta, prefixos de evento e cabeçalhos de webhook). Licença MIT.
+**Clone e use:** cada instância serve uma ou mais empresas, e quem pode criar empresa é a lista `CRIACAO_EMPRESA_EMAILS`; não há cadastro aberto. O nome é **Vaga Aberta** (vagaaberta.app.br, spec 25.1); "contrata" segue só nos nomes internos (repositório, pasta, prefixo `rs_` do banco, eventos e cabeçalhos de webhook). Licença [MIT](LICENSE); dependências em [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
-A especificação completa está em [`spec.md`](spec.md); os planos de cada épico, em [`plans/`](plans/); o que existe de fato, em [`DOCUMENTACAO-TECNICA.md`](DOCUMENTACAO-TECNICA.md).
+A especificação completa está em [`spec.md`](spec.md); os planos de cada épico, em [`plans/`](plans/); o que existe de fato, em [`DOCUMENTACAO-TECNICA.md`](DOCUMENTACAO-TECNICA.md). O que falta para a entrega (e depende de contas reais) está em [`docs/entrega.md`](docs/entrega.md).
 
-## Estado
-Em implementação. Prontos: guardrails (8.0), fundação (8.1), o conector (8.2: OAuth, servidor MCP com consultas e formulários no chat, chaves de API, API v1) e **vagas e página de carreiras (8.3)**: pelo chat, criar, editar, publicar, pausar e encerrar vagas, com etapas, perguntas e equipe; a vaga publicada aparece em `/{empresa}` e `/{empresa}/vagas/{slug}` (com JSON-LD para o Google), no feed `/{empresa}/vagas.xml`, no `sitemap.xml` e na API pública; e **candidatura (8.4)**: a pessoa se candidata pela página da vaga, com o currículo subindo direto para o bucket, e acompanha pelo link `/c/{token}` que recebe por e-mail (retirar, baixar e excluir os dados); a empresa também inclui candidatos pelo chat ou pela API v1; e o **funil (8.5)**: listar, buscar, ler currículos, anotar, mover de etapa e exportar o CSV pelo chat ou pela API, com cada avaliador registrando a própria avaliação pelo formulário. **Decisões e mensagens (8.6):** reprovar, contratar, encerrar a vaga e reabrir pelo formulário de decisões (com a devolutiva que cada pessoa recebe); integrações e clientes sem formulário criam propostas que a equipe confirma; mensagens com modelos editáveis; o candidato pode pedir revisão pelo link. **Banco de talentos (8.7):** só quem consentiu e com prazo; a equipe busca e convida para vagas novas (o convite leva à candidatura), e a pessoa entra, renova ou sai pelo link de acompanhamento. **Webhooks e trilha (8.8):** avisos assinados para o n8n ou outro sistema (vaga publicada, candidatura recebida, mudou de etapa, contratada…), configurados pelo formulário `webhooks` no chat, e a trilha completa por `GET /api/v1/eventos?desde=`. **Empresa (8.9):** logo, cor, descrição, retenção, banco de talentos e aviso de privacidade pelo formulário `empresa`; excluir a empresa (sem candidaturas em andamento) com 7 dias para desfazer pelo conector. **Faxina diária (8.10):** `GET /api/cron/diario` com `Authorization: Bearer $CRON_SECRET` (o `vercel.json` agenda às 6h de Brasília): expira convites e propostas, pausa vagas vencidas, anonimiza no fim da retenção, apaga empresas excluídas, retenta e-mails e webhooks e manda os resumos. **Analytics (8.11):** opcional; com `VISAO_INGEST_URL` e `VISAO_API_KEY`, os eventos de produto (sem dado pessoal) vão ao Visão do Produto; sem elas, nada sai. O guia completo de auto-hospedagem entra no épico 8.12.
+## O que tem
+- **Pelo chat:** vagas (com etapas, perguntas e equipe), página de carreiras com JSON-LD para o Google, funil (listar, buscar, ler currículo, anotar, mover de etapa, exportar CSV), avaliações da equipe, decisões com devolutiva (reprovar, contratar, encerrar a vaga, reabrir), mensagens com modelos, banco de talentos com consentimento, equipe e áreas, chaves de API, webhooks e os dados da empresa.
+- **O modelo propõe, a pessoa grava:** toda escrita abre um formulário no chat, já preenchido; decisão sobre uma pessoa só com o clique de alguém da equipe. Pela API, decisão vira proposta.
+- **Para quem se candidata:** candidatura sem conta, link `/c/{token}` para acompanhar, retirar, pedir revisão, baixar e excluir os dados; devolutiva sempre.
+- **LGPD:** retenção por empresa com anonimização automática, banco de talentos só com consentimento e prazo, trilha de quem fez o quê, nenhum dado pessoal em log, evento ou webhook.
+- **Faxina diária** (`/api/cron/diario`), **analytics opcional** sem dado pessoal, e as páginas públicas `/`, `/docs/mcp`, `/docs/api`, `/docs/auto-hospedagem`, `/privacidade` e `/termos`.
+
+## Hospedar a sua instância (passo a passo)
+
+Você vai precisar de contas no GitHub, no [Supabase](https://supabase.com), na [Cloudflare](https://dash.cloudflare.com) (R2) ou outro S3, no [Resend](https://resend.com), no [Google Cloud](https://console.cloud.google.com) e na [Vercel](https://vercel.com). Os planos gratuitos servem para começar. Na sua máquina: Node 22 e a [Supabase CLI](https://supabase.com/docs/guides/cli).
+
+### 1. Clonar
+```bash
+git clone https://github.com/asiqueira1973/contrata.git vaga-aberta
+cd vaga-aberta && npm install
+```
+
+### 2. Banco (Supabase)
+1. Crie um projeto **só para esta instância** (região São Paulo, se os candidatos estão no Brasil).
+2. Aplique as migrations da pasta `supabase/migrations`:
+   ```bash
+   supabase link --project-ref SEU_PROJETO
+   supabase db push
+   ```
+   Todas as tabelas têm o prefixo `rs_`, com RLS ligada e sem política: só o servidor (service role) fala com o banco. O seed (`supabase/seed.sql`, a "Padaria Exemplo") é só para desenvolvimento; não rode em produção.
+3. Em **Project Settings → API**, copie a URL para `SUPABASE_URL` e a chave `service_role` para `SUPABASE_SERVICE_ROLE_KEY` (nunca no navegador).
+
+### 3. Armazenamento (Cloudflare R2 ou outro S3)
+1. Crie um bucket **privado** (ex.: `vaga-aberta`) e um token de API com leitura e escrita só nesse bucket.
+2. Preencha `S3_ENDPOINT` (`https://<conta>.r2.cloudflarestorage.com`), `S3_REGION` (`auto` no R2), `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` e `S3_BUCKET`.
+3. Configure o CORS do bucket: o currículo sobe direto do navegador.
+   ```json
+   [{ "AllowedOrigins": ["https://SEU_DOMINIO"], "AllowedMethods": ["PUT"], "AllowedHeaders": ["content-type"], "MaxAgeSeconds": 3600 }]
+   ```
+
+### 4. E-mail (Resend)
+1. Adicione e verifique o domínio do remetente (SPF, DKIM e, de preferência, DMARC). O plano gratuito serve para testar.
+2. Crie uma chave de API para `RESEND_API_KEY` e escolha o remetente em `EMAIL_REMETENTE` (ex.: `naoresponda@seudominio.com.br`).
+
+### 5. Login com Google (obrigatório)
+O Vaga Aberta só aceita login pelo Google (spec 6.1). No Google Cloud Console:
+1. Crie um projeto e configure a tela de consentimento OAuth com os escopos básicos `openid`, `email` e `profile`.
+2. Em **Credenciais → Criar credenciais → ID do cliente OAuth**, tipo "Aplicativo da Web".
+3. Em **URIs de redirecionamento autorizados**, inclua `https://SEU_DOMINIO/api/auth/google/callback` (em desenvolvimento, `http://localhost:3050/api/auth/google/callback`).
+4. Copie o ID e a chave secreta para `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`.
+
+Quem usa Microsoft 365 pode criar uma conta Google com o mesmo e-mail corporativo (não precisa ser Gmail).
+
+### 6. Vercel
+1. Importe o repositório, ponha o seu domínio no projeto e preencha as variáveis da tabela abaixo (em **Production**).
+2. Publique. O `vercel.json` já agenda o cron diário (`/api/cron/diario`, 6h de Brasília), que a Vercel chama com `Authorization: Bearer $CRON_SECRET`.
+3. Abra `https://SEU_DOMINIO/` e `https://SEU_DOMINIO/docs/mcp` para conferir.
+
+### 7. Primeira empresa
+1. Ponha o seu e-mail (ou `@seudominio.com.br`) em `CRIACAO_EMPRESA_EMAILS` e publique de novo.
+2. Conecte o conector `https://SEU_DOMINIO/mcp` no Claude ou no ChatGPT (passo a passo abaixo e em `/docs/mcp`). Ao entrar com o Google, crie a empresa na tela de consentimento.
+3. Pelo chat: "crie as áreas Financeiro e Loja", "convide a Ana como recrutadora", "abra uma vaga de…" e "publique a página de carreiras".
+
+### 8. Textos legais
+As páginas `/privacidade` e `/termos` e o aviso de privacidade da candidatura são **modelos**: preencha `OPERADOR_NOME` e `OPERADOR_CONTATO` com os dados de quem hospeda e revise os textos (em `src/lib/copy.ts`, chaves `legal` e `avisoPrivacidade`) com quem cuida do jurídico.
+
+### Variáveis
+
+| Variável | Obrigatória | Para quê |
+|---|---|---|
+| `NEXT_PUBLIC_SITE_URL` | sim | Origem pública (`https://SEU_DOMINIO`): OAuth, links dos e-mails, JSON-LD, conector |
+| `NEXT_PUBLIC_NOME_PRODUTO` | não | Nome exibido (padrão "Vaga Aberta") |
+| `SUPABASE_URL` | sim | URL do projeto Supabase |
+| `SUPABASE_SERVICE_ROLE_KEY` | sim | Chave service role (só no servidor) |
+| `GOOGLE_CLIENT_ID` | sim | Cliente OAuth do Google |
+| `GOOGLE_CLIENT_SECRET` | sim | Segredo do cliente OAuth do Google |
+| `SESSION_SECRET` | sim | Sessões e HMAC dos códigos e limites públicos. `openssl rand -base64 32` |
+| `MCP_PREVIEW_SECRET` | sim | Prévias do conector para clientes sem formulário. `openssl rand -base64 32` |
+| `PREVIA_PAGINA_SECRET` | sim | Link de pré-visualização da página de carreiras. `openssl rand -base64 32` |
+| `LINK_CANDIDATO_SECRET` | sim | Deriva o link `/c/{token}` do candidato; trocar invalida os links enviados. `openssl rand -base64 32` |
+| `S3_ENDPOINT` | sim | Endpoint S3 (R2: `https://<conta>.r2.cloudflarestorage.com`) |
+| `S3_REGION` | sim | Região (R2: `auto`) |
+| `S3_ACCESS_KEY_ID` | sim | Chave de acesso ao bucket |
+| `S3_SECRET_ACCESS_KEY` | sim | Segredo da chave do bucket |
+| `S3_BUCKET` | sim | Nome do bucket privado |
+| `CRON_SECRET` | sim | Protege `/api/cron/diario`. `openssl rand -base64 32` |
+| `CRIACAO_EMPRESA_EMAILS` | sim | E-mails ou `@dominio` que podem criar empresa, separados por vírgula. Vazia, ninguém cria |
+| `EMAILS_BLOQUEADOS` | não | E-mails que não entram |
+| `ADMIN_EMAIL` | sim | Alertas da instância; contato padrão das páginas legais |
+| `OPERADOR_NOME` | não | Quem opera a instância, no aviso de privacidade e nas páginas legais |
+| `OPERADOR_CONTATO` | não | Canal de privacidade (sem ela, o `ADMIN_EMAIL`) |
+| `RESEND_API_KEY` | sim | Envio de e-mail. Sem ela, só em desenvolvimento, os e-mails vão para `.caixa-de-saida-local/` |
+| `EMAIL_REMETENTE` | sim | Remetente verificado no Resend |
+| `CHAVES_ENC_KEY` | sim | Cifra os segredos dos webhooks (32 bytes em base64). `node -e "console.log(require('crypto').randomBytes(32).toString('base64'))"` |
+| `VISAO_INGEST_URL` | não | Analytics de produto (Visão do Produto). Sem as duas, nada é enviado |
+| `VISAO_API_KEY` | não | Chave do analytics |
+
+## Conectar no Claude ou no ChatGPT
+O endereço do conector é `{NEXT_PUBLIC_SITE_URL}/mcp` — na instância oficial, `https://vagaaberta.app.br/mcp`. O Claude e o ChatGPT só alcançam HTTPS público, então a instância precisa estar publicada (ou atrás de um túnel).
+- **Claude:** Configurações → Conectores → Adicionar conector personalizado.
+- **ChatGPT:** Configurações → Apps e conectores → modo desenvolvedor → criar conector com OAuth.
+- **Claude Code:** `claude mcp add --transport http vaga-aberta https://SEU_DOMINIO/mcp` e, dentro dele, `/mcp` para autenticar.
+
+Ao conectar, você entra com o Google, aceita os Termos, escolhe (ou cria) a empresa e os escopos. Depois é conversar: "quem sou eu?", "convide a Ana como recrutadora da Loja". Toda escrita abre um formulário no chat, já preenchido, e só grava quando você clica. Mais exemplos em `/docs/mcp`.
+
+Para automação, crie uma chave de API pelo conector ("crie uma chave de API para o n8n") e use `Authorization: Bearer rsk_…` na API v1 (guia em `/docs/api`, documento em `/api/v1/openapi.json`).
 
 ## Rodar localmente
 
@@ -19,40 +118,11 @@ supabase start            # Supabase local nas portas 557xx; aplica migrations e
 cp .env.example .env.local
 ```
 
-Preencha o `.env.local`:
-- `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY`: saem de `supabase status`;
-- `SESSION_SECRET`: `openssl rand -base64 32`;
-- `CRIACAO_EMPRESA_EMAILS`: os e-mails (ou `@seudominio.com.br`) que podem criar empresa. **Vazia, ninguém cria**;
-- `MCP_PREVIEW_SECRET`: `openssl rand -base64 32` (assina as prévias do conector para clientes sem formulário);
-- `PREVIA_PAGINA_SECRET`: `openssl rand -base64 32` (link de pré-visualização da página de carreiras ainda não publicada);
-- `LINK_CANDIDATO_SECRET`: `openssl rand -base64 32` (deriva o link de acompanhamento do candidato; trocar invalida todos os links já enviados);
-- `CRON_SECRET`: `openssl rand -base64 32` (protege a faxina diária, `/api/cron/diario`; na Vercel, o `vercel.json` já agenda 1×/dia);
-- `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`: veja abaixo;
-- `S3_ENDPOINT`, `S3_REGION`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY`, `S3_BUCKET`: o bucket dos currículos (Cloudflare R2: `S3_ENDPOINT=https://<conta>.r2.cloudflarestorage.com` e `S3_REGION=auto`; configure no bucket um CORS que libere `PUT` vindo do endereço do site). **Vazias, os arquivos ficam em `.armazenamento-local/`**, o que só serve para desenvolvimento.
+No `.env.local`, `SUPABASE_URL` e `SUPABASE_SERVICE_ROLE_KEY` saem de `supabase status`; os segredos, de `openssl rand -base64 32`. **Sem `S3_*`, os arquivos ficam em `.armazenamento-local/`**, e sem `RESEND_API_KEY`, os e-mails vão para `.caixa-de-saida-local/` (as duas coisas só servem para desenvolvimento).
 
 ```bash
 npm run dev               # http://localhost:3050
 ```
-
-Sem `RESEND_API_KEY`, os e-mails vão para `.caixa-de-saida-local/`.
-
-## Conectar no Claude ou no ChatGPT
-O endereço do conector é `{NEXT_PUBLIC_SITE_URL}/mcp` — em produção, `https://vagaaberta.app.br/mcp`. O Claude e o ChatGPT só alcançam HTTPS público, então para usar de verdade a instância precisa estar publicada (ou atrás de um túnel).
-- **Claude:** Configurações › Conectores › Adicionar conector personalizado.
-- **ChatGPT:** Configurações › Aplicativos e conectores › Criar (modo desenvolvedor).
-
-Ao conectar, você entra com o Google, aceita os Termos, escolhe (ou cria) a empresa e os escopos. Depois é conversar: "quem sou eu?", "convide a Ana como recrutadora da Loja". Toda escrita abre um formulário no chat, já preenchido, e só grava quando você clica.
-
-Para automação, crie uma chave de API pelo conector ("crie uma chave de API para o n8n") e use `Authorization: Bearer rsk_…` na API v1 (documento em `/api/v1/openapi.json`).
-
-### Login com Google (obrigatório)
-O Vaga Aberta só aceita login pelo Google (spec 6.1). No [Google Cloud Console](https://console.cloud.google.com/):
-1. Crie um projeto (ex.: "Vaga Aberta") e configure a tela de consentimento OAuth com os escopos básicos `openid`, `email` e `profile`.
-2. Em **Credenciais → Criar credenciais → ID do cliente OAuth**, tipo "Aplicativo da Web".
-3. Em **URIs de redirecionamento autorizados**, inclua `{NEXT_PUBLIC_SITE_URL}/api/auth/google/callback` (em produção, `https://vagaaberta.app.br/api/auth/google/callback`; em desenvolvimento, `http://localhost:3050/api/auth/google/callback`).
-4. Copie o ID e a chave secreta para `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET`.
-
-Quem usa Microsoft 365 pode criar uma conta Google com o mesmo e-mail corporativo (não precisa ser Gmail).
 
 ### Sem cliente Google, só em desenvolvimento
 O seed cria a "Padaria Exemplo" com usuários fictícios. Para entrar como um deles (no consentimento do conector ou num convite):

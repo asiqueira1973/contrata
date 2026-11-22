@@ -7,6 +7,8 @@ import type { Papel } from "./limits";
 
 // Nome exibido (pergunta 25.1): troca-se por variável, sem mexer no código.
 export const NOME_PRODUTO = process.env.NEXT_PUBLIC_NOME_PRODUTO || "Vaga Aberta";
+// Repositório público do código (spec 6 e 27.2; licença MIT).
+export const URL_CODIGO = "https://github.com/asiqueira1973/contrata";
 
 // Catálogo de webhooks (13.4): os tipos que um webhook pode assinar (o banco confere o mesmo).
 export const EVENTOS_WEBHOOK = [
@@ -258,8 +260,6 @@ export const copy = {
     entrarComOutra: "Entrar com outra conta",
     vencido: ERROS.convite_vencido,
   },
-
-  inicio: { titulo: "Início" },
 
   // 15.2 "Equipe — convidar", "Último administrador"
   equipe: {
@@ -846,10 +846,248 @@ export const copy = {
     },
   },
 
-  // Página inicial provisória (até o 8.12) e convite aceito (6.1, 15.2).
-  inicioPublico: {
-    titulo: `${NOME_PRODUTO}: recrutamento e seleção para agentes`,
-    texto: `Quem recruta usa o ${NOME_PRODUTO} pelo Claude ou pelo ChatGPT. Para conectar, adicione um conector personalizado com este endereço:`,
+  // Página inicial (8.12; seção 10.1). Estrutura inspirada na referência de landing
+  // (docs/referencias/landing-breakcold.md), na família visual do Assina.
+  inicio: {
+    metaTitulo: `${NOME_PRODUTO} — o sistema de recrutamento para agentes`,
+    metaDescricao: "Recrutamento e seleção conduzidos pelo Claude ou pelo ChatGPT: vagas, candidaturas, devolutivas e LGPD, sem painel. Grátis e de código aberto.",
+    selo: "Grátis e de código aberto",
+    titulo: "O sistema de recrutamento",
+    tituloDestaque: "para agentes",
+    subtitulo: "Você conduz o recrutamento conversando com o Claude ou o ChatGPT. Quem decide sobre cada pessoa continua sendo você, com um clique.",
+    conectar: "Conecte no Claude ou no ChatGPT",
+    hospedar: "Como hospedar",
+    numeros: ["18 consultas e operações", "22 formulários no chat", "Claude e ChatGPT", "LGPD de fábrica"],
+    chat: {
+      rotulo: "Exemplo de conversa no Claude com o conector",
+      janela: "Claude",
+      conector: `${NOME_PRODUTO} conectado`,
+      pedido: "Resuma a triagem da vaga de analista fiscal e prepare a devolutiva de quem não tem experiência com faturamento.",
+      chamando: "Chamando ferramentas",
+      ferramentas: [
+        { nome: "listar_candidaturas", args: "vaga: Analista fiscal · etapa: Triagem", tempo: "0,3 s" },
+        { nome: "ler_curriculo", args: "12 candidaturas", tempo: "1,4 s" },
+        { nome: "abrir_formulario_decisoes", args: "4 itens", tempo: "0,2 s" },
+      ],
+      resposta: "Das 12 candidaturas da triagem, 8 têm experiência com faturamento. Preparei a devolutiva das outras 4; confira e confirme no formulário abaixo.",
+      formulario: "Decisões",
+      itens: [
+        { nome: "Paula R.", motivo: "Não atende aos requisitos" },
+        { nome: "Diego M.", motivo: "Experiência insuficiente" },
+        { nome: "Lia S.", motivo: "Não atende aos requisitos" },
+        { nome: "Caio T.", motivo: "Experiência insuficiente" },
+      ],
+      devolutiva: "Devolutiva editável para cada pessoa",
+      botao: "Reprovar e enviar 4",
+      nota: "Nada é gravado até você clicar.",
+    },
+    cartoes: {
+      titulo: "Ponha agentes para trabalhar no seu recrutamento",
+      subtitulo: "As mesmas ações, por onde você preferir: no chat, por integração ou pela API.",
+      itens: [
+        { titulo: "Conector (MCP)", texto: "Vagas, candidaturas, currículos, notas, funil e banco de talentos para qualquer agente com MCP, com escopos e papéis por pessoa.", ferramentas: ["listar_vagas", "buscar_candidaturas", "mover_etapa", "historico_da_candidatura"] },
+        { titulo: "No Claude", texto: "Peça em português: o Claude consulta, resume currículos frente aos requisitos e abre o formulário já preenchido para você conferir e salvar." },
+        { titulo: "No ChatGPT", texto: "O mesmo conector no ChatGPT: consultas na conversa e formulários de cadastro e decisão direto no chat." },
+        { titulo: "API e webhooks", texto: "API REST com chave e escopos, webhooks assinados e a trilha por eventos. O n8n recebe a contratação e cria o pré-cadastro na admissão." },
+      ],
+    },
+    comoFunciona: {
+      titulo: "O modelo propõe, você decide",
+      passos: [
+        { titulo: "Pergunte", texto: "\"Quais candidaturas estão paradas há uma semana?\" O agente consulta e responde na conversa." },
+        { titulo: "Confira", texto: "Para gravar ou decidir, o agente abre um formulário no chat, já preenchido com o que foi dito." },
+        { titulo: "Clique", texto: "Reprovar, contratar ou encerrar a vaga só acontece com o seu clique, e cada pessoa recebe a devolutiva." },
+      ],
+    },
+    paraQuem: {
+      titulo: "Para quem",
+      itens: [
+        "Empresas pequenas e médias que contratam algumas vezes por ano.",
+        "O RH de uma pessoa só, que precisa de ajuda e não de mais uma tela.",
+        "Recrutadores e gestores que já usam o Claude ou o ChatGPT no dia a dia.",
+        "Quem quer hospedar o próprio sistema: é código aberto, licença MIT.",
+      ],
+    },
+    naoFaz: {
+      titulo: "O que ele não faz",
+      itens: [
+        "Não reprova nem contrata sozinho: toda decisão sobre uma pessoa é um clique de alguém da equipe.",
+        "Não dá nota nem ordena candidatos: o agente resume frente aos requisitos, e a equipe julga.",
+        "Não tem painel: quem recruta usa o chat; o candidato usa a página da vaga e o link dele.",
+        "Não faz admissão, folha nem ponto: só recrutamento e seleção (a integração leva a contratação adiante).",
+      ],
+    },
+    candidato: {
+      titulo: "Respeito a quem se candidata",
+      texto: "Página de carreiras com a vaga no Google, candidatura sem criar conta, link para acompanhar, devolutiva sempre, pedido de revisão e os próprios dados para baixar ou excluir.",
+    },
+    final: { titulo: "Comece pelo chat", texto: "Conecte o conector, crie a empresa na tela de consentimento e peça a primeira vaga." },
+  },
+  rodapePublico: {
+    navegacao: "Links do site",
+    privacidade: "Privacidade",
+    termos: "Termos",
+    docsMcp: "Conectar no Claude ou no ChatGPT",
+    docsApi: "API",
+    hospedar: "Como hospedar",
+    codigo: "Código no GitHub",
+    feito: `${NOME_PRODUTO}: recrutamento e seleção para agentes. Código aberto, licença MIT.`,
+  },
+  // Documentação pública (8.12; 10.1). Cada página é uma lista de seções.
+  docs: {
+    voltar: `← ${NOME_PRODUTO}`,
+    mcp: {
+      titulo: "Conectar no Claude ou no ChatGPT",
+      meta: `Como conectar o ${NOME_PRODUTO} no Claude, no ChatGPT e no Claude Code, com exemplos de pedidos.`,
+      intro: (url: string) => `O ${NOME_PRODUTO} é um conector MCP. O endereço desta instância é ${url}. A conexão pede login com o Google e, na primeira vez, a escolha da empresa e das permissões (escopos).`,
+      secoes: (url: string) => [
+        { titulo: "No Claude (claude.ai e app)", paragrafos: [
+          "Abra Configurações → Conectores → Adicionar conector personalizado.",
+          `Dê um nome (${NOME_PRODUTO}) e cole o endereço: ${url}.`,
+          "Clique em Conectar, entre com a sua conta Google e confirme a empresa e os escopos. Pronto: o conector aparece na conversa.",
+          "Os formulários (cadastrar vaga, decidir, avaliar) aparecem dentro do chat. Nada é gravado até você clicar.",
+        ] },
+        { titulo: "No ChatGPT", paragrafos: [
+          "Abra Configurações → Apps e conectores. Em Avançado, ligue o modo desenvolvedor, se ainda não estiver ligado.",
+          `Crie um conector com o endereço ${url} e autenticação OAuth.`,
+          "Entre com o Google, escolha a empresa e os escopos, e use o conector na conversa.",
+        ] },
+        { titulo: "No Claude Code", paragrafos: ["No terminal:", "Depois, dentro do Claude Code, rode /mcp e escolha autenticar: o navegador abre o login com o Google."], codigo: `claude mcp add --transport http vaga-aberta ${url}` },
+        { titulo: "Escopos e papéis", paragrafos: [
+          "Leitura: consultar vagas, candidaturas, currículos e histórico. Escrita: cadastrar e editar, mover de etapa, anotar, mandar mensagem. Decisão: reprovar, contratar, encerrar vaga e reabrir, sempre pelo formulário.",
+          "O papel na empresa limita o que a conexão pode: o avaliador só lê e avalia as vagas da equipe dele; o recrutador vê as áreas dele (ou todas); o administrador vê tudo e cuida da equipe, das chaves e da empresa.",
+          "Para desconectar, peça \"abra o formulário de conexões\" e revogue, ou remova o conector no Claude ou no ChatGPT.",
+        ] },
+        { titulo: "Exemplos de pedidos", lista: [
+          "Abra uma vaga de assistente administrativo no Financeiro, CLT, presencial em Campinas, de 2.800 a 3.200.",
+          "Publique a vaga de assistente administrativo.",
+          "Quais candidaturas da vaga de analista fiscal estão paradas há mais de uma semana?",
+          "Resuma os currículos da triagem frente aos requisitos da vaga.",
+          "Mova a Ana e o Bruno para a entrevista com o gestor.",
+          "Reprove quem não tem experiência com faturamento, com uma devolutiva gentil.",
+          "Mostre as propostas de decisão que estão esperando.",
+          "Busque no banco de talentos quem já trabalhou com atendimento e convide para a vaga nova.",
+          "Mude a cor da página de carreiras e o texto extra do aviso de privacidade.",
+        ] },
+      ],
+    },
+    api: {
+      titulo: "API v1 e webhooks",
+      meta: `A API REST, os webhooks e a trilha de eventos do ${NOME_PRODUTO}.`,
+      intro: "Para integrações (n8n, scripts, o site da empresa). Toda escrita da API tem a mesma regra do chat: decisão sobre uma pessoa vira proposta que alguém da equipe confirma.",
+      secoes: (base: string) => [
+        { titulo: "Autenticação", paragrafos: [
+          "O administrador cria uma chave pelo chat (\"abra o formulário de conexões\" → Criar chave de API). A chave aparece uma vez.",
+          "Mande no cabeçalho Authorization: Bearer rsk_…. Escopos: leitura, escrita e decisao (decisão só cria propostas).",
+        ], codigo: `curl -H "Authorization: Bearer rsk_..." ${base}/api/v1/vagas` },
+        { titulo: "Documento OpenAPI", paragrafos: [`Todas as rotas, com os esquemas de entrada e saída, em ${base}/api/v1/openapi.json.`] },
+        { titulo: "Convenções", paragrafos: [
+          "JSON com os nomes do banco em português; datas em ISO 8601 (UTC); paginação por cursor (?cursor=&limite=, padrão 50, máximo 200).",
+          "Erros: {\"codigo\": \"…\", \"mensagem\": \"…\"}, com 400 e a lista de campos quando os dados não passam.",
+          "Escritas aceitam Idempotency-Key (24 h, por chave).",
+          "Reprovar, contratar e encerrar vaga com candidaturas em andamento respondem 202 com a proposta: a decisão acontece quando alguém da equipe confirma no chat.",
+        ] },
+        { titulo: "Webhooks", paragrafos: [
+          "O administrador cadastra pelo chat (formulário de webhooks). Cada aviso é um POST JSON {id, tipo, criado_em, empresa_id, dados} sem nome, e-mail ou telefone: busque a pessoa em GET /api/v1/candidaturas/{id}.",
+          "Cabeçalhos X-Contrata-Evento, X-Contrata-Entrega e X-Contrata-Assinatura: t={unix},v1={hex}, o HMAC SHA-256 de \"{t}.{corpo}\" com o segredo whsec_… Responda 2xx; senão há nova tentativa em 1 min, 10 min, 1 h e depois uma por dia, por até 3 dias.",
+          "Só endereços https públicos, sem redirecionamento.",
+        ] },
+        { titulo: "Trilha (sincronização)", paragrafos: ["GET /api/v1/eventos?desde={id} devolve a trilha em ordem crescente, com quem fez cada coisa; proximo_desde quando há mais."] },
+        { titulo: "API pública (site da empresa)", paragrafos: [
+          "Sem chave: GET /api/publico/{empresa}/vagas e /vagas/{slug} para listar as vagas publicadas; POST …/vagas/{slug}/candidaturas para receber a candidatura no site da própria empresa (o currículo sobe direto para o armazenamento e a candidatura é concluída em …/candidaturas/{id}/concluir).",
+        ] },
+      ],
+    },
+    hospedar: {
+      titulo: "Como hospedar",
+      meta: `Como hospedar o seu ${NOME_PRODUTO}: Supabase, armazenamento, Resend, Google e Vercel.`,
+      intro: `O ${NOME_PRODUTO} é para clonar e usar: cada instância serve uma ou mais empresas, e quem pode criar empresa é a lista CRIACAO_EMPRESA_EMAILS. O passo a passo completo, com todas as variáveis, está no README do repositório.`,
+      secoes: [
+        { titulo: "1. O que você precisa", lista: ["Conta no GitHub para clonar o repositório.", "Um projeto no Supabase (o plano gratuito serve para começar).", "Um bucket privado no Cloudflare R2 (ou outro S3).", "Uma conta no Resend com um domínio verificado (o gratuito serve para testar).", "Um cliente OAuth no Google Cloud (login obrigatório).", "Uma conta na Vercel."] },
+        { titulo: "2. Banco", paragrafos: ["No seu projeto Supabase (próprio, só desta instância), aplique as migrations da pasta supabase/migrations com o Supabase CLI. Todas as tabelas têm o prefixo rs_ e ficam fechadas para acesso público (RLS ligada, sem política): só o servidor fala com o banco."], codigo: "supabase link --project-ref SEU_PROJETO && supabase db push" },
+        { titulo: "3. Armazenamento, e-mail e Google", paragrafos: [
+          "R2: crie um bucket privado e uma chave com leitura e escrita nele; libere o CORS de PUT para o seu domínio (o currículo sobe direto do navegador).",
+          "Resend: verifique o domínio do remetente e crie a chave de API.",
+          "Google: crie um cliente OAuth (aplicativo da Web) com o redirect https://SEU_DOMINIO/api/auth/google/callback.",
+        ] },
+        { titulo: "4. Vercel", paragrafos: ["Importe o repositório, preencha as variáveis (a lista está no README e no .env.example) e publique. O cron diário (/api/cron/diario) já vem no vercel.json e é protegido por um segredo próprio, descrito no README."] },
+        { titulo: "5. Primeira empresa", paragrafos: ["Ponha o seu e-mail em CRIACAO_EMPRESA_EMAILS, conecte o conector no Claude ou no ChatGPT e crie a empresa na tela de consentimento. Depois, pelo chat, convide a equipe."] },
+        { titulo: "6. Textos legais", paragrafos: ["As páginas de Privacidade e Termos são modelos: preencha OPERADOR_NOME e OPERADOR_CONTATO com os dados de quem hospeda e revise os textos com quem cuida do jurídico."] },
+      ],
+    },
+  },
+  // Páginas legais (8.12; seção 20): modelos que quem hospeda ajusta. `op` é quem opera a
+  // instância (OPERADOR_NOME); `contato`, o canal de privacidade (OPERADOR_CONTATO ou ADMIN_EMAIL).
+  legal: {
+    atualizado: "Atualizado em 22 de novembro de 2026.",
+    quemHospeda: "quem hospeda esta instância",
+    semContato: "o contato de quem hospeda esta instância",
+    modelo: "Este texto é um modelo. Quem hospeda esta instância deve revisá-lo com o seu jurídico.",
+    privacidade: {
+      titulo: "Política de privacidade",
+      meta: `Como o ${NOME_PRODUTO} trata dados pessoais.`,
+      secoes: (op: string, contato: string) => [
+        { titulo: "Quem somos", paragrafos: [
+          `Esta instância do ${NOME_PRODUTO} é operada por ${op}. O ${NOME_PRODUTO} é um sistema de recrutamento e seleção de código aberto que as empresas usam pelo Claude, pelo ChatGPT e por integrações.`,
+          `Para qualquer assunto sobre privacidade: ${contato}.`,
+        ] },
+        { titulo: "Quem é o controlador", paragrafos: [
+          "Cada empresa que usa o sistema é a controladora dos dados dos processos seletivos dela: decide as vagas, quem recebe as candidaturas, por quanto tempo guarda e quem decide sobre cada pessoa.",
+          `A operadora é ${op}: guarda e processa esses dados em nome de cada empresa, seguindo as instruções dela e esta política. Dos dados da conta de quem usa o sistema pela empresa (nome, e-mail, foto do Google), a controladora é ${op}.`,
+        ] },
+        { titulo: "Que dados tratamos", paragrafos: [
+          "De quem recruta: nome, e-mail e foto da conta Google, a empresa, o papel e as ações feitas (a trilha de quem fez o quê).",
+          "De quem se candidata: o que a pessoa envia no formulário da vaga (nome, e-mail, telefone, LinkedIn, cidade, respostas e currículo), as mensagens recebidas, o andamento no processo e as notas e avaliações da equipe.",
+          "Não usamos cookies de publicidade. Os cookies servem só para a sessão de quem entra.",
+        ] },
+        { titulo: "Para quê", paragrafos: [
+          "Para conduzir os processos seletivos de cada empresa, mandar os e-mails do processo (confirmação, devolutiva, mensagens), cumprir os direitos dos titulares e manter a segurança do sistema.",
+          "Base legal: procedimentos preliminares a um contrato a pedido do titular (LGPD, art. 7º, V) para a candidatura; consentimento para o banco de talentos; execução de contrato e legítimo interesse para a conta de quem recruta.",
+          "Assistentes de IA (Claude, ChatGPT) leem as candidaturas a pedido da empresa, pela conexão que ela autoriza. A decisão sobre cada pessoa é sempre de alguém da equipe.",
+        ] },
+        { titulo: "Com quem compartilhamos", paragrafos: [
+          "Com os fornecedores que fazem o sistema funcionar, como operadores: banco de dados (Supabase), armazenamento de arquivos (Cloudflare R2 ou S3), envio de e-mail (Resend), hospedagem (Vercel) e login (Google). Alguns ficam fora do Brasil; a transferência segue a LGPD.",
+          "Com os assistentes de IA e as integrações que cada empresa conecta, sob responsabilidade dela.",
+          "Nunca vendemos dados.",
+        ] },
+        { titulo: "Por quanto tempo", paragrafos: [
+          "Cada empresa escolhe a retenção (de 90 a 365 dias depois do encerramento do processo). Na data, os dados pessoais da candidatura são anonimizados automaticamente.",
+          "No banco de talentos, só com consentimento e pelo prazo escolhido pela empresa (6 a 24 meses), renovável pela pessoa.",
+          "Empresa excluída: tudo é apagado de vez 7 dias depois.",
+        ] },
+        { titulo: "Os seus direitos", paragrafos: [
+          "Quem se candidata acompanha, baixa os próprios dados, exclui os dados e pede revisão de uma decisão pelo link de acompanhamento que recebe por e-mail, e fala com a empresa pelo e-mail de contato dela.",
+          `Quem usa o sistema pela empresa fala com ${contato}.`,
+        ] },
+        { titulo: "Segurança", paragrafos: ["Acesso só pelo servidor, com login do Google, permissões por papel e área, segredos cifrados, links do candidato guardados só como hash e trilha de quem fez cada coisa."] },
+        { titulo: "Mudanças", paragrafos: ["Quando esta política mudar, a data acima muda junto."] },
+      ],
+    },
+    termos: {
+      titulo: "Termos de uso",
+      meta: `As regras de uso do ${NOME_PRODUTO}.`,
+      secoes: (op: string, contato: string) => [
+        { titulo: "O serviço", paragrafos: [
+          `Esta instância do ${NOME_PRODUTO} é operada por ${op}. O sistema é gratuito, de código aberto (licença MIT) e oferecido como está, sem garantia de disponibilidade.`,
+        ] },
+        { titulo: "Contas e empresas", paragrafos: [
+          "O acesso de quem recruta é pela conta Google. Quem pode criar empresa nesta instância é definido por quem a hospeda.",
+          "O administrador da empresa responde por quem convida, pelos papéis e pelas chaves de API e integrações que cria.",
+        ] },
+        { titulo: "Responsabilidades da empresa", paragrafos: [
+          "A empresa é a controladora dos dados dos processos dela e responde pela base legal, pelo aviso de privacidade (o padrão mais o texto extra dela) e por responder aos titulares.",
+          "Toda candidatura encerrada recebe devolutiva; o sistema garante isso, e a empresa responde pelo conteúdo do que escreve.",
+          "As decisões sobre cada pessoa são da empresa, sempre por alguém da equipe. O sistema não decide nem pontua candidatos.",
+        ] },
+        { titulo: "Uso proibido", lista: [
+          "Discriminar por raça, cor, sexo, orientação sexual, idade, deficiência, religião, origem, estado civil ou qualquer outro critério vedado em lei.",
+          "Publicar vaga falsa, cobrar do candidato ou coletar dados para outro fim que não o processo seletivo.",
+          "Tentar acessar dados de outra empresa, contornar as permissões ou sobrecarregar o sistema.",
+        ] },
+        { titulo: "Fim do uso", paragrafos: ["A empresa pode ser excluída pelo administrador a qualquer momento, sem candidaturas em andamento; os dados são apagados 7 dias depois. Quem hospeda pode suspender quem descumprir estes termos."] },
+        { titulo: "Contato", paragrafos: [`Dúvidas sobre estes termos: ${contato}.`] },
+      ],
+    },
   },
   // Página de carreiras e página da vaga (10.1, 15.2, 16).
   carreiras: {
@@ -918,13 +1156,13 @@ export const copy = {
     tituloPagina: (vaga: string, empresa: string) => `Candidatar-me a ${vaga} — ${empresa}`,
   },
   // Aviso de privacidade padrão (15.5, versão 2026-11-20). Depois, o texto extra da empresa.
-  avisoPrivacidade: (empresa: string, contato: string, dias: number) => [
+  avisoPrivacidade: (empresa: string, contato: string, dias: number, operador: string | null) => [
     `Quem cuida dos seus dados: ${empresa} (contato: ${contato}).`,
     "Para quê: este processo seletivo.",
     "Quais dados: os deste formulário e o seu currículo.",
     "Base legal: procedimentos preliminares a um contrato, a seu pedido (LGPD, art. 7º, V).",
     "Quem acessa: a equipe de recrutamento da empresa e as ferramentas que ela usa, incluindo assistentes de IA que leem as candidaturas a pedido dela, sempre com a decisão final de uma pessoa.",
-    `Operador: DabLab, na instância hospedada do ${NOME_PRODUTO}.`,
+    operador ? `Operador: ${operador}, que hospeda esta instância do ${NOME_PRODUTO}.` : `Operador: quem hospeda esta instância do ${NOME_PRODUTO}.`,
     `Por quanto tempo: ${dias} dias depois do encerramento do processo. O banco de talentos só com o seu consentimento.`,
     "Seus direitos: acompanhar, baixar e excluir seus dados e pedir revisão pelo seu link, e falar com a empresa pelo e-mail de contato.",
   ],
@@ -1253,11 +1491,6 @@ export const copy = {
     },
   },
 
-  docsApi: {
-    titulo: "API v1",
-    metaTitulo: `API — ${NOME_PRODUTO}`,
-    texto: "Autentique com uma chave de API no cabeçalho Authorization: Bearer rsk_…. O documento OpenAPI descreve as rotas:",
-  },
   conviteAceito: {
     titulo: "Convite aceito",
     texto: (empresas: string) => `Pronto, você está na equipe da ${empresas}. Agora conecte o ${NOME_PRODUTO} no Claude ou no ChatGPT com este endereço:`,

@@ -1,0 +1,92 @@
+/* Páginas públicas (8.12; seções 10.1 e 16): página inicial, documentação e textos legais, na
+   família visual do Assina. Só tokens do globals.css, então o modo escuro vem junto. */
+.page { min-height: 100vh; display: flex; flex-direction: column; }
+
+.top { max-width: 1080px; width: 100%; margin: 0 auto; padding: 20px 16px 0; display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.brand { font-weight: 700; font-size: 17px; color: var(--text); letter-spacing: -0.01em; }
+.topLinks { display: flex; gap: 16px; font-size: 15px; }
+.topLinks a { color: var(--text-secondary); }
+.topLinks a:hover { color: var(--text); }
+
+.hero { max-width: 1080px; width: 100%; margin: 0 auto; padding: 56px 16px 24px; text-align: center; }
+.selo { display: inline-flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 999px; background: var(--accent-soft); color: var(--accent); font-size: 13px; font-weight: 600; }
+.title { font-size: clamp(36px, 7vw, 64px); line-height: 1.04; letter-spacing: -0.03em; margin: 20px auto 0; max-width: 820px; font-weight: 700; }
+.title em { font-style: normal; color: var(--accent); }
+.lead { font-size: clamp(17px, 2.4vw, 21px); line-height: 1.45; color: var(--text-secondary); max-width: 640px; margin: 18px auto 0; }
+.ctas { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; margin-top: 28px; }
+.primary, .secondary { min-height: var(--tap); display: inline-flex; align-items: center; justify-content: center; padding: 0 22px; border-radius: 999px; font-size: 16px; font-weight: 600; }
+.primary { background: var(--accent); color: #fff; }
+.secondary { background: var(--surface); color: var(--text); }
+.numeros { list-style: none; padding: 0; margin: 28px auto 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 20px; font-size: 14px; color: var(--text-secondary); }
+.numeros li::before { content: "✓"; color: var(--green); margin-right: 6px; font-weight: 700; }
+
+/* Janela de chat simulada: o modelo propõe, a pessoa decide. */
+.demo { max-width: 760px; width: calc(100% - 32px); margin: 32px auto 0; border-radius: var(--radius-card); background: var(--surface); border: 1px solid var(--hairline); overflow: hidden; text-align: left; box-shadow: 0 24px 60px rgba(0, 0, 0, 0.08); }
+.demoBar { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--hairline); font-size: 13px; color: var(--text-secondary); }
+.dots { display: flex; gap: 6px; }
+.dots span { width: 10px; height: 10px; border-radius: 50%; background: var(--hairline); }
+.demoBar strong { color: var(--text); font-weight: 600; margin-left: 4px; }
+.conector { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; }
+.conector::before { content: ""; width: 7px; height: 7px; border-radius: 50%; background: var(--green); }
+.demoBody { padding: 20px 16px; display: flex; flex-direction: column; gap: 14px; }
+.pedido { align-self: flex-end; max-width: 88%; background: var(--bg); border-radius: 18px 18px 4px 18px; padding: 12px 14px; font-size: 15px; line-height: 1.4; }
+.ferramentas { border: 1px solid var(--hairline); border-radius: 14px; background: var(--bg); padding: 10px 12px; font-size: 13px; }
+.ferramentasTitulo { color: var(--text-secondary); margin-bottom: 6px; }
+.ferramenta { display: grid; grid-template-columns: auto 1fr auto; gap: 8px; align-items: baseline; padding: 4px 0; }
+.ferramenta code { font-family: ui-monospace, "SF Mono", Menlo, monospace; color: var(--purple); font-size: 12.5px; }
+.ferramenta .args { color: var(--text-secondary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ferramenta .ok { color: var(--green); white-space: nowrap; }
+.resposta { font-size: 15px; line-height: 1.45; }
+.form { border: 1px solid var(--hairline); border-radius: 18px; background: var(--bg); padding: 14px; }
+.formTitulo { font-weight: 700; font-size: 15px; margin-bottom: 10px; }
+.item { display: flex; justify-content: space-between; gap: 12px; padding: 9px 0; border-top: 1px solid var(--hairline); font-size: 14px; }
+.item:first-of-type { border-top: 0; }
+.item span:last-child { color: var(--text-secondary); text-align: right; }
+.formNota { font-size: 13px; color: var(--text-secondary); margin: 8px 0 12px; }
+.formRodape { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; }
+.botaoDecisao { min-height: var(--tap); padding: 0 18px; border-radius: 999px; border: 0; background: var(--red); color: #fff; font-weight: 600; font-size: 15px; display: inline-flex; align-items: center; }
+.formRodape small { color: var(--text-secondary); font-size: 13px; }
+
+.secao { max-width: 1080px; width: 100%; margin: 0 auto; padding: 72px 16px 0; }
+.secaoTitulo { font-size: clamp(28px, 4.5vw, 40px); letter-spacing: -0.02em; line-height: 1.1; margin: 0; text-align: center; }
+.secaoLead { color: var(--text-secondary); font-size: 17px; text-align: center; margin: 12px auto 0; max-width: 620px; line-height: 1.45; }
+.grade { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 16px; margin-top: 32px; }
+.cartao { background: var(--surface); border-radius: var(--radius-card); padding: 22px; }
+.cartao h3 { margin: 0 0 8px; font-size: 19px; }
+.cartao p { margin: 0; color: var(--text-secondary); line-height: 1.45; font-size: 15px; }
+.chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 14px; }
+.chips code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 12px; padding: 4px 8px; border-radius: 8px; background: var(--bg); color: var(--purple); }
+.passo { font-size: 13px; font-weight: 700; color: var(--accent); margin-bottom: 6px; }
+.duas { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 16px; }
+.lista { list-style: none; padding: 0; margin: 14px 0 0; display: flex; flex-direction: column; gap: 10px; }
+.lista li { line-height: 1.45; color: var(--text-secondary); font-size: 15px; padding-left: 22px; position: relative; }
+.lista li::before { position: absolute; left: 0; font-weight: 700; }
+.sim li::before { content: "✓"; color: var(--green); }
+.nao li::before { content: "✕"; color: var(--red); }
+.final { text-align: center; padding-bottom: 8px; }
+.final .ctas { margin-top: 20px; }
+
+/* Documentação e textos legais. */
+.column { max-width: 720px; width: 100%; margin: 0 auto; padding: 32px 16px 0; }
+.docTitle { font-size: clamp(30px, 5vw, 40px); letter-spacing: -0.02em; line-height: 1.1; margin: 20px 0 0; }
+.intro { font-size: 17px; line-height: 1.5; color: var(--text-secondary); margin: 14px 0 0; overflow-wrap: anywhere; }
+.updated { font-size: 14px; color: var(--text-secondary); margin: 10px 0 0; }
+.aviso { font-size: 14px; line-height: 1.45; background: var(--surface); border-radius: var(--radius-row); padding: 12px 14px; margin: 16px 0 0; }
+.section { margin-top: 32px; }
+.section h2 { font-size: 21px; margin: 0 0 10px; letter-spacing: -0.01em; }
+.section p, .section li { font-size: 16px; line-height: 1.55; color: var(--text); overflow-wrap: anywhere; }
+.section p { margin: 0 0 10px; }
+.section ul { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 6px; }
+.code { font-family: ui-monospace, "SF Mono", Menlo, monospace; font-size: 13.5px; background: var(--surface); border-radius: 12px; padding: 12px 14px; overflow-x: auto; white-space: pre; margin: 0 0 10px; }
+
+.footer { margin-top: auto; padding: 72px 16px 32px; }
+.footerInner { max-width: 1080px; margin: 0 auto; border-top: 1px solid var(--hairline); padding-top: 20px; display: flex; flex-wrap: wrap; gap: 12px 20px; justify-content: space-between; font-size: 14px; color: var(--text-secondary); }
+.footerLinks { display: flex; flex-wrap: wrap; gap: 10px 18px; }
+.footerLinks a { color: var(--text-secondary); }
+.footerLinks a:hover { color: var(--text); }
+
+@media (max-width: 520px) {
+  .topLinks { display: none; }
+  .hero { padding-top: 40px; }
+  .primary, .secondary { width: 100%; }
+}
