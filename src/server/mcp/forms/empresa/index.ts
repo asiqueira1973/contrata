@@ -6,8 +6,8 @@ import "server-only";
 import { z } from "zod";
 import { ERROS, copy } from "@/lib/copy";
 import {
-  AVISO_EXTRA_MAX, EMAIL_MAX, EMPRESA_DESCRICAO_MAX, LOGO_MAX_BYTES, NOME_ARQUIVO_MAX, RETENCAO_DIAS_MAX, RETENCAO_DIAS_MIN,
-  TALENTOS_MESES_MAX, TALENTOS_MESES_MIN,
+  AVISO_EXTRA_MAX, COR_MAX, EMAIL_MAX, EMPRESA_DESCRICAO_MAX, EMPRESA_NOME_MAX, LOGO_MAX_BYTES, NOME_ARQUIVO_MAX, RETENCAO_DIAS_MAX,
+  RETENCAO_DIAS_MIN, SITE_URL_MAX, TALENTOS_MESES_MAX, TALENTOS_MESES_MIN,
 } from "@/lib/limits";
 import { companySettings } from "@/server/org/companies";
 import type { DefinicaoFormulario } from "../registrar";
@@ -19,11 +19,11 @@ const TIPOS_LOGO = ["image/png", "image/jpeg", "image/svg+xml"];
 const inteiro = z.union([z.number().int(), z.string().trim().regex(/^\d{1,3}$/)]).transform((v) => Number(v));
 
 export const schemaEmpresa = z.object({
-  nome: z.string().trim().max(80).optional(),
+  nome: z.string().trim().max(EMPRESA_NOME_MAX).optional(),
   descricao: z.string().trim().max(EMPRESA_DESCRICAO_MAX).optional(),
-  site_url: z.string().trim().max(300).optional(),
+  site_url: z.string().trim().max(SITE_URL_MAX).optional(),
   email_contato: z.string().trim().max(EMAIL_MAX).optional(),
-  cor_destaque: z.string().trim().max(7).optional(),
+  cor_destaque: z.string().trim().max(COR_MAX).optional(),
   pagina_publicada: z.boolean().optional(),
   logo: z.union([z.object({ nome: z.string().max(NOME_ARQUIVO_MAX), tipo: z.string().max(120), base64: z.string() }), z.literal("")]).optional(),
   remover_logo: z.boolean().optional(),
@@ -55,9 +55,9 @@ export const formularioEmpresa: DefinicaoFormulario<typeof schemaEmpresa> = {
     const numero = (k: string, atual: number) => (typeof args[k] === "number" ? String(args[k]) : String(atual));
     return {
       campos: [
-        { tipo: "texto", nome: "nome", rotulo: c.nome, obrigatorio: true, max: 80 },
+        { tipo: "texto", nome: "nome", rotulo: c.nome, obrigatorio: true, max: EMPRESA_NOME_MAX },
         { tipo: "textarea", nome: "descricao", rotulo: c.descricaoCampo, max: EMPRESA_DESCRICAO_MAX },
-        { tipo: "texto", nome: "site_url", rotulo: c.site, max: 300 },
+        { tipo: "texto", nome: "site_url", rotulo: c.site, max: SITE_URL_MAX },
         { tipo: "email", nome: "email_contato", rotulo: c.email, obrigatorio: true, max: EMAIL_MAX },
         { tipo: "cor", nome: "cor_destaque", rotulo: c.cor, dica: c.corDica },
         {

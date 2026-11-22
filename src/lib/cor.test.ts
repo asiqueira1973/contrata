@@ -4,8 +4,8 @@ import { contrasteComBranco, corValida } from "./cor";
 
 describe("contraste com branco (11.20)", () => {
   it("valores conhecidos", () => {
-    expect(contrasteComBranco("#000000")).toBe(21);
-    expect(contrasteComBranco("#ffffff")).toBe(1);
+    expect(contrasteComBranco("#000000")).toBeCloseTo(21, 5);
+    expect(contrasteComBranco("#ffffff")).toBeCloseTo(1, 5);
     expect(contrasteComBranco("#0071e3")).toBeGreaterThanOrEqual(4.5); // o azul padrão passa
     expect(contrasteComBranco("#ffd60a")).toBeLessThan(4.5); // amarelo não passa
   });

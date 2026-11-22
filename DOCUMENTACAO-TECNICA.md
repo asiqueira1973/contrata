@@ -174,14 +174,15 @@ Do 8.8, migrations `20261122180000_rs_webhooks.sql` e `20261122190000_rs_webhook
 | `rs_fn_desiste_entregas(prazo, max)` | função | `/api/cron/diario` | Pendentes mais velhas que 3 dias (webhook desligado, empresa suspensa) e as que chegaram a 8 tentativas sem resultado → `desistiu` |
 | `rs_fn_lista_eventos(empresa, alcance, admin, desde, limite)` | função | `GET /api/v1/eventos` | Trilha crescente depois de `desde`; evento de vaga só no alcance, sem vaga só administrador |
 
-Do 8.9, migration `20261122200000_rs_empresa.sql`:
+Do 8.9, migrations `20261122200000_rs_empresa.sql` e `20261122210000_rs_empresa_ajustes.sql` (achados do verifier):
 
 | Nome | Tipo | Quando roda | O que faz |
 |---|---|---|---|
 | `rs_avisos_privacidade` | tabela | salvar empresa, candidatar | O texto extra que cada `consentimento_versao` representa (a versão é só um hash); único empresa+versão |
 | `rs_eventos_tipo_catalogo` (refeito) | check | todo evento | + `empresa_editada`, `empresa_excluida`, `exclusao_desfeita` |
 | `rs_tipo_notificacao` | enum | — | + `empresa_excluida` |
-| `rs_fn_salva_empresa(empresa, dados, versao_aviso, ator)` | função | `salvar_empresa`, `pagina_de_carreiras` | Administrador; só os campos que vierem; checks da tabela (retenção 90–365, talentos 6–24, site https, cor #rrggbb); texto extra novo vai para o histórico com a versão; `empresa_editada` com os nomes dos campos mudados |
+| `rs_fn_salva_empresa(empresa, dados, versao_aviso, ator, versao_anterior)` | função | `salvar_empresa`, `pagina_de_carreiras` | Administrador; só os campos que vierem; checks da tabela (retenção 90–365, talentos 6–24, site https, cor #rrggbb); o texto extra novo e o que sai vão para o histórico com as versões; `empresa_editada` com os nomes dos campos mudados |
+| `rs_fn_conclui_candidatura` (refeita) | função | concluir candidatura | Confere a empresa ativa com `for share` (serializa com a exclusão, que trava `for update`) |
 | `rs_fn_troca_logo(empresa, path, mime, bytes, sha256, ator)` | função | `salvar_empresa` | Uma linha `rs_arquivos` tipo `logo`; devolve o caminho antigo (o servidor apaga) |
 | `rs_fn_exclui_empresa(empresa, slug, ator)` | função | `salvar_excluir_empresa` | Administrador, slug igual (`slug_nao_confere`), sem candidatura recebida em andamento (`empresa_com_ativas`) → `excluida_em`; devolve `expurgar_em` (7 dias) |
 | `rs_fn_desfaz_exclusao(empresa, ator)` | função | `salvar_desfazer_exclusao` | Administrador, excluída há menos de 7 dias (`prazo_vencido`) |
@@ -423,3 +424,11 @@ Todas já refletidas no `spec.md` (v0.4.8).
 86. **Desfazer pelo conector** (decisão do Alexandre): com a empresa excluída, `resolveCredential` aceita só o token do conector de administrador ativo, por 7 dias; o `/mcp` oferece só `quem_sou_eu` (com `expurgar_em`) e `desfazer_exclusao`. O e-mail `empresa_excluida` explica como desfazer. O expurgo no 7º dia (arquivos e linhas) é da faxina do 8.10.
 87. **`pagina_de_carreiras` passa pelo `rs_fn_salva_empresa`** e agora gera `empresa_editada`.
 88. **Logo nos e-mails ao candidato, nas páginas e no JSON-LD** (`hiringOrganization.logo`), pela URL pública.
+89. **Achados do verifier do 8.9, corrigidos com teste:**
+   - o SVG perdia `viewBox`, `preserveAspectRatio`, gradientes e `clipPath` (o `sanitize-html` em modo HTML passava tudo para minúsculas): agora em modo XML, com a caixa dos nomes;
+   - uma candidatura podia ser concluída numa empresa que acabou de ser excluída: a conclusão confere a empresa e se trava com a exclusão;
+   - logo inválido junto com outros campos gravava o resto pela metade: o logo é conferido antes de gravar qualquer coisa;
+   - o contraste era arredondado antes de comparar (4,4962 passava): compara-se o número exato;
+   - texto extra só com quebras de linha dava erro cru: o texto vai sem espaços nem quebras nas pontas;
+   - o texto extra anterior ao 8.9 não tinha histórico: a migration guarda o que existia, e trocar o texto guarda também o que sai.
+90. **Desfazer só pelo conector que já estava conectado:** com a empresa excluída, ela não aparece no consentimento do OAuth (não dá para conectar de novo); o e-mail diz isso. Candidatura encerrada com revisão pedida e sem resposta não impede a exclusão (fica para o Alexandre decidir se deveria).

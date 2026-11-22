@@ -12,7 +12,8 @@ function luminancia(cor: string): number {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-// Contraste da cor com o branco (1 a 21). Recebe: #rrggbb. Devolve a razão com duas casas.
+// Contraste da cor com o branco (1 a 21), sem arredondar: é este número que se compara com o
+// mínimo (4,4962 não passa por 4,5). Recebe: #rrggbb.
 export function contrasteComBranco(cor: string): number {
-  return Math.round(((1.05 / (luminancia(cor) + 0.05)) * 100)) / 100;
+  return 1.05 / (luminancia(cor) + 0.05);
 }

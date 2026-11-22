@@ -1049,7 +1049,7 @@ export const copy = {
     assunto: (empresa: string) => `${empresa} será excluída do ${NOME_PRODUTO}`,
     corpo: (empresa: string, data: string) =>
       `A empresa ${empresa} foi excluída. A página de carreiras saiu do ar e as chaves de API e conexões pararam. Em ${data}, todos os dados e arquivos dela serão apagados de vez.`,
-    desfazer: `Para desfazer até lá, abra o Claude ou o ChatGPT com o conector do ${NOME_PRODUTO} e peça: "desfazer a exclusão da empresa".`,
+    desfazer: `Para desfazer até lá, um administrador abre o Claude ou o ChatGPT em que o conector do ${NOME_PRODUTO} já está conectado e pede: "desfazer a exclusão da empresa". Não dá para conectar de novo enquanto a empresa está excluída.`,
   },
 
   // Banco de talentos (8.7; 15.1, 15.4).

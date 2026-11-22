@@ -12,7 +12,7 @@ import { db } from "@/server/db/client";
 import type { Usuario } from "@/server/db/users";
 import { CamposInvalidos, DomainError } from "@/server/http";
 import { contrasteComBranco, corValida } from "@/lib/cor";
-import { COR_CONTRASTE_MIN, FUSO, RETENCAO_DIAS_MAX, RETENCAO_DIAS_MIN, TALENTOS_MESES_MAX, TALENTOS_MESES_MIN } from "@/lib/limits";
+import { COR_CONTRASTE_MIN, EMPRESA_NOME_MAX, EMPRESA_NOME_MIN, FUSO, RETENCAO_DIAS_MAX, RETENCAO_DIAS_MIN, TALENTOS_MESES_MAX, TALENTOS_MESES_MIN } from "@/lib/limits";
 import type { ContextoMembro } from "@/server/auth/require-membro";
 import { enqueue } from "@/server/email/outbox";
 import { empresaExcluida } from "@/server/email/templates";
@@ -109,7 +109,7 @@ function confere(d: MudancaEmpresa) {
   if (d.site_url && !/^https:\/\/[^\s/]+\.[^\s]+$/.test(d.site_url)) erros.push({ campo: "site_url", codigo: "site_invalido" });
   if (d.retencao_dias !== undefined && (d.retencao_dias < RETENCAO_DIAS_MIN || d.retencao_dias > RETENCAO_DIAS_MAX)) erros.push({ campo: "retencao_dias", codigo: "retencao_invalida" });
   if (d.talentos_meses !== undefined && (d.talentos_meses < TALENTOS_MESES_MIN || d.talentos_meses > TALENTOS_MESES_MAX)) erros.push({ campo: "talentos_meses", codigo: "talentos_invalido" });
-  if (d.nome !== undefined && (d.nome.trim().length < 2 || d.nome.trim().length > 80)) erros.push({ campo: "nome", codigo: "campo_invalido" });
+  if (d.nome !== undefined && (d.nome.trim().length < EMPRESA_NOME_MIN || d.nome.trim().length > EMPRESA_NOME_MAX)) erros.push({ campo: "nome", codigo: "campo_invalido" });
   if (d.email_contato !== undefined && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(d.email_contato)) erros.push({ campo: "email_contato", codigo: "email_invalido" });
   if (erros.length) throw new CamposInvalidos(erros);
 }
@@ -119,9 +119,14 @@ function confere(d: MudancaEmpresa) {
 export async function saveCompany(ctx: ContextoMembro, d: MudancaEmpresa): Promise<string[]> {
   exigeAdministrador(ctx);
   confere(d);
-  const extra = d.aviso_privacidade_extra?.trim();
+  // O texto extra vai sem espaços nem quebras nas pontas (o mesmo trim da versão, 15.5); o que
+  // sai fica no histórico com a versão dele.
+  const dados = d.aviso_privacidade_extra === undefined ? d : { ...d, aviso_privacidade_extra: d.aviso_privacidade_extra.trim() };
+  const extra = dados.aviso_privacidade_extra;
+  const anterior = extra === undefined ? null : (await companySettings(ctx.empresa.id)).aviso_privacidade_extra;
   const { data, error } = await db().rpc("rs_fn_salva_empresa", {
-    p_empresa: ctx.empresa.id, p_dados: d as never, p_versao_aviso: (extra ? versaoDoAviso(extra) : null) as never, p_ator: atorJson(ctx.ator),
+    p_empresa: ctx.empresa.id, p_dados: dados as never, p_versao_aviso: (extra ? versaoDoAviso(extra) : null) as never, p_ator: atorJson(ctx.ator),
+    p_versao_anterior: (anterior ? versaoDoAviso(anterior) : null) as never,
   });
   if (error) throw error;
   invalidarPaginas(ctx.empresa.slug);

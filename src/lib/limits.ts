@@ -216,4 +216,7 @@ export const TALENTOS_MESES_MIN = 6;
 export const TALENTOS_MESES_MAX = 24;
 export const EXCLUSAO_EMPRESA_DIAS = 7;
 export const EMPRESA_DESCRICAO_MAX = 2000;
+export const SITE_URL_MAX = 300;
+export const COR_MAX = 7;
+export const CONFIRMACAO_SLUG_MAX = 60;
 export const AVISO_EXTRA_MAX = 1000;

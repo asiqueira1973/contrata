@@ -4,14 +4,14 @@
 import "server-only";
 import { z } from "zod";
 import { copy } from "@/lib/copy";
-import { FUSO } from "@/lib/limits";
+import { CONFIRMACAO_SLUG_MAX, FUSO } from "@/lib/limits";
 import { DomainError } from "@/server/http";
 import { deleteCompany } from "@/server/org/companies";
 import type { DefinicaoFormulario } from "../registrar";
 
 const c = copy.mcp.form.excluir_empresa;
 const DATA = new Intl.DateTimeFormat("pt-BR", { timeZone: FUSO, day: "2-digit", month: "2-digit", year: "numeric" });
-export const schemaExcluirEmpresa = z.object({ confirmacao: z.string().trim().max(60) });
+export const schemaExcluirEmpresa = z.object({ confirmacao: z.string().trim().max(CONFIRMACAO_SLUG_MAX) });
 
 export const formularioExcluirEmpresa: DefinicaoFormulario<typeof schemaExcluirEmpresa> = {
   acao: "excluir_empresa",
@@ -22,7 +22,7 @@ export const formularioExcluirEmpresa: DefinicaoFormulario<typeof schemaExcluirE
   entrada: z.object({}),
   async montar(_args, ctx) {
     return {
-      campos: [{ tipo: "texto", nome: "confirmacao", rotulo: c.confirmacao(ctx.empresa.slug), obrigatorio: true, max: 60 }],
+      campos: [{ tipo: "texto", nome: "confirmacao", rotulo: c.confirmacao(ctx.empresa.slug), obrigatorio: true, max: CONFIRMACAO_SLUG_MAX }],
       valores: { confirmacao: "" },
       avisos: [c.aviso(ctx.empresa.nome)],
       botao: c.botao,

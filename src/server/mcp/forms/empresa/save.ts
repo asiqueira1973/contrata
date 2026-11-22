@@ -4,6 +4,7 @@ import "server-only";
 import type { z } from "zod";
 import { copy } from "@/lib/copy";
 import { LOGO_MAX_BYTES } from "@/lib/limits";
+import { confereLogo } from "@/server/files/logo";
 import { CamposInvalidos } from "@/server/http";
 import { saveCompany, saveLogo, type MudancaEmpresa } from "@/server/org/companies";
 import type { ContextoFormulario } from "../registrar";
@@ -18,6 +19,9 @@ export async function gravarEmpresa(dados: z.infer<typeof schemaEmpresa>, ctx: C
     logo = new Uint8Array(Buffer.from(dados.logo.base64, "base64"));
     if (logo.length > LOGO_MAX_BYTES) throw new CamposInvalidos([{ campo: "logo", codigo: "logo_grande" }]);
     if (!logo.length) throw new CamposInvalidos([{ campo: "logo", codigo: "logo_invalido" }]);
+    // Confere o logo antes de gravar qualquer coisa: nada fica pela metade (achado A3).
+    const conferido = confereLogo(logo);
+    if (typeof conferido === "string") throw new CamposInvalidos([{ campo: "logo", codigo: conferido }]);
   }
   // Logo e "tirar o logo" não são colunas: vão pelo saveLogo.
   const mudanca = Object.fromEntries(Object.entries(dados).filter(([k, v]) => v !== undefined && k !== "logo" && k !== "remover_logo")) as MudancaEmpresa;

@@ -606,6 +606,13 @@ declare
   v_notificacao uuid;
   v_vaga public.rs_vagas;
 begin
+  -- Empresa excluída ou suspensa não recebe candidatura; o "for share" serializa com a exclusão
+  -- (rs_fn_exclui_empresa trava a empresa "for update" antes de contar as em andamento; achado A2
+  -- do verifier do 8.9).
+  perform 1 from public.rs_empresas where id = p_empresa and excluida_em is null and suspensa_em is null for share;
+  if not found then
+    raise exception 'vaga_fechada' using errcode = 'P0001';
+  end if;
   select * into v from public.rs_candidaturas where id = p_candidatura and empresa_id = p_empresa for update;
   if v.id is null then
     raise exception 'nao_encontrado' using errcode = 'P0001';
@@ -2337,7 +2344,7 @@ end $$;
 ALTER FUNCTION "public"."rs_fn_salva_area"("p_empresa" "uuid", "p_id" "uuid", "p_nome" "text", "p_responsavel" "uuid", "p_ator" "jsonb") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."rs_fn_salva_empresa"("p_empresa" "uuid", "p_dados" "jsonb", "p_versao_aviso" "text", "p_ator" "jsonb") RETURNS "text"[]
+CREATE OR REPLACE FUNCTION "public"."rs_fn_salva_empresa"("p_empresa" "uuid", "p_dados" "jsonb", "p_versao_aviso" "text", "p_ator" "jsonb", "p_versao_anterior" "text" DEFAULT NULL::"text") RETURNS "text"[]
     LANGUAGE "plpgsql"
     SET "search_path" TO ''
     AS $$
@@ -2374,6 +2381,11 @@ begin
   if n.mensagens_agente is distinct from a.mensagens_agente then v_campos := pg_catalog.array_append(v_campos, 'mensagens_agente'); end if;
   if n.aviso_privacidade_extra is distinct from a.aviso_privacidade_extra then
     v_campos := pg_catalog.array_append(v_campos, 'aviso_privacidade_extra');
+    -- O texto que sai também fica guardado com a versão dele (o anterior ao 8.9 não tinha histórico).
+    if a.aviso_privacidade_extra is not null and p_versao_anterior is not null then
+      insert into public.rs_avisos_privacidade (empresa_id, versao, texto_extra)
+      values (p_empresa, p_versao_anterior, a.aviso_privacidade_extra) on conflict on constraint rs_avisos_unico do nothing;
+    end if;
     if n.aviso_privacidade_extra is not null then
       if p_versao_aviso is null then
         raise exception 'dados_invalidos' using errcode = 'P0001';
@@ -2391,7 +2403,7 @@ begin
 end $$;
 
 
-ALTER FUNCTION "public"."rs_fn_salva_empresa"("p_empresa" "uuid", "p_dados" "jsonb", "p_versao_aviso" "text", "p_ator" "jsonb") OWNER TO "postgres";
+ALTER FUNCTION "public"."rs_fn_salva_empresa"("p_empresa" "uuid", "p_dados" "jsonb", "p_versao_aviso" "text", "p_ator" "jsonb", "p_versao_anterior" "text") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."rs_fn_salva_pessoa"("p_empresa" "uuid", "p_id" "uuid", "p_nome" "text", "p_email" "text", "p_cargo" "text", "p_area" "uuid", "p_recebe_resumo" boolean, "p_ator" "jsonb") RETURNS "uuid"
@@ -4948,8 +4960,8 @@ GRANT ALL ON FUNCTION "public"."rs_fn_salva_area"("p_empresa" "uuid", "p_id" "uu
 
 
 
-REVOKE ALL ON FUNCTION "public"."rs_fn_salva_empresa"("p_empresa" "uuid", "p_dados" "jsonb", "p_versao_aviso" "text", "p_ator" "jsonb") FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."rs_fn_salva_empresa"("p_empresa" "uuid", "p_dados" "jsonb", "p_versao_aviso" "text", "p_ator" "jsonb") TO "service_role";
+REVOKE ALL ON FUNCTION "public"."rs_fn_salva_empresa"("p_empresa" "uuid", "p_dados" "jsonb", "p_versao_aviso" "text", "p_ator" "jsonb", "p_versao_anterior" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_salva_empresa"("p_empresa" "uuid", "p_dados" "jsonb", "p_versao_aviso" "text", "p_ator" "jsonb", "p_versao_anterior" "text") TO "service_role";
 
 
 

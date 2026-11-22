@@ -1034,7 +1034,7 @@ isOneToOne: false
 { Args: { "p_ator": Json,"p_empresa": string,"p_id": string,"p_nome": string,"p_responsavel": string }; Returns: string
                            },
 "rs_fn_salva_empresa":
-{ Args: { "p_ator": Json,"p_dados": Json,"p_empresa": string,"p_versao_aviso": string }; Returns: (string)[]
+{ Args: { "p_ator": Json,"p_dados": Json,"p_empresa": string,"p_versao_anterior"?: string,"p_versao_aviso": string }; Returns: (string)[]
                            },
 "rs_fn_salva_pessoa":
 { Args: { "p_area": string,"p_ator": Json,"p_cargo": string,"p_email": string,"p_empresa": string,"p_id": string,"p_nome": string,"p_recebe_resumo": boolean }; Returns: string

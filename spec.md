@@ -1091,7 +1091,7 @@ Base `/api/v1`, `Authorization: Bearer rsk_…` (ou `rsm_…`). Escopo exigido e
 | `GET /eventos` | leitura | `?desde={id}`, ordem crescente |
 | `GET /openapi.json` | — | documento OpenAPI 3.1 |
 
-**Sem porta na API v1 (de propósito):** confirmar ou descartar decisão (princípio 2), avaliar candidatura (é opinião de pessoa), reabrir candidatura e responder revisão (exigem julgamento humano registrado com nome), criar empresa, membros, convites, áreas, escrita no cadastro de pessoas, chaves, webhooks, retenção e exclusão de empresa (administração e segurança: quem dá acesso é sempre uma pessoa). **Todas existem no chat como formulário** (13.3), gravadas só pelo clique.
+**Sem porta na API v1 (de propósito):** confirmar ou descartar decisão (princípio 2), avaliar candidatura (é opinião de pessoa), reabrir candidatura e responder revisão (exigem julgamento humano registrado com nome), criar empresa, membros, convites, áreas, escrita no cadastro de pessoas, chaves, webhooks, configuração, retenção, exclusão e desfazer exclusão da empresa (administração e segurança: quem dá acesso é sempre uma pessoa). **Todas existem no chat como formulário** (13.3), gravadas só pelo clique.
 
 **API pública (sem chave):** `GET /api/publico/{e}/vagas`, `GET /api/publico/{e}/vagas/{slug}` (só publicadas, sem dados internos), `POST …/candidaturas` e `…/concluir`, `GET /{e}/vagas.xml`. CORS aberto (`*`) só nas leituras públicas; o `POST` aceita as origens de `cors_origens` da empresa — no MVP, qualquer origem `https` com os limites da 11.14 (assunção 24.8).
 

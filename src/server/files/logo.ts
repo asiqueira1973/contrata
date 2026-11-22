@@ -6,16 +6,19 @@ import "server-only";
 import { createHash } from "node:crypto";
 import sanitizeHtml from "sanitize-html";
 import { LOGO_MAX_BYTES } from "@/lib/limits";
+import { siteOrigin } from "@/server/oauth/server";
 
 export type Logo = { ext: "png" | "jpg" | "svg"; mime: string; bytes: Uint8Array; sha256: string };
 
+// SVG é XML: os nomes têm caixa (viewBox, linearGradient) e são comparados como escritos.
 const ELEMENTOS = ["svg", "g", "path", "rect", "circle", "ellipse", "line", "polyline", "polygon", "text", "tspan", "defs",
-  "lineargradient", "radialgradient", "stop", "title", "desc", "clippath", "mask", "symbol", "use"];
-const ATRIBUTOS = ["id", "class", "viewbox", "width", "height", "x", "y", "x1", "y1", "x2", "y2", "cx", "cy", "r", "rx", "ry", "d", "points",
+  "linearGradient", "radialGradient", "stop", "title", "desc", "clipPath", "mask", "symbol", "use"];
+const ATRIBUTOS = ["id", "class", "viewBox", "width", "height", "x", "y", "x1", "y1", "x2", "y2", "cx", "cy", "r", "rx", "ry", "fx", "fy", "d", "points",
   "fill", "fill-opacity", "fill-rule", "clip-rule", "stroke", "stroke-width", "stroke-opacity", "stroke-linecap", "stroke-linejoin",
-  "stroke-miterlimit", "stroke-dasharray", "opacity", "transform", "offset", "stop-color", "stop-opacity", "gradientunits",
-  "gradienttransform", "font-family", "font-size", "font-weight", "text-anchor", "dominant-baseline", "letter-spacing",
-  "clip-path", "mask", "preserveaspectratio", "xmlns", "version", "href", "xlink:href", "xmlns:xlink"];
+  "stroke-miterlimit", "stroke-dasharray", "opacity", "transform", "offset", "stop-color", "stop-opacity", "gradientUnits",
+  "gradientTransform", "spreadMethod", "clipPathUnits", "maskUnits", "maskContentUnits", "font-family", "font-size", "font-weight",
+  "text-anchor", "dominant-baseline", "letter-spacing", "clip-path", "mask", "preserveAspectRatio", "xmlns", "version", "href",
+  "xlink:href", "xmlns:xlink"];
 
 const hash = (b: Uint8Array) => createHash("sha256").update(b).digest("hex");
 
@@ -33,7 +36,7 @@ export function sanitizaSvg(texto: string): string | null {
       },
     },
     allowedSchemes: [],
-    parser: { lowerCaseTags: true, lowerCaseAttributeNames: true },
+    parser: { xmlMode: true, lowerCaseTags: false, lowerCaseAttributeNames: false },
   }).trim();
   // Precisa sobrar um <svg> com algo desenhado (um SVG que só tinha script vira vazio).
   return /^<svg[\s>][\s\S]*<\/svg>$/.test(limpo) && /<(path|rect|circle|ellipse|line|polyline|polygon|text|use)[\s>/]/.test(limpo) ? limpo : null;
@@ -61,5 +64,5 @@ export function confereLogo(bytes: Uint8Array): Logo | "logo_invalido" | "logo_g
 export function urlDoLogo(slug: string, logoPath: string | null | undefined): string | null {
   if (!logoPath) return null;
   const v = /logo-([0-9a-f]{8})\./.exec(logoPath)?.[1] ?? "1";
-  return `${(process.env.NEXT_PUBLIC_SITE_URL ?? "").replace(/\/$/, "")}/api/publico/${slug}/logo?v=${v}`;
+  return `${siteOrigin()}/api/publico/${slug}/logo?v=${v}`;
 }
