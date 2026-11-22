@@ -1029,7 +1029,7 @@ Toda transição grava o evento correspondente (15.3). Candidatura anonimizada n
 
 ### 12.4 Notificação e webhook
 
-Iguais ao Assina: `pendente` → `enviada` | `falhou` (retentada) → `descartada` (depois de 5 tentativas ou destinatário anonimizado). Entrega: `pendente` → `entregue` | `falhou` → `desistiu` (3 dias).
+Iguais ao Assina: `pendente` → `enviada` | `falhou` (retentada) → `descartada` (depois de 5 tentativas ou destinatário anonimizado). Entrega: `pendente` → `entregue` | `falhou` → `desistiu` (3 dias ou 8 tentativas, v0.4.9).
 
 ### 12.5 Formulário
 
@@ -1131,7 +1131,7 @@ Base `/api/v1`, `Authorization: Bearer rsk_…` (ou `rsm_…`). Escopo exigido e
 | `area` (criar, editar, arquivar) | F | administrador | `listar_pessoas` | `registrar_area` |
 | `pessoa` (cadastrar, editar, arquivar, dar acesso) | F | recrutador (arquivar e dar acesso: administrador) | `listar_areas` | `registrar_pessoa` |
 | `conexoes_e_chaves` | F | membro (chaves: administrador) | — | **sem fallback** (a chave só aparece no formulário) |
-| `webhooks` | F | administrador | — | `registrar_webhook` |
+| `webhooks` | F | administrador | — | `registrar_webhooks` |
 | `empresa` · `excluir_empresa` | F | administrador | — | `registrar_empresa`; excluir sem fallback |
 | `vaga` (criar e editar, etapas, perguntas, equipe) | F | recrutador | `listar_areas`, `listar_pessoas`, `listar_equipe` | `registrar_vaga` |
 | `publicar_vaga` · `pausar_vaga` | F | recrutador | vagas do alcance | `registrar_publicar_vaga` · `registrar_pausar_vaga` |
@@ -1147,7 +1147,7 @@ A descrição de `abrir_formulario_decisoes` diz literalmente: "Abre o formulár
 
 ### 13.4 Webhooks
 
-Corpo: `{"id": "{evento_id}", "tipo": "...", "criado_em": "...", "empresa_id": "...", "dados": {...}}`, com `dados` contendo ids e o objeto resumido (vaga ou candidatura como na API v1, **sem texto do currículo**). **v0.4.9:** o resumo não leva nome, e-mail nem telefone (ids, etapa, situação, origem, datas, a vaga e a decisão); quem integra busca a pessoa em `GET /candidaturas/{id}` com a chave. Cabeçalhos `X-Contrata-Assinatura`, `X-Contrata-Evento` e `X-Contrata-Entrega`. `vaga_pausada_prazo` vira `vaga.pausada`; a exclusão a pedido do titular vira `candidatura.anonimizada`.
+Corpo: `{"id": "{evento_id}", "tipo": "...", "criado_em": "...", "empresa_id": "...", "dados": {...}}`, com `dados` contendo ids e o objeto resumido (vaga ou candidatura como na API v1, **sem texto do currículo**). **v0.4.9:** o resumo não leva nome, e-mail nem telefone (ids, etapa, situação, origem, datas, a vaga e a decisão); quem integra busca a pessoa em `GET /candidaturas/{id}` com a chave. Cabeçalhos `X-Contrata-Assinatura`, `X-Contrata-Evento` e `X-Contrata-Entrega`. `vaga_pausada_prazo` vira `vaga.pausada`; na exclusão a pedido do titular, cada candidatura anonimizada gera o seu `candidatura.anonimizada` (um aviso por candidatura, sem repetir).
 
 Catálogo: `vaga.publicada`, `vaga.pausada`, `vaga.encerrada`, `candidatura.criada`, `candidatura.etapa_alterada`, `candidatura.reprovada`, `candidatura.contratada`, `candidatura.desistiu`, `candidatura.encerrada_vaga`, `candidatura.reaberta`, `candidatura.anonimizada`, `decisao.proposta`, `decisao.confirmada`, `decisao.descartada`, `revisao.pedida`.
 

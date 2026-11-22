@@ -93,6 +93,6 @@ Spec **v0.4.9: um sistema para agentes, não para humanos**. Quem recruta opera 
 - O servidor de dev fica com módulo velho depois de reiniciar o banco ou de muitas edições (erro 500 com `TypeError` que os testes não reproduzem): reinicie o `npm run dev` antes de investigar.
 - **Webhooks (8.8):** a entrega nasce no banco (trigger `rs_tg_eventos_webhook` em `rs_eventos`): evento novo que deve avisar só precisa entrar no mapa `rs_fn_tipo_webhook` (e no catálogo 13.4). Corpo sem nome, e-mail ou telefone (`rs_fn_corpo_webhook`). Envio só por `webhooks/deliver` (fetch com SSRF de `files/fetch-remote.ts`); nada de URL, segredo ou corpo em log.
 - Escrita nova fora da API v1, do `/mcp` e das ações do candidato que gere evento com webhook: chame `deliverDueLater(empresaId)` depois, senão a 1ª tentativa espera a próxima atividade ou a faxina.
-- "Vencida" é pelo relógio do banco (`rs_fn_entregas_vencidas`): não filtre `proxima_tentativa_em` com `new Date()` do Node.
+- "Vencida" é pelo relógio do banco (`rs_fn_entregas_vencidas`, que também deixa de fora webhook desligado, empresa suspensa e entrega no máximo): não filtre `proxima_tentativa_em` com `new Date()` do Node. Envio sempre com prazo (`deliverDue(empresa, lote, prazoMs)`): a função da Vercel tem 60 s.
 - Teste de webhook: `setRemoteFetchTestMode(true)` + `startHttps` de `tests/https-server.ts` (TLS autoassinado). Fora do modo de teste, 127.0.0.1 e localhost são recusados, como devem.
 - `CHAVES_ENC_KEY` (32 bytes base64) é obrigatória para webhooks; `tests/setup.ts` gera uma.

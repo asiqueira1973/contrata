@@ -1171,20 +1171,22 @@ end $$;
 ALTER FUNCTION "public"."rs_fn_descarta_decisao"("p_decisao" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_motivo" "text", "p_ator" "jsonb") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."rs_fn_desiste_entregas"("p_desiste" interval) RETURNS integer
+CREATE OR REPLACE FUNCTION "public"."rs_fn_desiste_entregas"("p_desiste" interval, "p_max" integer) RETURNS integer
     LANGUAGE "plpgsql"
     SET "search_path" TO ''
     AS $$
 declare v_n integer;
 begin
   update public.rs_entregas_webhook set status = 'desistiu', reservada_em = null
-   where status in ('pendente', 'falhou') and criado_em < pg_catalog.now() - p_desiste;
+   where status in ('pendente', 'falhou')
+     and (criado_em < pg_catalog.now() - p_desiste
+          or (tentativas >= p_max and (reservada_em is null or reservada_em < pg_catalog.now() - interval '2 minutes')));
   get diagnostics v_n = row_count;
   return v_n;
 end $$;
 
 
-ALTER FUNCTION "public"."rs_fn_desiste_entregas"("p_desiste" interval) OWNER TO "postgres";
+ALTER FUNCTION "public"."rs_fn_desiste_entregas"("p_desiste" interval, "p_max" integer) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."rs_fn_encerra_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid", "p_situacao" "public"."rs_situacao_candidatura", "p_ator" "jsonb", "p_motivo" "public"."rs_motivo_reprovacao", "p_mensagem" "jsonb", "p_dados" "jsonb" DEFAULT '{}'::"jsonb") RETURNS "jsonb"
@@ -1287,18 +1289,20 @@ end $$;
 ALTER FUNCTION "public"."rs_fn_entra_usuario"("p_google_sub" "text", "p_email" "text", "p_nome" "text", "p_foto" "text") OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."rs_fn_entregas_vencidas"("p_empresa" "uuid", "p_lote" integer) RETURNS SETOF "uuid"
+CREATE OR REPLACE FUNCTION "public"."rs_fn_entregas_vencidas"("p_empresa" "uuid", "p_lote" integer, "p_max" integer) RETURNS SETOF "uuid"
     LANGUAGE "sql" STABLE
     SET "search_path" TO ''
     AS $$
-  select id from public.rs_entregas_webhook
-   where status in ('pendente', 'falhou') and proxima_tentativa_em <= pg_catalog.now()
-     and (reservada_em is null or reservada_em < pg_catalog.now() - interval '2 minutes')
-     and (p_empresa is null or empresa_id = p_empresa)
-   order by criado_em limit greatest(p_lote, 0) $$;
+  select d.id from public.rs_entregas_webhook d
+    join public.rs_webhooks w on w.id = d.webhook_id and w.ativo
+    join public.rs_empresas e on e.id = d.empresa_id and e.excluida_em is null and e.suspensa_em is null
+   where d.status in ('pendente', 'falhou') and d.proxima_tentativa_em <= pg_catalog.now() and d.tentativas < p_max
+     and (d.reservada_em is null or d.reservada_em < pg_catalog.now() - interval '2 minutes')
+     and (p_empresa is null or d.empresa_id = p_empresa)
+   order by d.criado_em limit greatest(p_lote, 0) $$;
 
 
-ALTER FUNCTION "public"."rs_fn_entregas_vencidas"("p_empresa" "uuid", "p_lote" integer) OWNER TO "postgres";
+ALTER FUNCTION "public"."rs_fn_entregas_vencidas"("p_empresa" "uuid", "p_lote" integer, "p_max" integer) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."rs_fn_envia_mensagem"("p_candidatura" "uuid", "p_empresa" "uuid", "p_tipo" "public"."rs_tipo_mensagem", "p_mensagem" "jsonb", "p_ator" "jsonb", "p_decisao" "uuid", "p_cota" integer) RETURNS "uuid"
@@ -2522,7 +2526,6 @@ CREATE OR REPLACE FUNCTION "public"."rs_fn_tipo_webhook"("p_tipo" "text") RETURN
     when 'candidatura_encerrada_vaga' then 'candidatura.encerrada_vaga'
     when 'candidatura_reaberta' then 'candidatura.reaberta'
     when 'candidatura_anonimizada' then 'candidatura.anonimizada'
-    when 'dados_excluidos' then 'candidatura.anonimizada'
     when 'decisao_proposta' then 'decisao.proposta'
     when 'decisao_confirmada' then 'decisao.confirmada'
     when 'decisao_descartada' then 'decisao.descartada'
@@ -4588,8 +4591,8 @@ GRANT ALL ON FUNCTION "public"."rs_fn_descarta_decisao"("p_decisao" "uuid", "p_e
 
 
 
-REVOKE ALL ON FUNCTION "public"."rs_fn_desiste_entregas"("p_desiste" interval) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."rs_fn_desiste_entregas"("p_desiste" interval) TO "service_role";
+REVOKE ALL ON FUNCTION "public"."rs_fn_desiste_entregas"("p_desiste" interval, "p_max" integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_desiste_entregas"("p_desiste" interval, "p_max" integer) TO "service_role";
 
 
 
@@ -4603,8 +4606,8 @@ GRANT ALL ON FUNCTION "public"."rs_fn_entra_usuario"("p_google_sub" "text", "p_e
 
 
 
-REVOKE ALL ON FUNCTION "public"."rs_fn_entregas_vencidas"("p_empresa" "uuid", "p_lote" integer) FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."rs_fn_entregas_vencidas"("p_empresa" "uuid", "p_lote" integer) TO "service_role";
+REVOKE ALL ON FUNCTION "public"."rs_fn_entregas_vencidas"("p_empresa" "uuid", "p_lote" integer, "p_max" integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_entregas_vencidas"("p_empresa" "uuid", "p_lote" integer, "p_max" integer) TO "service_role";
 
 
 

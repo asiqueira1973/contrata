@@ -157,21 +157,21 @@ Do 8.7, migrations `20261122160000_rs_talentos.sql` e `20261122170000_rs_talento
 | `rs_fn_talentos_candidato(candidatura, ação)` | função | `/c` | Entrar, renovar (por `talentos_meses`, zera o aviso) ou sair; eventos do titular |
 | `rs_fn_faxina_talentos(lote)` | função | `/api/cron/diario` | Tira quem venceu (`talentos_retirado`, sistema) e devolve quem vence em até 30 dias, marcando o aviso; empresa suspensa ou excluída não avisa (fica para depois) |
 
-Do 8.8, migration `20261122180000_rs_webhooks.sql`:
+Do 8.8, migrations `20261122180000_rs_webhooks.sql` e `20261122190000_rs_webhooks_ajustes.sql` (achados do verifier):
 
 | Nome | Tipo | Quando roda | O que faz |
 |---|---|---|---|
 | `rs_eventos_tipo_catalogo` (refeito) | check | todo evento | Catálogo 15.3 + `webhook_criado`, `webhook_editado`, `webhook_removido` (decisão 9 do 8.8) |
 | `rs_webhooks_eventos_catalogo`, `rs_webhooks_url_tamanho` | checks | salvar webhook | Eventos só do catálogo 13.4; URL até 500 |
-| `rs_fn_tipo_webhook(tipo)` | auxiliar | trigger | Tipo da trilha → tipo do webhook (`vaga_pausada_prazo` → `vaga.pausada`, `dados_excluidos` → `candidatura.anonimizada`); null = não vira webhook |
+| `rs_fn_tipo_webhook(tipo)` | auxiliar | trigger | Tipo da trilha → tipo do webhook (`vaga_pausada_prazo` → `vaga.pausada`; a exclusão a pedido não duplica: cada candidatura já gera `candidatura_anonimizada`); null = não vira webhook |
 | `rs_fn_corpo_webhook(evento, tipo)` | auxiliar | trigger | `{id, tipo, criado_em, empresa_id, dados}`: `dados` do evento + resumo da candidatura (etapa, situação, origem…), da vaga e da decisão. **Sem nome, e-mail, telefone ou texto** |
 | `rs_tg_eventos_webhook` | trigger (after insert em `rs_eventos`) | todo evento | Uma entrega por webhook ativo que assina o tipo, na mesma transação; empresa suspensa ou excluída não gera |
 | `rs_fn_exige_administrador(empresa, ator)` | auxiliar | salvar/remover | `papel_insuficiente` se o membro do ator não for administrador ativo da empresa |
 | `rs_fn_salva_webhook(...)` / `rs_fn_remove_webhook(...)` | funções | `salvar_webhooks` | Até 5 por empresa (`limite_webhooks`); editar mantém o que vier nulo; trilha com o host, sem segredo; remover leva as entregas |
 | `rs_fn_reserva_entrega(id, max)` | função | envio | Reserva de 2 min e conta a tentativa; só vencida, não entregue, abaixo do máximo |
 | `rs_fn_resultado_entrega(id, status, espera, max, desiste)` | função | envio | 2xx → `entregue`; senão `falhou` com a próxima em `espera`, ou `desistiu` (8 tentativas ou 3 dias) |
-| `rs_fn_entregas_vencidas(empresa, lote)` | função | envio, faxina | Vencidas pelo relógio do banco (o do servidor pode estar atrás) |
-| `rs_fn_desiste_entregas(prazo)` | função | `/api/cron/diario` | Pendentes mais velhas que 3 dias (webhook desligado, empresa suspensa) → `desistiu` |
+| `rs_fn_entregas_vencidas(empresa, lote, max)` | função | envio, faxina | Vencidas pelo relógio do banco (o do servidor pode estar atrás), só de webhook ligado, empresa ativa e abaixo do máximo de tentativas (senão travariam a fila) |
+| `rs_fn_desiste_entregas(prazo, max)` | função | `/api/cron/diario` | Pendentes mais velhas que 3 dias (webhook desligado, empresa suspensa) e as que chegaram a 8 tentativas sem resultado → `desistiu` |
 | `rs_fn_lista_eventos(empresa, alcance, admin, desde, limite)` | função | `GET /api/v1/eventos` | Trilha crescente depois de `desde`; evento de vaga só no alcance, sem vaga só administrador |
 
 ---
@@ -221,7 +221,7 @@ Formulários: cada um registra `abrir_formulario_<acao>` (modelo), `opcoes_<acao
 | `modelos_mensagem` | editar, criar, voltar ao padrão; prévia com dados fictícios | recrutador, `escrita` | sim |
 | `resposta_revisao` | responder o pedido de revisão e, opcionalmente, reabrir (reabrir exige também o escopo `decisao`) | recrutador, `escrita` | sim, **sem reabrir** (`soNoFormulario`) |
 | `convidar_para_vaga` | pessoas do banco de talentos (só as válidas, no alcance), vaga publicada e o texto do modelo `convite_vaga`; não cria candidatura | recrutador, `escrita` | sim |
-| `webhooks` | criar, editar (endereço, eventos, ligado), remover, gerar novo segredo, enviar teste; o segredo só no `structuredContent.segredo`, uma vez | administrador, `escrita` | sim, mas **criar, trocar o endereço e gerar segredo** ficam em `soNoFormulario` (o endereço é para onde os dados vão) |
+| `webhooks` | criar, editar (endereço, eventos, ligado), remover, gerar novo segredo, enviar teste; o segredo só no `structuredContent.segredo`, uma vez; o endereço salvo não volta ao modelo ao abrir (vazio mantém) | administrador, `escrita` | sim, mas **criar, trocar o endereço e gerar segredo** ficam em `soNoFormulario` (o endereço é para onde os dados vão) |
 | `conexoes` | revogar a própria conexão (basta `leitura`); revogar credencial de outro e criar chave de API (administrador **com conexão de `escrita`**; a chave nova tem no máximo os escopos da conexão) | qualquer membro, `leitura` | **não**: a chave só aparece no `structuredContent.segredo` do `salvar_conexoes`, nunca no texto |
 
 ### Ação → domínio → portas
@@ -391,3 +391,11 @@ Todas já refletidas no `spec.md` (v0.4.8).
 77. **Trilha de webhook:** `webhook_criado`, `webhook_editado`, `webhook_removido` entraram no catálogo 15.3 (v0.4.9), com o host e sem o segredo.
 78. **Rótulo de integração no histórico** segue "Integração · {chave}" (8.5, já testado), e não "Integração n8n" como escrito no critério do 8.8.
 79. **`GET /eventos`:** a chave de API é da empresa e vê tudo; o filtro de alcance (evento de vaga só no alcance, sem vaga só administrador) vale quando a porta for usada por um membro.
+80. **Achados do verifier do 8.8, corrigidos com teste:**
+   - webhook desligado, empresa suspensa e entrega no máximo de tentativas travavam a fila (as vencidas vinham sempre primeiro e eram puladas sem mudar): agora ficam fora de `rs_fn_entregas_vencidas`, e a faxina desiste das que morreram no meio com 8 tentativas;
+   - os envios têm prazo (40 s por rodada, `WEBHOOK_ORCAMENTO_MS`; um POST só começa se cabem os 10 s dele), na faxina com o que sobra do orçamento;
+   - sem `CHAVES_ENC_KEY` nada é reservado (as tentativas não se gastam); segredo que não decifra conta como tentativa sem resposta;
+   - o endereço é conferido no DNS já ao salvar (só endereços públicos), além da conexão;
+   - abrir o formulário não manda ao modelo o endereço salvo (o caminho pode ter segredo do serviço);
+   - a exclusão a pedido não gera um segundo `candidatura.anonimizada`.
+81. **O histórico não usa `autorizado_por_membro_id`** (decisão 8 do plano): o "em nome de" sai do `membro_id` do ator agente, e o "confirmado por" do membro que clicou; a coluna fica para a trilha da API (`GET /eventos`).

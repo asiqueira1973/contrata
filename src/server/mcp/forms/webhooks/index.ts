@@ -51,7 +51,9 @@ export const formularioWebhooks: DefinicaoFormulario<typeof schemaWebhooks> = {
       valores: {
         operacao: op,
         webhook: usaAchado ? achado.id : "",
-        url: usaAchado ? achado.url : url,
+        // O endereço salvo não volta ao modelo (o caminho pode ter um segredo do serviço): vazio
+        // mantém o atual; ao escolher outro webhook no formulário, as opções (só do app) preenchem.
+        url: usaAchado ? "" : url,
         eventos: eventos ?? (usaAchado ? achado.eventos : []),
         ativo: usaAchado ? achado.ativo : true,
       },

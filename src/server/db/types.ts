@@ -880,7 +880,7 @@ isOneToOne: false
 { Args: { "p_alcance": Json,"p_ator": Json,"p_decisao": string,"p_empresa": string,"p_motivo": string }; Returns: undefined
                            },
 "rs_fn_desiste_entregas":
-{ Args: { "p_desiste": string }; Returns: number
+{ Args: { "p_desiste": string,"p_max": number }; Returns: number
                            },
 "rs_fn_encerra_candidatura":
 { Args: { "p_ator": Json,"p_candidatura": string,"p_dados"?: Json,"p_empresa": string,"p_mensagem": Json,"p_motivo": Database["public"]['Enums']["rs_motivo_reprovacao"],"p_situacao": Database["public"]['Enums']["rs_situacao_candidatura"] }; Returns: Json
@@ -889,7 +889,7 @@ isOneToOne: false
 { Args: { "p_email": string,"p_foto": string,"p_google_sub": string,"p_nome": string }; Returns: Json
                            },
 "rs_fn_entregas_vencidas":
-{ Args: { "p_empresa": string,"p_lote": number }; Returns: string[]
+{ Args: { "p_empresa": string,"p_lote": number,"p_max": number }; Returns: string[]
                            },
 "rs_fn_envia_mensagem":
 { Args: { "p_ator": Json,"p_candidatura": string,"p_cota": number,"p_decisao": string,"p_empresa": string,"p_mensagem": Json,"p_tipo": Database["public"]['Enums']["rs_tipo_mensagem"] }; Returns: string

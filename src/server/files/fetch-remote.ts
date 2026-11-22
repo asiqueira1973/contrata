@@ -10,7 +10,7 @@
 // Nos testes (Vitest), setRemoteFetchTestMode libera http, loopback e certificado autoassinado
 // para servidores locais.
 import "server-only";
-import { lookup as dnsLookup, type LookupAddress } from "node:dns";
+import { lookup as dnsLookup, promises as dnsPromises, type LookupAddress } from "node:dns";
 import http from "node:http";
 import https from "node:https";
 import { BlockList, isIP, type LookupFunction } from "node:net";
@@ -122,6 +122,20 @@ export function isAcceptableWebhookUrl(raw: string): boolean {
   try {
     checkUrl(raw);
     return new URL(raw).protocol === "https:";
+  } catch {
+    return false;
+  }
+}
+
+// Confere, ao salvar, se o nome resolve só para endereços públicos (a conexão confere de novo, contra
+// DNS rebinding). Devolve: true se a URL é aceitável e todos os endereços do nome são públicos.
+export async function resolvesToPublic(raw: string): Promise<boolean> {
+  if (!isAcceptableWebhookUrl(raw)) return false;
+  const host = new URL(raw).hostname.replace(/^\[|\]$/g, "");
+  if (isIP(host)) return allowed(host);
+  try {
+    const list = await dnsPromises.lookup(host, { all: true });
+    return list.length > 0 && list.every((a) => allowed(a.address));
   } catch {
     return false;
   }

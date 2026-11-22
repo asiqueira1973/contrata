@@ -11,7 +11,7 @@
 import "server-only";
 import { createHmac, randomBytes, randomUUID } from "node:crypto";
 import {
-  WEBHOOK_DESISTE_DIAS, WEBHOOK_LOTE, WEBHOOK_RESPOSTA_MAX, WEBHOOK_RETENTATIVAS_S, WEBHOOK_TENTATIVAS, WEBHOOK_TIMEOUT_MS,
+  WEBHOOK_DESISTE_DIAS, WEBHOOK_LOTE, WEBHOOK_ORCAMENTO_MS, WEBHOOK_RESPOSTA_MAX, WEBHOOK_RETENTATIVAS_S, WEBHOOK_TENTATIVAS, WEBHOOK_TIMEOUT_MS,
 } from "@/lib/limits";
 import { decryptSecret } from "@/server/crypto/aes";
 import { db } from "@/server/db/client";
@@ -74,10 +74,18 @@ export async function deliverOne(entregaId: string): Promise<"entregue" | "falho
     empresa: { excluida_em: string | null; suspensa_em: string | null } | null };
   const e = d as unknown as Linha | null;
   if (!e?.webhook?.ativo || !e.empresa || e.empresa.excluida_em || e.empresa.suspensa_em) return "pulada";
+  // Segredo que não decifra (cifrado com outra chave) conta como tentativa sem resposta: a entrega
+  // segue o calendário e desiste, sem travar a fila.
+  let segredo: string | null = null;
+  try {
+    segredo = decryptSecret(e.webhook.segredo_cifrado);
+  } catch (x) {
+    console.error("webhook_falhou", errorCode(x));
+  }
   const { data: reservou, error: e2 } = await db().rpc("rs_fn_reserva_entrega", { p_id: entregaId, p_max: WEBHOOK_TENTATIVAS });
   if (e2) throw e2;
   if (!reservou) return "pulada";
-  const status = await post(e.webhook.url, decryptSecret(e.webhook.segredo_cifrado), e.id, e.tipo, JSON.stringify(e.corpo));
+  const status = segredo ? await post(e.webhook.url, segredo, e.id, e.tipo, JSON.stringify(e.corpo)) : 0;
   const { data: t } = await db().from("rs_entregas_webhook").select("tentativas").eq("id", entregaId).single();
   const { data: final, error: e3 } = await db().rpc("rs_fn_resultado_entrega", {
     p_id: entregaId, p_status_http: status, p_espera: espera(t?.tentativas ?? 1), p_max: WEBHOOK_TENTATIVAS, p_desiste: `${WEBHOOK_DESISTE_DIAS} days`,
@@ -86,15 +94,26 @@ export async function deliverOne(entregaId: string): Promise<"entregue" | "falho
   return final as "entregue" | "falhou" | "desistiu";
 }
 
-// Entrega as vencidas (pendentes e que falharam, na hora delas). Recebe: a empresa (ou nenhuma, na
-// faxina) e o lote. Devolve: quantas foram entregues. Nunca lança.
-export async function deliverDue(empresaId?: string, lote = WEBHOOK_LOTE): Promise<number> {
+// Entrega as vencidas (pendentes e que falharam, na hora delas, de webhook ligado e empresa ativa).
+// Só começa um POST se ele cabe no prazo (cada um leva até 10 s): o resto fica para a próxima vez.
+// Sem CHAVES_ENC_KEY não reserva nada (as tentativas não se gastam). Recebe: a empresa (ou
+// nenhuma, na faxina), o lote e o prazo em ms. Devolve: quantas foram entregues. Nunca lança.
+export async function deliverDue(empresaId?: string, lote = WEBHOOK_LOTE, prazoMs = WEBHOOK_ORCAMENTO_MS): Promise<number> {
   try {
+    if (!process.env.CHAVES_ENC_KEY) {
+      console.error("webhook_falhou", "sem_chave_de_cifra");
+      return 0;
+    }
+    const limite = Date.now() + prazoMs;
+    if (Date.now() + WEBHOOK_TIMEOUT_MS > limite) return 0;
     // "Vencida" pelo relógio do banco (o do servidor pode estar atrás).
-    const { data, error } = await db().rpc("rs_fn_entregas_vencidas", { p_empresa: (empresaId ?? null) as never, p_lote: lote });
+    const { data, error } = await db().rpc("rs_fn_entregas_vencidas", { p_empresa: (empresaId ?? null) as never, p_lote: lote, p_max: WEBHOOK_TENTATIVAS });
     if (error) throw error;
     let entregues = 0;
-    for (const id of (data ?? []) as string[]) if ((await deliverOne(id)) === "entregue") entregues++;
+    for (const id of (data ?? []) as string[]) {
+      if (Date.now() + WEBHOOK_TIMEOUT_MS > limite) break;
+      if ((await deliverOne(id)) === "entregue") entregues++;
+    }
     return entregues;
   } catch (e) {
     console.error("webhook_falhou", errorCode(e));
@@ -109,12 +128,13 @@ export function deliverDueLater(empresaId: string): void {
   });
 }
 
-// Faxina (11.17): desiste das pendentes velhas (webhook desligado, empresa suspensa) e entrega as
-// vencidas de todas as empresas. Recebe: o lote. Devolve: entregues e desistidas.
-export async function retryWebhooks(lote: number): Promise<{ entregues: number; desistiu: number }> {
-  const { data, error } = await db().rpc("rs_fn_desiste_entregas", { p_desiste: `${WEBHOOK_DESISTE_DIAS} days` });
+// Faxina (11.17): desiste das pendentes velhas (webhook desligado, empresa suspensa) e das que
+// chegaram ao máximo, e entrega as vencidas de todas as empresas no prazo que sobra. Recebe: o lote
+// e o prazo em ms. Devolve: entregues e desistidas.
+export async function retryWebhooks(lote: number, prazoMs = WEBHOOK_ORCAMENTO_MS): Promise<{ entregues: number; desistiu: number }> {
+  const { data, error } = await db().rpc("rs_fn_desiste_entregas", { p_desiste: `${WEBHOOK_DESISTE_DIAS} days`, p_max: WEBHOOK_TENTATIVAS });
   if (error) throw error;
-  return { entregues: await deliverDue(undefined, lote), desistiu: data ?? 0 };
+  return { entregues: await deliverDue(undefined, lote, prazoMs), desistiu: data ?? 0 };
 }
 
 // "Enviar teste": um POST assinado com o tipo "teste", sem gravar entrega. Recebe: URL e segredo

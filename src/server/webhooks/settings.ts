@@ -8,7 +8,7 @@ import { WEBHOOK_URL_MAX, WEBHOOKS_POR_EMPRESA } from "@/lib/limits";
 import type { ContextoMembro } from "@/server/auth/require-membro";
 import { encryptSecret } from "@/server/crypto/aes";
 import { db } from "@/server/db/client";
-import { isAcceptableWebhookUrl } from "@/server/files/fetch-remote";
+import { resolvesToPublic } from "@/server/files/fetch-remote";
 import { CamposInvalidos, DomainError } from "@/server/http";
 import { atorJson } from "@/server/org/actor";
 import { generateWebhookSecret, sendTest } from "./deliver";
@@ -27,10 +27,11 @@ function exigeAdministrador(ctx: ContextoMembro) {
   if (ctx.membro.papel !== "administrador") throw new DomainError("papel_insuficiente", 403);
 }
 
-// Confere URL e eventos. Recebe: o que veio. Devolve: os valores limpos (ou undefined).
-function confere(p: { url?: string; eventos?: string[] }) {
+// Confere URL e eventos. A URL precisa resolver só para endereços públicos já ao salvar (11.18; o
+// envio confere de novo). Recebe: o que veio. Devolve: os valores limpos (ou undefined).
+async function confere(p: { url?: string; eventos?: string[] }) {
   const url = p.url?.trim();
-  if (url !== undefined && (!url || url.length > WEBHOOK_URL_MAX || !isAcceptableWebhookUrl(url))) {
+  if (url !== undefined && (!url || url.length > WEBHOOK_URL_MAX || !(await resolvesToPublic(url)))) {
     throw new CamposInvalidos([{ campo: "url", codigo: "url_recusada" }]);
   }
   const eventos = p.eventos ? [...new Set(p.eventos)] : undefined;
@@ -58,7 +59,7 @@ export async function listWebhooks(ctx: ContextoMembro): Promise<WebhookListado[
 // Cria um webhook. Recebe: URL, eventos e se nasce ligado. Devolve: o id e o segredo em claro.
 export async function createWebhook(ctx: ContextoMembro, p: { url: string; eventos: string[]; ativo?: boolean }) {
   exigeAdministrador(ctx);
-  const { url, eventos } = confere(p);
+  const { url, eventos } = await confere(p);
   if (!url) throw new CamposInvalidos([{ campo: "url", codigo: "campo_obrigatorio" }]);
   if (!eventos) throw new CamposInvalidos([{ campo: "eventos", codigo: "eventos_invalidos" }]);
   const segredo = generateWebhookSecret();
@@ -74,7 +75,7 @@ export async function createWebhook(ctx: ContextoMembro, p: { url: string; event
 // Devolve: o segredo novo, se pedido.
 export async function updateWebhook(ctx: ContextoMembro, id: string, p: { url?: string; eventos?: string[]; ativo?: boolean; novoSegredo?: boolean }) {
   exigeAdministrador(ctx);
-  const { url, eventos } = confere(p);
+  const { url, eventos } = await confere(p);
   const segredo = p.novoSegredo ? generateWebhookSecret() : null;
   const { error } = await db().rpc("rs_fn_salva_webhook", {
     p_empresa: ctx.empresa.id, p_id: id, p_url: (url ?? null) as never, p_eventos: (eventos ?? null) as never,

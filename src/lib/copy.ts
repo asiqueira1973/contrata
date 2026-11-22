@@ -640,7 +640,7 @@ export const copy = {
         enviar_teste: "Enviar teste",
         webhook: "Webhook",
         url: "Endereço (https)",
-        urlDica: "Ao editar, deixe como está para manter o endereço.",
+        urlDica: "Ao editar, deixe vazio para manter o endereço atual.",
         eventos: "Eventos",
         ativo: "Ligado",
         rotulo: (host: string, ativo: boolean) => `${host}${ativo ? "" : " (desligado)"}`,

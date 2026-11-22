@@ -94,7 +94,7 @@ select is((select ultimo_status_http from public.rs_entregas_webhook where id = 
 
 insert into fx select 'ent3', id from public.rs_entregas_webhook where webhook_id = pg_temp.id('w_tudo') and tipo = 'candidatura.criada';
 update public.rs_entregas_webhook set criado_em = now() - interval '4 days' where id = pg_temp.id('ent3');
-select is(public.rs_fn_desiste_entregas(interval '3 days') >= 1, true, 'faxina desiste das velhas');
+select is(public.rs_fn_desiste_entregas(interval '3 days', 8) >= 1, true, 'faxina desiste das velhas');
 select is((select status::text from public.rs_entregas_webhook where id = pg_temp.id('ent3')), 'desistiu', 'velha desistiu');
 
 -- Editar e remover
@@ -111,9 +111,9 @@ select throws_ok(format('select public.rs_fn_remove_webhook(%L, %L, %L)', gen_ra
 -- Vencidas pelo relógio do banco
 insert into fx select 'w_v', pg_temp.salva('https://hooks.exemplo.dev/v', array['vaga.encerrada']);
 select public.rs_fn_registra_evento(pg_temp.id('e'), pg_temp.id('v'), null, 'vaga_encerrada', pg_temp.ator('m'), 'web', '{}');
-select is((select count(*)::int from public.rs_fn_entregas_vencidas(pg_temp.id('e'), 50) x
+select is((select count(*)::int from public.rs_fn_entregas_vencidas(pg_temp.id('e'), 50, 8) x
             join public.rs_entregas_webhook w on w.id = x where w.webhook_id = pg_temp.id('w_v')), 1, 'pendente nova já vence');
-select is((select count(*)::int from public.rs_fn_entregas_vencidas(gen_random_uuid(), 50)), 0, 'filtra pela empresa');
+select is((select count(*)::int from public.rs_fn_entregas_vencidas(gen_random_uuid(), 50, 8)), 0, 'filtra pela empresa');
 
 -- GET /eventos no alcance (11.32)
 insert into fx select 'fin', public.rs_fn_salva_area(pg_temp.id('e'), null, 'Financeiro', null, pg_temp.ator('m'));

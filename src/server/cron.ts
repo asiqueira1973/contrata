@@ -49,7 +49,7 @@ export async function runDailyCleanup(agora = () => Date.now()) {
   const exportacoes = await cleanOldExports();
   // Webhooks (11.17; 8.8): desiste das velhas e retenta as vencidas (a pausa pelo prazo, acima, já
   // gerou as dela).
-  const webhooks = agora() - inicio > ORCAMENTO_MS ? { entregues: 0, desistiu: 0 } : await retryWebhooks(FAXINA_LOTE);
+  const webhooks = await retryWebhooks(FAXINA_LOTE, Math.max(0, ORCAMENTO_MS - (agora() - inicio)));
   const r = { vagas_pausadas: vagasPausadas, candidaturas_abandonadas: abandonadas, propostas_expiradas: propostasExpiradas,
     resumos_propostas: resumosPropostas, talentos_retirados: talentosRetirados, talentos_avisados: talentosAvisados, pastas_exportacao: exportacoes,
     webhooks_entregues: webhooks.entregues, webhooks_desistidos: webhooks.desistiu };

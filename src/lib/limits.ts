@@ -202,3 +202,5 @@ export const WEBHOOK_DESISTE_DIAS = 3;
 export const WEBHOOK_RETENTATIVAS_S = [60, 600, 3600, 86_400];
 // Entregas vencidas enviadas de uma vez depois de cada escrita da empresa.
 export const WEBHOOK_LOTE = 20;
+// Tempo máximo de uma rodada de envios (a função da Vercel tem 60 s; cada POST, até 10 s).
+export const WEBHOOK_ORCAMENTO_MS = 40_000;
