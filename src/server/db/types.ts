@@ -94,14 +94,14 @@ isOneToOne: false
                   ]
                 },"rs_candidatos": {
                   Row: {
-                    "anonimizado_em": string | null,"atualizado_em": string,"cidade": string | null,"criado_em": string,"email": string | null,"empresa_id": string,"id": string,"linkedin_url": string | null,"nome": string,"talentos_consentido_em": string | null,"talentos_expira_em": string | null,"telefone": string | null
+                    "anonimizado_em": string | null,"atualizado_em": string,"cidade": string | null,"criado_em": string,"email": string | null,"empresa_id": string,"id": string,"linkedin_url": string | null,"nome": string,"talentos_avisado_em": string | null,"talentos_consentido_em": string | null,"talentos_expira_em": string | null,"telefone": string | null
                   }
                   ComputedFields: never
                   Insert: {
-                    "anonimizado_em"?: string | null,"atualizado_em"?: string,"cidade"?: string | null,"criado_em"?: string,"email"?: string | null,"empresa_id": string,"id"?: string,"linkedin_url"?: string | null,"nome": string,"talentos_consentido_em"?: string | null,"talentos_expira_em"?: string | null,"telefone"?: string | null
+                    "anonimizado_em"?: string | null,"atualizado_em"?: string,"cidade"?: string | null,"criado_em"?: string,"email"?: string | null,"empresa_id": string,"id"?: string,"linkedin_url"?: string | null,"nome": string,"talentos_avisado_em"?: string | null,"talentos_consentido_em"?: string | null,"talentos_expira_em"?: string | null,"telefone"?: string | null
                   }
                   Update: {
-                    "anonimizado_em"?: string | null,"atualizado_em"?: string,"cidade"?: string | null,"criado_em"?: string,"email"?: string | null,"empresa_id"?: string,"id"?: string,"linkedin_url"?: string | null,"nome"?: string,"talentos_consentido_em"?: string | null,"talentos_expira_em"?: string | null,"telefone"?: string | null
+                    "anonimizado_em"?: string | null,"atualizado_em"?: string,"cidade"?: string | null,"criado_em"?: string,"email"?: string | null,"empresa_id"?: string,"id"?: string,"linkedin_url"?: string | null,"nome"?: string,"talentos_avisado_em"?: string | null,"talentos_consentido_em"?: string | null,"talentos_expira_em"?: string | null,"telefone"?: string | null
                   }
                   Relationships: [
                     {
@@ -144,6 +144,50 @@ isOneToOne: false
       referencedColumns: ["id"]
     },{
       foreignKeyName: "rs_candidaturas_vaga_id_fkey"
+      columns: ["vaga_id"]
+isOneToOne: false
+      referencedRelation: "rs_vagas"
+      referencedColumns: ["id"]
+    }
+                  ]
+                },"rs_convites_talento": {
+                  Row: {
+                    "ator_tipo": Database["public"]['Enums']["rs_tipo_ator"],"candidato_id": string,"credencial_id": string | null,"criado_em": string,"empresa_id": string,"expira_em": string,"id": string,"membro_id": string | null,"usado_em": string | null,"vaga_id": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "ator_tipo": Database["public"]['Enums']["rs_tipo_ator"],"candidato_id": string,"credencial_id"?: string | null,"criado_em"?: string,"empresa_id": string,"expira_em"?: string,"id"?: string,"membro_id"?: string | null,"usado_em"?: string | null,"vaga_id": string
+                  }
+                  Update: {
+                    "ator_tipo"?: Database["public"]['Enums']["rs_tipo_ator"],"candidato_id"?: string,"credencial_id"?: string | null,"criado_em"?: string,"empresa_id"?: string,"expira_em"?: string,"id"?: string,"membro_id"?: string | null,"usado_em"?: string | null,"vaga_id"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "rs_convites_talento_candidato_id_fkey"
+      columns: ["candidato_id"]
+isOneToOne: false
+      referencedRelation: "rs_candidatos"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "rs_convites_talento_credencial_id_fkey"
+      columns: ["credencial_id"]
+isOneToOne: false
+      referencedRelation: "rs_credenciais"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "rs_convites_talento_empresa_id_fkey"
+      columns: ["empresa_id"]
+isOneToOne: false
+      referencedRelation: "rs_empresas"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "rs_convites_talento_membro_id_fkey"
+      columns: ["membro_id"]
+isOneToOne: false
+      referencedRelation: "rs_membros"
+      referencedColumns: ["id"]
+    },{
+      foreignKeyName: "rs_convites_talento_vaga_id_fkey"
       columns: ["vaga_id"]
 isOneToOne: false
       referencedRelation: "rs_vagas"
@@ -782,6 +826,11 @@ isOneToOne: false
 "rs_fn_atualiza_busca":
 { Args: { "p_candidatura": string }; Returns: undefined
                            },
+"rs_fn_busca_talentos":
+{ Args: { "p_alcance": Json,"p_empresa": string,"p_filtros": Json,"p_inicio": number,"p_limite": number }; Returns: {
+              "candidato_id": string,"cidade": string,"linkedin_url": string,"nome": string,"relevancia": number,"talentos_expira_em": string
+            }[]
+                           },
 "rs_fn_cancela_convite":
 { Args: { "p_ator": Json,"p_membro": string }; Returns: undefined
                            },
@@ -800,8 +849,11 @@ isOneToOne: false
 "rs_fn_convida_membro":
 { Args: { "p_areas": (string)[],"p_ator": Json,"p_email": string,"p_empresa": string,"p_expira_em": string,"p_max_pendentes": number,"p_papel": Database["public"]['Enums']["rs_papel_membro"],"p_todas_areas": boolean,"p_token_hash": string }; Returns: string
                            },
+"rs_fn_convida_talento":
+{ Args: { "p_alcance": Json,"p_ator": Json,"p_candidato": string,"p_empresa": string,"p_vaga": string }; Returns: Json
+                           },
 "rs_fn_cria_candidatura":
-{ Args: { "p_ator": Json,"p_candidato": Json,"p_consentimento": string,"p_empresa": string,"p_max_por_vaga": number,"p_origem": Database["public"]['Enums']["rs_origem_candidatura"],"p_respostas": Json,"p_talentos": boolean,"p_token_hash": string,"p_vaga": string }; Returns: Json
+{ Args: { "p_ator": Json,"p_candidato": Json,"p_consentimento": string,"p_convite"?: string,"p_empresa": string,"p_max_por_vaga": number,"p_origem": Database["public"]['Enums']["rs_origem_candidatura"],"p_respostas": Json,"p_talentos": boolean,"p_token_hash": string,"p_vaga": string }; Returns: Json
                            },
 "rs_fn_cria_chave_api":
 { Args: { "p_ator": Json,"p_empresa": string,"p_escopos": (Database["public"]['Enums']["rs_escopo"])[],"p_max_ativas": number,"p_nome": string,"p_prefixo": string,"p_valor_hash": string }; Returns: string
@@ -847,6 +899,9 @@ isOneToOne: false
                            },
 "rs_fn_faxina_decisoes":
 { Args: { "p_lote": number }; Returns: number
+                           },
+"rs_fn_faxina_talentos":
+{ Args: { "p_lote": number }; Returns: Json
                            },
 "rs_fn_faxina_vagas_vencidas":
 { Args: { "p_lote": number }; Returns: number
@@ -918,6 +973,12 @@ isOneToOne: false
                            },
 "rs_fn_slug_vaga":
 { Args: { "p_base": string,"p_empresa": string,"p_vaga": string }; Returns: string
+                           },
+"rs_fn_talento_no_alcance":
+{ Args: { "p_alcance": Json,"p_candidato": string }; Returns: boolean
+                           },
+"rs_fn_talentos_candidato":
+{ Args: { "p_acao": string,"p_candidatura": string }; Returns: string
                            },
 "rs_fn_transicao_vaga":
 { Args: { "p_alcance": Json,"p_ator": Json,"p_empresa": string,"p_max_publicadas": number,"p_motivo": Database["public"]['Enums']["rs_motivo_encerramento_vaga"],"p_para": Database["public"]['Enums']["rs_status_vaga"],"p_vaga": string }; Returns: undefined
