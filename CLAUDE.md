@@ -102,5 +102,6 @@ Spec **v0.4.11: um sistema para agentes, não para humanos**. Quem recruta opera
 - Escrita em `rs_empresas`: só por `rs_fn_salva_empresa` (evento `empresa_editada`), nunca `update` direto no código.
 - **Faxina (8.10):** passo novo entra em `runDailyCleanup` com `emLotes` (lote de 200) ou `umaVez`, na ordem da 8.10; sem tempo, o nome vai para `sobrou`. Contagens só; nada pessoal no log. E-mail da faxina sempre com chave por dia (`…:{dia em FUSO}`) ou semana, para rodar duas vezes sem duplicar.
 - Apagar empresa: só `rs_fn_expurga_empresa` (ordem explícita). Tabela nova com FK "no action" para outra tabela da empresa → acrescente o `delete` nela, na ordem, senão o expurgo falha.
-- Anonimizar candidatura: `rs_fn_anonimiza_candidatura(c, e, manter_curriculo)`; quem decide manter é o expurgo (banco de talentos, 11.12).
+- Anonimizar candidatura: `rs_fn_anonimiza_candidatura(c, e, manter_curriculo, origem)`; quem decide manter é o expurgo (banco de talentos, 11.12). "Já expurgada" é `expurgada_em`, não o token: a do banco de talentos mantém o token (o link `/c` vale até a pessoa ser anonimizada).
+- Apagar arquivo do bucket depois que o banco esqueceu: em falha, anote em `rs_arquivos_a_apagar` (como `purgeExpired`).
 - Resumo que vai por e-mail: só contagens por vaga, nunca nome de candidato.

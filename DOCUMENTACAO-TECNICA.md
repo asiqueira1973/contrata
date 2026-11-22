@@ -187,7 +187,7 @@ Do 8.9, migrations `20261122200000_rs_empresa.sql` e `20261122210000_rs_empresa_
 | `rs_fn_exclui_empresa(empresa, slug, ator)` | função | `salvar_excluir_empresa` | Administrador, slug igual (`slug_nao_confere`), sem candidatura recebida em andamento (`empresa_com_ativas`) → `excluida_em`; devolve `expurgar_em` (7 dias) |
 | `rs_fn_desfaz_exclusao(empresa, ator)` | função | `salvar_desfazer_exclusao` | Administrador, excluída há menos de 7 dias (`prazo_vencido`) |
 
-Do 8.10, migration `20261122220000_rs_faxina.sql`:
+Do 8.10, migrations `20261122220000_rs_faxina.sql` e `20261122230000_rs_faxina_ajustes.sql` (achados do verifier):
 
 | Nome | Tipo | Quando roda | O que faz |
 |---|---|---|---|
@@ -195,12 +195,13 @@ Do 8.10, migration `20261122220000_rs_faxina.sql`:
 | `rs_mensagens.notificacao_id` | coluna (agora anulável, `on delete set null`) | limpeza e expurgo | Apagar a notificação velha só esquece o vínculo |
 | `rs_tipo_notificacao` | enum | — | + `acesso_pedido` |
 | `rs_fn_faxina_convites(lote)` | função | faxina | Convite de membro vencido sai (`removido_em`), `convite_cancelado` com `{motivo: venceu}`, ator sistema |
-| `rs_fn_anonimiza_candidatura(candidatura, empresa, manter_curriculo)` | função (refeita) | expurgo, exclusão a pedido | Com `manter_curriculo`, o currículo fica (banco de talentos, 11.12) |
+| `rs_candidaturas.expurgada_em`, `rs_arquivos_a_apagar` | coluna e tabela | expurgo | Marca a candidatura expurgada (a do banco de talentos mantém o link); anota o arquivo que o bucket não apagou para a próxima rodada |
+| `rs_fn_anonimiza_candidatura(candidatura, empresa, manter_curriculo, origem)` | função (refeita) | expurgo, exclusão a pedido | Marca `expurgada_em`; com `manter_curriculo`, o currículo e o link `/c` ficam (banco de talentos, 11.12) |
 | `rs_fn_faxina_expurgos(lote)` | função | faxina | Candidatura com `expurgar_em` vencido → anonimiza (quem tem talentos válido guarda nome, contato e o currículo mais recente); pessoa sem nada vivo e sem consentimento → anonimiza o cadastro e o currículo guardado sai; devolve os caminhos |
 | `rs_fn_empresas_a_expurgar(lote)` / `rs_fn_expurga_empresa` (refeita) | funções | faxina | Excluídas há 7+ dias; o expurgo apaga em ordem explícita (a cascata conferia as chaves "no action" a cada passo e falhava com nota de integração, avaliação ou mensagem) |
 | `rs_fn_notificacoes_a_retentar(lote, max)` / `rs_fn_limpa_notificacoes(dias, lote)` | funções | faxina | Falhou (ou pendente perdida há 10+ min) abaixo de 5 tentativas; apaga enviadas e descartadas com mais de 30 dias |
 | `rs_fn_resumo_diario(empresa, parada_dias, revisao_dias)` | função | faxina | Por vaga: revisões sem resposta (e atrasadas), paradas, pausada pelo prazo, propostas, o responsável válido; e a equipe que pode receber. Sem nome de candidato |
-| `rs_fn_resumo_donos(lote)` | função | faxina (segunda) | Vagas publicadas ou pausadas de dono sem acesso com `recebe_resumo`: contagens por tipo de etapa, encerradas na semana, contratada, quem conduz |
+| `rs_fn_resumo_donos(lote, inicio)` | função | faxina (segunda), paginada | Vagas publicadas ou pausadas de dono sem acesso com `recebe_resumo`: contagens por tipo de etapa, encerradas na semana, contratada, quem conduz |
 | `rs_fn_pede_acesso(empresa, pessoa)` | função | `/api/publico/{empresa}/pedir-acesso` | `acesso_pedido`; devolve os administradores a avisar |
 
 ---
@@ -456,3 +457,11 @@ Todas já refletidas no `spec.md` (v0.4.8).
 94. **"Pedir acesso"** é uma página pública com botão (POST): o link do e-mail traz um token HMAC de 30 dias e um leitor de e-mail que abre links não dispara o pedido. Avisa os administradores uma vez por pessoa por dia; não cria convite.
 95. **Achado no caminho:** `rs_fn_expurga_empresa` falhava com nota de integração, avaliação ou mensagem (as chaves "no action" são conferidas a cada passo da cascata); empresas de teste ficavam presas. Agora apaga em ordem explícita, e `rs_mensagens.notificacao_id` ficou anulável com `on delete set null` (a limpeza de notificações velhas também esbarraria nele). Uma empresa que falha não segura as outras.
 96. **Pendentes:** varredura de arquivos órfãos no bucket e o aviso de 5 GB por empresa (8.4) não entraram.
+97. **Achados do verifier do 8.10, corrigidos com teste:**
+   - quem ficava no banco de talentos depois do expurgo perdia o link `/c` (sem aviso de vencimento, sem renovar, sem excluir): a candidatura que guarda o currículo mantém o link, marcada por `expurgada_em`; o link só cai quando a pessoa é anonimizada;
+   - só o currículo mais recente fica (os guardados antes saem);
+   - o resumo semanal parava no primeiro lote de 200 vagas: agora pagina;
+   - arquivo que o bucket não apagou ficava para sempre: vai para `rs_arquivos_a_apagar` e sai na próxima rodada;
+   - um passo que falha não derruba os outros (`falharam` no log); o resumo diário e o semanal respeitam o prazo; o expurgo de empresas olha 20 candidatas para uma que falha não segurar as outras;
+   - pedir acesso de novo no mesmo dia não repete o evento; a anonimização da faxina grava origem `cron`.
+98. **Ainda em aberto (baixos):** `deliver` não reserva a notificação antes de enviar (duas faxinas ao mesmo tempo podem mandar duas vezes); notificações de empresa suspensa não são retentadas nem limpas; a anonimização do cadastro na segunda volta do expurgo não grava evento próprio (o catálogo não tem tipo para isso).

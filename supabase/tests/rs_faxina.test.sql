@@ -67,7 +67,7 @@ select is((select nome from public.rs_candidatos c join public.rs_candidaturas x
 select is((select nome from public.rs_candidatos c join public.rs_candidaturas x on x.candidato_id = c.id where x.id = pg_temp.id('b')),
   'Pessoa b', 'com talentos válido: nome fica');
 select is((select count(*)::int from public.rs_arquivos where candidatura_id = pg_temp.id('b') and tipo = 'curriculo'), 1, 'e o currículo mais recente fica');
-select is((select token_hash like 'anonimizada:%' from public.rs_candidaturas where id = pg_temp.id('b')), true, 'a candidatura dela é anonimizada');
+select is((select expurgada_em is not null from public.rs_candidaturas where id = pg_temp.id('b')), true, 'a candidatura dela é expurgada (o link fica: achado A1)');
 update public.rs_candidatos set talentos_expira_em = now() - interval '1 minute'
   where id = (select candidato_id from public.rs_candidaturas where id = pg_temp.id('b'));
 create temp table r2 as select public.rs_fn_faxina_expurgos(200) as r;

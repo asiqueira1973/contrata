@@ -10,11 +10,13 @@ import { acessoPedido } from "@/server/email/templates";
 import { DomainError } from "@/server/http";
 import { siteOrigin } from "@/server/oauth/server";
 
+// O segredo do HMAC (o mesmo da sessão; o prefixo "pedir_acesso:" separa os usos).
 function segredo(): string {
   const s = process.env.SESSION_SECRET ?? "";
   if (s.length < 32) throw new Error("SESSION_SECRET ausente");
   return s;
 }
+// Assinatura do token: empresa, pessoa e validade.
 const assina = (empresaId: string, pessoaId: string, exp: number) =>
   createHmac("sha256", segredo()).update(`pedir_acesso:${empresaId}:${pessoaId}:${exp}`).digest("base64url");
 

@@ -229,3 +229,7 @@ export const NOTIFICACAO_TENTATIVAS = 5;
 export const NOTIFICACAO_GUARDA_DIAS = 30;
 export const REVISAO_ATRASADA_DIAS = 15;
 export const PEDIR_ACESSO_DIAS = 30;
+// Empresas expurgadas por rodada (cada uma apaga uma pasta inteira no bucket) e quantas candidatas
+// olhar (uma que falha sempre não segura as outras).
+export const EMPRESAS_POR_RODADA = 5;
+export const EMPRESAS_CANDIDATAS = 20;

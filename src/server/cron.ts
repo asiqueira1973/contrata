@@ -2,10 +2,12 @@
 // convites vencidos → propostas → vagas vencidas → expurgo de candidaturas → expurgo de empresas →
 // uploads não concluídos → banco de talentos → resumo diário → às segundas, resumo semanal aos
 // donos sem acesso → retentativa de e-mails e webhooks → notificações antigas → CSVs velhos.
-// Lotes de 200 até ~45 s; o que sobrar fica para o dia seguinte e vai no log (`sobrou`). Idempotente
+// Lotes de 200 até ~45 s; o que sobrar fica para o dia seguinte e vai no log (`sobrou`); um passo que
+// falha não derruba os outros (`falharam`). Idempotente
 // (e-mails com chave por dia/semana). O log leva só contagens (20.2).
 import "server-only";
-import { FAXINA_LOTE, FAXINA_ORCAMENTO_MS } from "@/lib/limits";
+import { EMPRESAS_POR_RODADA, FAXINA_LOTE, FAXINA_ORCAMENTO_MS } from "@/lib/limits";
+import { errorCode } from "@/server/error-code";
 import { cleanOldNotifications, retryNotifications } from "@/server/email/outbox";
 import { expireInvites, purgeCompanies, purgeExpired } from "@/server/org/cleanup";
 import { cleanAbandonedApplications } from "@/server/recruiting/applications";
@@ -16,26 +18,35 @@ import { expireProposals, pendingProposalsDigest } from "@/server/recruiting/dec
 import { expiringTalentsDigest } from "@/server/recruiting/talents";
 import { retryWebhooks } from "@/server/webhooks/deliver";
 
-// Empresas expurgadas por rodada: cada uma apaga uma pasta inteira no bucket.
-const EMPRESAS_POR_RODADA = 5;
-
 export async function runDailyCleanup(agora = () => Date.now(), hoje = new Date()) {
   const inicio = agora();
   const resta = () => Math.max(0, FAXINA_ORCAMENTO_MS - (agora() - inicio));
   const sobrou: string[] = [];
+  const falharam: string[] = [];
   const r: Record<string, number> = {};
+  // Um passo que falha não derruba os outros: vai ao log (só o código) e à lista `falharam`.
+  async function seguro(nome: string, f: () => Promise<void>) {
+    try {
+      await f();
+    } catch (e) {
+      console.error("faxina_passo_falhou", nome, errorCode(e));
+      falharam.push(nome);
+    }
+  }
   // Roda um passo em lotes até vir um lote incompleto; sem tempo, anota que sobrou.
   async function emLotes(nome: string, passo: () => Promise<number>, lote = FAXINA_LOTE) {
     r[nome] = 0;
-    for (;;) {
-      if (!resta()) {
-        sobrou.push(nome);
-        return;
+    await seguro(nome, async () => {
+      for (;;) {
+        if (!resta()) {
+          sobrou.push(nome);
+          return;
+        }
+        const n = await passo();
+        r[nome] += n;
+        if (n < lote) return;
       }
-      const n = await passo();
-      r[nome] += n;
-      if (n < lote) return;
-    }
+    });
   }
   // Passo de uma vez só (resumos, retentativas): pula sem tempo.
   async function umaVez(nome: string, passo: () => Promise<number>) {
@@ -44,7 +55,9 @@ export async function runDailyCleanup(agora = () => Date.now(), hoje = new Date(
       sobrou.push(nome);
       return;
     }
-    r[nome] = await passo();
+    await seguro(nome, async () => {
+      r[nome] = await passo();
+    });
   }
 
   await emLotes("convites_expirados", () => expireInvites(FAXINA_LOTE));
@@ -70,10 +83,10 @@ export async function runDailyCleanup(agora = () => Date.now(), hoje = new Date(
     return Math.max(t.retirados, t.avisados);
   });
   // Resumos (11.11): o diário da equipe e o das propostas pendentes há 24 h (8.6).
-  await umaVez("resumos_diarios", () => dailyDigest(hoje));
+  await umaVez("resumos_diarios", () => dailyDigest(hoje, resta()));
   await umaVez("resumos_propostas", () => pendingProposalsDigest(hoje));
   // Às segundas (11.31): resumo semanal aos donos de vaga sem acesso.
-  await umaVez("resumos_semanais", () => weeklyOwnerDigest(FAXINA_LOTE, hoje));
+  await umaVez("resumos_semanais", () => weeklyOwnerDigest(FAXINA_LOTE, hoje, resta()));
   // Retentativas (12.4, 11.17), cada uma com o tempo que sobra.
   await umaVez("emails_retentados", () => retryNotifications(FAXINA_LOTE, resta()));
   r.webhooks_desistidos = 0;
@@ -85,7 +98,7 @@ export async function runDailyCleanup(agora = () => Date.now(), hoje = new Date(
   await emLotes("notificacoes_apagadas", () => cleanOldNotifications(FAXINA_LOTE));
   // CSVs exportados (14.1) dos dias anteriores: o link já venceu (5 min), o arquivo não serve mais.
   await umaVez("pastas_exportacao", () => cleanOldExports());
-  const resultado = { ...r, sobrou, duracao_ms: agora() - inicio };
+  const resultado = { ...r, sobrou, falharam, duracao_ms: agora() - inicio };
   console.info("faxina_diaria", resultado);
   return resultado;
 }

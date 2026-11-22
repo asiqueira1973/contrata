@@ -3,13 +3,14 @@
 // dia (ou por semana), pela chave da notificação: rodar a faxina duas vezes não manda de novo.
 import "server-only";
 import { copy } from "@/lib/copy";
-import { CANDIDATURA_PARADA_DIAS, FUSO, REVISAO_ATRASADA_DIAS } from "@/lib/limits";
+import { CANDIDATURA_PARADA_DIAS, FAXINA_ORCAMENTO_MS, FUSO, REVISAO_ATRASADA_DIAS } from "@/lib/limits";
 import { db } from "@/server/db/client";
 import { enqueue } from "@/server/email/outbox";
 import { resumoDiario, resumoDonoVaga } from "@/server/email/templates";
 import { urlDoLogo } from "@/server/files/logo";
 import { linkPedirAcesso } from "@/server/org/access-request";
 
+// Data de hoje em São Paulo (AAAA-MM-DD): a chave dos e-mails por dia e por semana.
 const diaEmSP = (agora: Date) => new Intl.DateTimeFormat("en-CA", { timeZone: FUSO }).format(agora);
 // Diz se é segunda-feira em São Paulo (11.31).
 export const ehSegunda = (agora: Date) => new Intl.DateTimeFormat("en-US", { timeZone: FUSO, weekday: "short" }).format(agora) === "Mon";
@@ -27,14 +28,17 @@ function destinatarios(v: VagaDoResumo, membros: MembroDoResumo[]): MembroDoResu
 
 // Resumo diário (11.11): candidaturas paradas há 14+ dias, revisões pedidas sem resposta (as de 15+
 // dias como atrasadas) e vagas pausadas pelo prazo, por vaga. Propostas pendentes seguem no e-mail
-// próprio do 8.6 (decisoes_pendentes). Recebe: o momento. Devolve quantos e-mails saíram.
-export async function dailyDigest(agora = new Date()): Promise<number> {
+// próprio do 8.6 (decisoes_pendentes). Para no prazo (o resto sai amanhã: a chave é por dia, então
+// quem já recebeu não recebe de novo). Recebe: o momento e o prazo em ms. Devolve quantos saíram.
+export async function dailyDigest(agora = new Date(), prazoMs = FAXINA_ORCAMENTO_MS): Promise<number> {
+  const limite = Date.now() + prazoMs;
   const { data: empresas, error } = await db().from("rs_empresas").select("id, nome").is("excluida_em", null).is("suspensa_em", null);
   if (error) throw error;
   const dia = diaEmSP(agora);
   const c = copy.resumoDiario;
   let n = 0;
   for (const e of empresas ?? []) {
+    if (Date.now() >= limite) break;
     const { data, error: e2 } = await db().rpc("rs_fn_resumo_diario", { p_empresa: e.id, p_parada_dias: CANDIDATURA_PARADA_DIAS, p_revisao_dias: REVISAO_ATRASADA_DIAS });
     if (e2) throw e2;
     const r = data as { vagas: VagaDoResumo[]; membros: MembroDoResumo[] };
@@ -65,10 +69,19 @@ export async function dailyDigest(agora = new Date()): Promise<number> {
 
 // Resumo semanal aos donos de vaga sem acesso (11.31), às segundas. Recebe: o lote e o momento.
 // Devolve quantos e-mails saíram (0 fora da segunda).
-export async function weeklyOwnerDigest(lote: number, agora = new Date()): Promise<number> {
+export async function weeklyOwnerDigest(lote: number, agora = new Date(), prazoMs = FAXINA_ORCAMENTO_MS): Promise<number> {
   if (!ehSegunda(agora)) return 0;
-  const { data, error } = await db().rpc("rs_fn_resumo_donos", { p_lote: lote });
-  if (error) throw error;
+  const limite = Date.now() + prazoMs;
+  // Todas as vagas, de lote em lote (achado A2 do verifier), dentro do prazo.
+  const linhas: unknown[] = [];
+  for (let inicio = 0; Date.now() < limite; inicio += lote) {
+    const { data, error } = await db().rpc("rs_fn_resumo_donos", { p_lote: lote, p_inicio: inicio });
+    if (error) throw error;
+    const pagina = (data ?? []) as unknown[];
+    linhas.push(...pagina);
+    if (pagina.length < lote) break;
+  }
+  const data = linhas;
   type Linha = { vaga_id: string; titulo: string; empresa_id: string; empresa: string; slug: string; cor_destaque: string | null; logo_path: string | null;
     email_contato: string; pessoa_id: string; nome: string; email: string; em_analise: number; entrevistas: number; fase_final: number;
     encerradas_semana: number; contratada: boolean; recrutador: string | null };

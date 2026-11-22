@@ -60,6 +60,26 @@ isOneToOne: false
       referencedColumns: ["id"]
     }
                   ]
+                },"rs_arquivos_a_apagar": {
+                  Row: {
+                    "criado_em": string,"empresa_id": string,"path": string
+                  }
+                  ComputedFields: never
+                  Insert: {
+                    "criado_em"?: string,"empresa_id": string,"path": string
+                  }
+                  Update: {
+                    "criado_em"?: string,"empresa_id"?: string,"path"?: string
+                  }
+                  Relationships: [
+                    {
+      foreignKeyName: "rs_arquivos_a_apagar_empresa_id_fkey"
+      columns: ["empresa_id"]
+isOneToOne: false
+      referencedRelation: "rs_empresas"
+      referencedColumns: ["id"]
+    }
+                  ]
                 },"rs_avaliacoes": {
                   Row: {
                     "atualizado_em": string,"candidatura_id": string,"comentario": string,"criado_em": string,"etapa_id": string,"id": string,"membro_id": string,"recomendacao": Database["public"]['Enums']["rs_recomendacao"]
@@ -134,14 +154,14 @@ isOneToOne: false
                   ]
                 },"rs_candidaturas": {
                   Row: {
-                    "atualizado_em": string,"candidato_id": string,"consentimento_em": string,"consentimento_versao": string,"criado_em": string,"empresa_id": string,"encerrada_em": string | null,"etapa_id": string | null,"exclusao_codigo_hash": string | null,"exclusao_codigos_hora": number,"exclusao_expira_em": string | null,"exclusao_janela_desde": string | null,"exclusao_tentativas": number,"expurgar_em": string | null,"id": string,"link_versao": number,"motivo_reprovacao": Database["public"]['Enums']["rs_motivo_reprovacao"] | null,"movida_em": string,"origem": Database["public"]['Enums']["rs_origem_candidatura"],"recebida_em": string | null,"revisao_pedida_em": string | null,"revisao_respondida_em": string | null,"revisao_texto": string | null,"sinalizada": boolean,"situacao": Database["public"]['Enums']["rs_situacao_candidatura"],"talentos_pedido": boolean,"texto_busca": unknown,"token_hash": string,"vaga_id": string
+                    "atualizado_em": string,"candidato_id": string,"consentimento_em": string,"consentimento_versao": string,"criado_em": string,"empresa_id": string,"encerrada_em": string | null,"etapa_id": string | null,"exclusao_codigo_hash": string | null,"exclusao_codigos_hora": number,"exclusao_expira_em": string | null,"exclusao_janela_desde": string | null,"exclusao_tentativas": number,"expurgada_em": string | null,"expurgar_em": string | null,"id": string,"link_versao": number,"motivo_reprovacao": Database["public"]['Enums']["rs_motivo_reprovacao"] | null,"movida_em": string,"origem": Database["public"]['Enums']["rs_origem_candidatura"],"recebida_em": string | null,"revisao_pedida_em": string | null,"revisao_respondida_em": string | null,"revisao_texto": string | null,"sinalizada": boolean,"situacao": Database["public"]['Enums']["rs_situacao_candidatura"],"talentos_pedido": boolean,"texto_busca": unknown,"token_hash": string,"vaga_id": string
                   }
                   ComputedFields: never
                   Insert: {
-                    "atualizado_em"?: string,"candidato_id": string,"consentimento_em": string,"consentimento_versao": string,"criado_em"?: string,"empresa_id": string,"encerrada_em"?: string | null,"etapa_id"?: string | null,"exclusao_codigo_hash"?: string | null,"exclusao_codigos_hora"?: number,"exclusao_expira_em"?: string | null,"exclusao_janela_desde"?: string | null,"exclusao_tentativas"?: number,"expurgar_em"?: string | null,"id"?: string,"link_versao"?: number,"motivo_reprovacao"?: Database["public"]['Enums']["rs_motivo_reprovacao"] | null,"movida_em"?: string,"origem": Database["public"]['Enums']["rs_origem_candidatura"],"recebida_em"?: string | null,"revisao_pedida_em"?: string | null,"revisao_respondida_em"?: string | null,"revisao_texto"?: string | null,"sinalizada"?: boolean,"situacao"?: Database["public"]['Enums']["rs_situacao_candidatura"],"talentos_pedido"?: boolean,"texto_busca"?: unknown,"token_hash": string,"vaga_id": string
+                    "atualizado_em"?: string,"candidato_id": string,"consentimento_em": string,"consentimento_versao": string,"criado_em"?: string,"empresa_id": string,"encerrada_em"?: string | null,"etapa_id"?: string | null,"exclusao_codigo_hash"?: string | null,"exclusao_codigos_hora"?: number,"exclusao_expira_em"?: string | null,"exclusao_janela_desde"?: string | null,"exclusao_tentativas"?: number,"expurgada_em"?: string | null,"expurgar_em"?: string | null,"id"?: string,"link_versao"?: number,"motivo_reprovacao"?: Database["public"]['Enums']["rs_motivo_reprovacao"] | null,"movida_em"?: string,"origem": Database["public"]['Enums']["rs_origem_candidatura"],"recebida_em"?: string | null,"revisao_pedida_em"?: string | null,"revisao_respondida_em"?: string | null,"revisao_texto"?: string | null,"sinalizada"?: boolean,"situacao"?: Database["public"]['Enums']["rs_situacao_candidatura"],"talentos_pedido"?: boolean,"texto_busca"?: unknown,"token_hash": string,"vaga_id": string
                   }
                   Update: {
-                    "atualizado_em"?: string,"candidato_id"?: string,"consentimento_em"?: string,"consentimento_versao"?: string,"criado_em"?: string,"empresa_id"?: string,"encerrada_em"?: string | null,"etapa_id"?: string | null,"exclusao_codigo_hash"?: string | null,"exclusao_codigos_hora"?: number,"exclusao_expira_em"?: string | null,"exclusao_janela_desde"?: string | null,"exclusao_tentativas"?: number,"expurgar_em"?: string | null,"id"?: string,"link_versao"?: number,"motivo_reprovacao"?: Database["public"]['Enums']["rs_motivo_reprovacao"] | null,"movida_em"?: string,"origem"?: Database["public"]['Enums']["rs_origem_candidatura"],"recebida_em"?: string | null,"revisao_pedida_em"?: string | null,"revisao_respondida_em"?: string | null,"revisao_texto"?: string | null,"sinalizada"?: boolean,"situacao"?: Database["public"]['Enums']["rs_situacao_candidatura"],"talentos_pedido"?: boolean,"texto_busca"?: unknown,"token_hash"?: string,"vaga_id"?: string
+                    "atualizado_em"?: string,"candidato_id"?: string,"consentimento_em"?: string,"consentimento_versao"?: string,"criado_em"?: string,"empresa_id"?: string,"encerrada_em"?: string | null,"etapa_id"?: string | null,"exclusao_codigo_hash"?: string | null,"exclusao_codigos_hora"?: number,"exclusao_expira_em"?: string | null,"exclusao_janela_desde"?: string | null,"exclusao_tentativas"?: number,"expurgada_em"?: string | null,"expurgar_em"?: string | null,"id"?: string,"link_versao"?: number,"motivo_reprovacao"?: Database["public"]['Enums']["rs_motivo_reprovacao"] | null,"movida_em"?: string,"origem"?: Database["public"]['Enums']["rs_origem_candidatura"],"recebida_em"?: string | null,"revisao_pedida_em"?: string | null,"revisao_respondida_em"?: string | null,"revisao_texto"?: string | null,"sinalizada"?: boolean,"situacao"?: Database["public"]['Enums']["rs_situacao_candidatura"],"talentos_pedido"?: boolean,"texto_busca"?: unknown,"token_hash"?: string,"vaga_id"?: string
                   }
                   Relationships: [
                     {
@@ -832,7 +852,7 @@ isOneToOne: false
 { Args: { "p_alcance": Json,"p_candidatura": string,"p_empresa": string,"p_tipo": Database["public"]['Enums']["rs_tipo_decisao"],"p_vaga": string }; Returns: string
                            },
 "rs_fn_anonimiza_candidatura":
-{ Args: { "p_candidatura": string,"p_empresa": string,"p_manter_curriculo"?: boolean }; Returns: (string)[]
+{ Args: { "p_candidatura": string,"p_empresa": string,"p_manter_curriculo"?: boolean,"p_origem"?: Database["public"]['Enums']["rs_origem_evento"] }; Returns: (string)[]
                            },
 "rs_fn_area_no_alcance":
 { Args: { "p_alcance": Json,"p_area": string }; Returns: boolean
@@ -1049,7 +1069,7 @@ isOneToOne: false
 { Args: { "p_empresa": string,"p_parada_dias": number,"p_revisao_dias": number }; Returns: Json
                            },
 "rs_fn_resumo_donos":
-{ Args: { "p_lote": number }; Returns: Json
+{ Args: { "p_inicio"?: number,"p_lote": number }; Returns: Json
                            },
 "rs_fn_revoga_credencial":
 { Args: { "p_ator": Json,"p_credencial": string,"p_empresa": string }; Returns: undefined

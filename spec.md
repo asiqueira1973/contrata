@@ -931,6 +931,7 @@ O Contrata não tem painel (princípio 1). Há **páginas web** só para quem pr
 | `[Público]` Candidatar-me | `/{empresa}/vagas/{slug}/candidatar` | formulário único | enviar | `rs_candidatos`, `rs_candidaturas`, `rs_respostas`, `rs_arquivos` |
 | `[Candidato]` Acompanhamento | `/c/{token}` | situação, devolutiva, mensagens recebidas, banco de talentos | retirar, baixar dados, excluir dados, pedir revisão, renovar/retirar talentos | `rs_candidaturas`, `rs_candidatos` |
 | `[Público]` Perdi o link | `/c` e `/{empresa}/links` | e-mail | reenviar links | `rs_notificacoes` |
+| `[Público]` Pedir acesso (v0.4.11) | `/{empresa}/pedir-acesso?t=` | token do resumo semanal | pedir acesso (botão, POST) | `rs_eventos`, `rs_notificacoes` |
 | `[Público]` Docs | `/docs/mcp`, `/docs/api`, `/docs/auto-hospedagem` | documentação | — | — |
 | `[Público]` Legais | `/privacidade`, `/termos` | textos | — | — |
 
@@ -1058,6 +1059,7 @@ Convenções: JSON, nomes do banco (português) nos campos, datas ISO 8601 UTC, 
 | `POST /api/publico/{e}/vagas/{slug}/candidaturas` | `requireEmpresaPublica` + limites | cria candidatura, devolve `{id, upload_url?}` (sem token) |
 | `POST /api/publico/{e}/candidaturas/{id}/concluir` | idem + `concluir_token` devolvido na criação (HMAC de 1 h ligado ao `id`; v0.4.4, no lugar do cookie `rs_cand_{id}`, que não chegaria vindo do site da empresa). Com chave `escrita`, o mesmo em `POST /api/v1/candidaturas/{id}/concluir` | confirma o upload, dispara extração e e-mail |
 | `POST /api/publico/{e}/links` | limites | reenvia links (resposta sempre igual) |
+| `POST /api/publico/{e}/pedir-acesso` | Origin + token HMAC de 30 dias (v0.4.11) | `acesso_pedido` e e-mail aos administradores (uma vez por pessoa por dia) |
 | `GET /api/c/{token}`, `POST /api/c/{token}/retirar`, `…/exportar`, `…/excluir/codigo`, `…/excluir`, `…/revisao`, `…/talentos` | `requireCandidaturaPorToken` + `Origin` nas escritas | ações do candidato (11.13) |
 | `GET /api/cron/diario` | `CRON_SECRET` | faxina (8.10) |
 
@@ -1280,7 +1282,7 @@ Os nomes no rótulo são resolvidos na hora de exibir (ids em `dados`), nunca gr
 | `decisoes_pendentes` (v0.4.7) | {empresa}: {n} propostas esperam confirmação | … Para ver e confirmar, peça ao Claude: mostre as propostas. Propostas vencem em 7 dias. |
 | `convite_membro` | Convite para a equipe da {empresa} | {nome} convidou você como {papel}. Para aceitar, entre com a conta Google de {email}: [Aceitar convite]. O convite vale por 7 dias. |
 | `resumo_dono_vaga` | {vaga}: resumo da semana | Olá, {nome}. Como está a vaga {vaga} que você pediu: {n} em análise, {n} em entrevistas, {n} em fase final, {n} encerradas nesta semana. Quem conduz: {recrutador}. Para ver as candidaturas e avaliar, [Pedir acesso]. |
-| `resumo_diario` | {empresa}: {n} itens precisam de você | Propostas para confirmar · Revisões pedidas · Candidaturas paradas há 14 dias ou mais · Vagas pausadas pelo prazo |
+| `resumo_diario` | {empresa}: {n} itens precisam de você | Revisões pedidas (as de 15+ dias como atrasadas) · Candidaturas paradas há 14 dias ou mais · Vagas pausadas pelo prazo, por vaga e só com contagens. **v0.4.11:** as propostas para confirmar seguem no `decisoes_pendentes` |
 | `revisao_pedida` | {nome} pediu revisão — {vaga} | … |
 | `talentos_expirando` | Seus dados no banco de talentos da {empresa} | … vencem em {data}. [Renovar] |
 
