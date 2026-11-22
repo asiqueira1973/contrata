@@ -147,6 +147,35 @@ describe("eventos nos fluxos (seção 21)", () => {
   });
 });
 
+describe("achados do verifier (8.11)", () => {
+  it("A1: dar acesso pelo formulário de pessoas manda membro_convidado", async () => {
+    setAnalyticsSinkForTests((e) => events.push(e));
+    const p = await callTool(token, "salvar_pessoa", { operacao: "cadastrar", nome: "Gil Pessoa", email: "gil@pessoa.exemplo" });
+    const pessoa = ((p as { structuredContent: { ids: string[] } }).structuredContent.ids)[0];
+    events = [];
+    await callTool(token, "salvar_pessoa", { operacao: "dar_acesso", pessoa, papel: "avaliador" });
+    await flushAnalytics();
+    expect(byName("contrata_membro_convidado")[0]).toMatchObject({ distinct_id: adminEmail, propriedades: { papel: "avaliador", limitado_por_area: false } });
+  });
+  it("A2: decisão pelo formulário manda candidatura_encerrada (uma por candidatura)", async () => {
+    setAnalyticsSinkForTests((e) => events.push(e));
+    const c = await createReceivedApplication(empresa.id, vaga.id, { nome: "Hugo Encerrado", email: "hugo@encerrado.exemplo" });
+    await callTool(token, "salvar_decisoes", { itens: [{ tipo: "reprovar", candidatura: c, motivo: "requisitos", assunto: "Sobre sua candidatura",
+      texto: "Olá. Obrigado pelo interesse; seguimos com outras pessoas nesta etapa." }] });
+    await flushAnalytics();
+    expect(byName("contrata_decisao_confirmada")[0]).toMatchObject({ propriedades: { tipo: "reprovar", editada: false, lote: 1 } });
+    expect(byName("contrata_candidatura_encerrada")[0]).toMatchObject({ id: eventId("contrata_candidatura_encerrada", c), propriedades: { situacao: "reprovada", origem: "chat" } });
+  });
+  it("A6: candidatura incluída à mão também manda candidatura_iniciada", async () => {
+    setAnalyticsSinkForTests((e) => events.push(e));
+    const r = await callTool(token, "salvar_adicionar_candidato", { vaga: vaga.id, nome: "Ivo Manual", email: "ivo@manual.exemplo", telefone: "", linkedin_url: "" });
+    const id = ((r as { structuredContent: { ids: string[] } }).structuredContent.ids)[0];
+    await flushAnalytics();
+    expect(byName("contrata_candidatura_iniciada").some((e) => e.distinct_id === `cand_${id}`)).toBe(true);
+    expect(byName("contrata_candidatura_enviada").find((e) => e.distinct_id === `cand_${id}`)).toMatchObject({ propriedades: { origem: "manual" } });
+  });
+});
+
 describe("chamada de API (seção 21)", () => {
   it("amostrada 1 a cada 10 s por credencial; rota sem id", () => {
     expect(sampleApiCall("k1", 1000)).toBe(true);
