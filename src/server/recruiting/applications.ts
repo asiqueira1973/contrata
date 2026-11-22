@@ -153,7 +153,7 @@ export async function applyToJob(p: {
   if (r.campos.length) throw new CamposInvalidos(r.campos);
   if (e.curriculo && (await usoDaEmpresa(p.empresa.id)) + e.curriculo.bytes > USO_EMPRESA_MAX_BYTES) throw new DomainError("armazenamento_cheio", 409);
   // Hash provisório (não é link de ninguém): o link de verdade nasce na conclusão (link.ts).
-  const criada = await chamaCria(p.empresa, vaga.id, e, r.respostas, p.origem, p.ator, versaoDoAviso(p.empresa.aviso_privacidade_extra), e.talentos, generateToken().hash);
+  const criada = await chamaCria(p.empresa, vaga.id, e, r.respostas, p.origem, p.ator, versaoDoAviso(p.empresa.aviso_privacidade_extra), e.talentos, generateToken().hash, e.convite);
   if (criada.existente && criada.recebida) {
     // 11.3: não muda nada; gira o link e manda de novo.
     const url = await giraLink(p.empresa.id, criada.id);
@@ -168,7 +168,7 @@ export async function applyToJob(p: {
 }
 
 async function chamaCria(empresa: EmpresaDaCandidatura, vagaId: string, e: z.infer<typeof dadosDoCandidatoSchema>,
-  respostas: { pergunta_id: string; valor: string }[], origem: Origem, ator: Ator, consentimento: string, talentos: boolean, tokenHash: string) {
+  respostas: { pergunta_id: string; valor: string }[], origem: Origem, ator: Ator, consentimento: string, talentos: boolean, tokenHash: string, convite?: string) {
   const { data, error } = await db().rpc("rs_fn_cria_candidatura", {
     p_empresa: empresa.id,
     p_vaga: vagaId,
@@ -180,6 +180,8 @@ async function chamaCria(empresa: EmpresaDaCandidatura, vagaId: string, e: z.inf
     p_talentos: talentos,
     p_token_hash: tokenHash,
     p_max_por_vaga: CANDIDATURAS_POR_VAGA_MAX,
+    // 8.7: o banco só aceita o convite desta vaga, desta pessoa e no prazo (origem banco_talentos).
+    ...(convite ? { p_convite: convite } : {}),
   });
   // 11.14: o teto por vaga recusa como os outros limites, sem dizer qual foi.
   if (error?.message === "limite_candidaturas_vaga") throw new DomainError("envio_recusado", 429);

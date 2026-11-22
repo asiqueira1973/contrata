@@ -130,3 +130,25 @@ export function decisoesPendentes(p: { empresa: string; n: number }) {
   const assunto = c.assunto(p.empresa, p.n);
   return { assunto, html: layout(assunto, [c.corpo(p.n)], null, "#0071e3", [c.depois]), texto: `${c.corpo(p.n)}\n\n${c.depois}` };
 }
+
+// Convite do banco de talentos (8.7; modelo convite_vaga, 15.4): o texto com as variáveis, o botão
+// para a vaga (com ?convite=) e, embaixo, por que a pessoa recebe e como sair do banco.
+export function conviteVaga(p: { empresa: string; cor?: string | null; assunto: string; corpo: string; urlVaga: string; urlAcompanhamento: string | null }) {
+  const c = copy.talentos.convite;
+  const paragrafos = p.corpo.split(/\n{2,}/).map((x) => x.trim()).filter(Boolean);
+  const rodape = copy.emailCandidato.rodape(p.empresa);
+  const depois = [c.porque(p.empresa), ...(p.urlAcompanhamento ? [`${c.acompanhamento}: ${p.urlAcompanhamento}`] : [])];
+  return {
+    html: layout(p.assunto, paragrafos, { texto: c.botao, url: p.urlVaga }, corDe(p.cor), depois, rodape),
+    texto: [p.corpo, `${c.botao}: ${p.urlVaga}`, ...depois, rodape].join("\n\n"),
+  };
+}
+
+// talentos_expirando (15.4): 30 dias antes de vencer, com o botão para renovar no /c.
+export function talentosExpirando(p: { empresa: string; cor?: string | null; nome: string; data: string; url: string }) {
+  const c = copy.talentos.expirando;
+  const assunto = c.assunto(p.empresa);
+  const corpo = c.corpo(p.nome, p.empresa, p.data);
+  const rodape = copy.emailCandidato.rodape(p.empresa);
+  return { assunto, html: layout(assunto, [corpo], { texto: c.botao, url: p.url }, corDe(p.cor), [], rodape), texto: `${corpo}\n\n${c.botao}: ${p.url}\n\n${rodape}` };
+}

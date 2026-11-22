@@ -71,6 +71,8 @@ const STATUS: Record<string, number> = {
   modelo_nao_encontrado: 404,
   revisao_indisponivel: 409,
   revisao_texto_longo: 400,
+  talento_indisponivel: 409,
+  acao_invalida: 400,
   devolutiva_obrigatoria: 400,
 };
 

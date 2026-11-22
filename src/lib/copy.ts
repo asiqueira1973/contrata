@@ -121,6 +121,9 @@ export const ERROS: Record<string, string> = {
   fora_da_equipe: "Só quem está na equipe da vaga avalia. Peça ao responsável para incluir você.",
   comentario_invalido: "Escreva um comentário de 10 a 5.000 caracteres.",
   ator_invalido: "Não autorizado.",
+  // Banco de talentos (8.7)
+  talento_indisponivel: "Essa pessoa não está no banco de talentos (ou o consentimento venceu, ou ela está fora das áreas que você enxerga).",
+  acao_invalida: "Ação inválida.",
   // Decisões e mensagens (8.6; 11.5, 11.7, 11.8, 11.13, 11.23, 11.29)
   decisao_so_por_pessoa: "Decisões só acontecem com o clique de alguém da equipe no formulário. Sem formulário, use propor_decisao: a proposta espera a confirmação.",
   proposta_existente: "Já existe uma proposta igual esperando confirmação para esta candidatura ou vaga.",
@@ -356,6 +359,7 @@ export const copy = {
       listar_propostas: "Propostas para confirmar",
       listar_modelos_mensagem: "Modelos de mensagem",
       propor_decisao: "Propor uma decisão",
+      buscar_talentos: "Banco de talentos",
     } as Record<string, string>,
     descricoes: {
       quem_sou_eu: `Diz em qual empresa este conector está, quem é o membro, o papel dele e o que ele pode fazer no ${NOME_PRODUTO}. Use no começo da conversa.`,
@@ -383,6 +387,8 @@ export const copy = {
       listar_propostas:
         "Lista as propostas de decisão (reprovar, contratar, encerrar vaga, mensagem) que esperam confirmação de alguém da equipe, com quem propôs, a justificativa e se ainda valem. Para confirmar ou descartar, abra o formulário de propostas.",
       listar_modelos_mensagem: "Lista os modelos de mensagem da empresa (os padrão e os personalizados), com assunto e texto. Use a chave no formulário de mensagem ou de decisões.",
+      buscar_talentos:
+        "Busca no banco de talentos: só pessoas que autorizaram a empresa a guardar os dados e cujo prazo ainda vale, entre as que se candidataram a vagas que você enxerga. Filtra por texto (nome, cidade, respostas e currículo) e por vaga anterior. Traz as candidaturas anteriores de cada pessoa (use ler_curriculo para ler o currículo). Para convidar para uma vaga, abra o formulário convidar_para_vaga.",
       propor_decisao:
         "Só para quando o formulário não aparece: cria uma proposta de decisão (reprovar, contratar, encerrar a vaga com pessoas em andamento ou mandar mensagem) que fica esperando um recrutador ou administrador confirmar. Nada acontece com o candidato agora. Escreva a devolutiva em tom respeitoso, sem citar idade, gênero, raça, religião, deficiência, estado civil ou qualquer característica pessoal, e explique na justificativa o motivo.",
     } as Record<string, string>,
@@ -402,6 +408,18 @@ export const copy = {
     ui: COPY_FORMULARIO,
     // Formulários do 8.2 (seção 10.2).
     form: {
+      convidar_para_vaga: {
+        titulo: "Convidar do banco de talentos",
+        descricao:
+          "Abre o formulário para convidar pessoas do banco de talentos a se candidatar a uma vaga publicada. O e-mail leva o link da vaga; ninguém vira candidato até se candidatar. A pessoa da equipe confere e clica em Convidar.",
+        candidatos: "Quem convidar",
+        vaga: "Vaga",
+        assunto: "Assunto",
+        corpo: "Mensagem",
+        botao: "Convidar",
+        nenhum: "Nenhuma pessoa no banco de talentos com esses critérios.",
+        opcao: (nome: string, cidade: string | null, ate: string) => `${nome}${cidade ? ` · ${cidade}` : ""} · no banco até ${ate}`,
+      },
       decisoes: {
         titulo: "Decisões",
         // Texto literal da 13.3 / 20.4.
@@ -912,6 +930,32 @@ export const copy = {
           : `Há ${n} propostas de decisão (reprovar, contratar, encerrar vaga ou mensagem) esperando há mais de um dia. Elas só acontecem quando alguém da equipe confirmar.`,
       depois: "Para ver e confirmar, peça ao Claude: mostre as propostas. Propostas vencem em 7 dias.",
     },
+  },
+
+  // Banco de talentos (8.7; 15.1, 15.4).
+  talentos: {
+    convite: {
+      botao: "Ver a vaga e me candidatar",
+      porque: (empresa: string) => `Você recebe este e-mail porque está no banco de talentos da ${empresa}. Para sair, abra o seu link de acompanhamento.`,
+      acompanhamento: "Meu link de acompanhamento",
+    },
+    expirando: {
+      assunto: (empresa: string) => `Seus dados no banco de talentos da ${empresa}`,
+      corpo: (nome: string, empresa: string, data: string) =>
+        `Olá, ${nome}. Seus dados no banco de talentos da ${empresa} vencem em ${data}. Se quiser continuar recebendo avisos de vagas, renove pelo seu link de acompanhamento. Se não fizer nada, seus dados saem do banco nessa data.`,
+      botao: "Renovar",
+    },
+    // /c (15.1)
+    dentro: (empresa: string, data: string) => `Você está no banco de talentos da ${empresa} até ${data}.`,
+    fora: (empresa: string, meses: number) => `Quer que a ${empresa} guarde seus dados por ${meses} meses para avisar você de outras vagas?`,
+    renovar: (meses: number) => `Renovar por mais ${meses} meses`,
+    sair: "Sair do banco de talentos",
+    entrar: "Entrar no banco de talentos",
+    renovado: (data: string) => `Pronto. Você está no banco de talentos até ${data}.`,
+    saiu: "Pronto. Seus dados saíram do banco de talentos.",
+    // Resumos do formulário e da API
+    convidados: (n: number, pulados: number) =>
+      `${n === 1 ? "1 pessoa convidada" : `${n} pessoas convidadas`}.${pulados ? ` ${pulados === 1 ? "1 já tinha se candidatado" : `${pulados} já tinham se candidatado`} a esta vaga.` : ""}`,
   },
 
   emailCandidato: {

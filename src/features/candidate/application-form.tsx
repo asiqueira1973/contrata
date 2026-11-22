@@ -93,6 +93,8 @@ export function ApplicationForm(p: Props) {
           aceite_privacidade: aceite,
           talentos,
           curriculo: arquivo && tipo ? { nome: arquivo.name.slice(0, 200), tipo, bytes: arquivo.size } : null,
+          // Convite do banco de talentos (8.7), vindo do link do e-mail.
+          convite: new URLSearchParams(window.location.search).get("convite") ?? undefined,
         }),
       });
       const b = await r.json();

@@ -7,6 +7,7 @@ import Link from "next/link";
 import { Suspense, type CSSProperties } from "react";
 import { copy } from "@/lib/copy";
 import s from "@/features/candidate/candidate.module.css";
+import { TalentActions } from "@/features/candidate/talent-actions";
 import { TrackingActions } from "@/features/candidate/tracking-actions";
 import { mensagensRecebidas, requireCandidaturaPorToken, situacaoParaCandidato } from "@/server/recruiting/applications";
 
@@ -51,9 +52,7 @@ async function Corpo({ params }: { params: PageProps<"/c/[token]">["params"] }) 
         </ol>
         <p style={{ margin: 0, lineHeight: 1.5 }}>{c.explicacao[chave](cand.empresa.nome)}</p>
       </section>
-      {cand.candidato.talentos_expira_em && new Date(cand.candidato.talentos_expira_em) > new Date() && (
-        <p className={s.dica}>{c.talentos(cand.empresa.nome, data(cand.candidato.talentos_expira_em))}</p>
-      )}
+      <TalentActions token={token} empresa={cand.empresa.nome} meses={cand.empresa.talentos_meses} ate={cand.candidato.talentos_expira_em} />
       <section style={{ display: "flex", flexDirection: "column", gap: 10 }} aria-labelledby="mensagens">
         <h2 id="mensagens" className={s.secao}>{c.mensagens}</h2>
         {mensagens.length ? mensagens.map((m) => (

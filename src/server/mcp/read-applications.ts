@@ -11,6 +11,7 @@ import { lerCursor, proximoCursor } from "@/server/api/v1";
 import { DomainError } from "@/server/http";
 import { exportApplications, getApplication, history, listApplications, readResume, type FiltrosCandidaturas } from "@/server/recruiting/pipeline";
 import { listProposals } from "@/server/recruiting/decisions";
+import { searchTalents } from "@/server/recruiting/talents";
 import { listTemplates } from "@/server/messages/templates";
 import { acharCandidatura, acharEtapa } from "./candidaturas";
 import type { ToolContext } from "./kit";
@@ -140,4 +141,30 @@ export function registrarConsultasDeCandidatura(server: McpServer, ctx: ToolCont
   );
 
   consulta(server, ctx, "listar_modelos_mensagem", async () => ({ itens: await listTemplates(ctx.empresa.id) }));
+
+  consulta(
+    server, ctx, "buscar_talentos",
+    async (a) => {
+      const filtros: { q?: string; vaga_anterior?: string } = {};
+      if (a.texto) filtros.q = a.texto;
+      if (a.vaga_anterior) {
+        const v = await acharVaga(ctx, a.vaga_anterior);
+        if (!v) throw new DomainError("vaga_nao_encontrada", 404);
+        filtros.vaga_anterior = v.id;
+      }
+      const inicio = lerCursor(a.cursor);
+      const r = await searchTalents(ctx, filtros, { inicio, limite: LISTA_PADRAO });
+      return {
+        itens: r.itens,
+        proximo_cursor: proximoCursor(inicio, LISTA_PADRAO, r.mais),
+        ...(!r.itens.length && !inicio ? { mensagem: copy.mcp.form.convidar_para_vaga.nenhum } : {}),
+      };
+    },
+    z.object({
+      texto: z.string().max(200).optional().describe("palavras a buscar (nome, cidade, respostas, currículo)"),
+      vaga_anterior: z.string().optional().describe("título ou id de uma vaga a que a pessoa já se candidatou"),
+      cursor: z.string().optional().describe("proximo_cursor da página anterior"),
+    }),
+    "recrutador",
+  );
 }

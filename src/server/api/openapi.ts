@@ -115,6 +115,16 @@ export function openApiDocument() {
           responses: { "200": { description: "ok", content: { "application/json": { schema: { type: "object", properties: { itens: { type: "array", items: { type: "object" } } } } } } }, ...erros, "400": invalido } },
       },
       "/decisoes/{id}": { parameters: [idParam], get: { summary: "Ver uma proposta (leitura)", operationId: "verDecisao", responses: { "200": { description: "ok", content: { "application/json": { schema: { type: "object" } } } }, ...erros, "404": naoEncontrado } } },
+      "/talentos": {
+        get: { summary: "Banco de talentos (leitura): só quem consentiu e está no prazo; q (texto) e vaga_id (vaga anterior)", operationId: "listarTalentos",
+          parameters: [...paginacao, { name: "q", in: "query", required: false, schema: { type: "string", maxLength: 200 } }, { name: "vaga_id", in: "query", required: false, schema: { type: "string", format: "uuid" } }],
+          responses: { "200": { description: "ok", content: { "application/json": { schema: { type: "object", properties: { itens: { type: "array", items: { type: "object" } }, proximo_cursor: { type: ["string", "null"] } } } } } }, ...erros, "400": invalido } },
+      },
+      "/talentos/{id}/convidar": {
+        parameters: [idParam],
+        post: { summary: "Convidar a pessoa do banco para uma vaga publicada ({vaga_id, modelo?, assunto?, corpo?}, escopo escrita). Não cria candidatura", operationId: "convidarTalento", requestBody: corpoObjeto,
+          responses: { "201": { description: "Convidada", content: { "application/json": { schema: { type: "object" } } } }, "200": { description: "Já tinha se candidatado à vaga", content: { "application/json": { schema: { type: "object" } } } }, ...erros, "400": invalido, "404": naoEncontrado, "409": conflito } },
+      },
       "/modelos-mensagem": { get: { summary: "Modelos de mensagem: os padrão com o que a empresa personalizou (leitura)", operationId: "listarModelosMensagem", responses: { "200": { description: "ok", content: { "application/json": { schema: { type: "object", properties: { itens: { type: "array", items: { type: "object" } } } } } } }, ...erros } } },
       "/candidaturas": {
         get: {

@@ -47,6 +47,8 @@ export const candidaturaSchema = dadosDoCandidatoSchema.extend({
   curriculo: curriculoDeclaradoSchema.nullish().transform((v) => v ?? null),
   // Campo-armadilha (11.14): pessoas não veem; robôs preenchem.
   website: z.string().max(500).optional(),
+  // Convite do banco de talentos (8.7): o ?convite= do link. Inválido é ignorado (não é erro).
+  convite: z.string().max(100).optional().transform((v) => (v && z.uuid().safeParse(v).success ? v : undefined)),
 });
 export type EntradaCandidatura = z.infer<typeof candidaturaSchema>;
 

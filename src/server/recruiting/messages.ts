@@ -44,7 +44,7 @@ async function dados(empresaId: string, id: string): Promise<DadosCandidatura> {
 
 // {{recrutador}} e {{link_agenda}} (11.29): quem envia, ou o responsável da vaga quando quem age é
 // agente ou integração. Recebe: contexto e vaga.
-async function remetente(ctx: ContextoVagas, vagaId: string): Promise<{ nome: string; link_agenda: string }> {
+export async function remetente(ctx: ContextoVagas, vagaId: string): Promise<{ nome: string; link_agenda: string }> {
   let membroId = ctx.ator.tipo === "membro" ? ctx.ator.membroId : undefined;
   if (!membroId) {
     const { data } = await db().from("rs_vaga_equipe").select("membro_id").eq("vaga_id", vagaId).eq("papel_na_vaga", "responsavel").maybeSingle();

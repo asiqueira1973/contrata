@@ -8,6 +8,7 @@ import { cleanAbandonedApplications } from "@/server/recruiting/applications";
 import { pauseExpiredJobs } from "@/server/recruiting/jobs";
 import { cleanOldExports } from "@/server/recruiting/pipeline";
 import { expireProposals, pendingProposalsDigest } from "@/server/recruiting/decisions";
+import { expiringTalentsDigest } from "@/server/recruiting/talents";
 
 const ORCAMENTO_MS = 45_000;
 
@@ -34,10 +35,19 @@ export async function runDailyCleanup(agora = () => Date.now()) {
     if (n < FAXINA_LOTE || agora() - inicio > ORCAMENTO_MS) break;
   }
   const resumosPropostas = await pendingProposalsDigest();
+  // Banco de talentos (11.12; 8.7): tira quem venceu e avisa quem vence em até 30 dias.
+  let talentosRetirados = 0;
+  let talentosAvisados = 0;
+  for (;;) {
+    const t = await expiringTalentsDigest(FAXINA_LOTE);
+    talentosRetirados += t.retirados;
+    talentosAvisados += t.avisados;
+    if ((t.retirados < FAXINA_LOTE && t.avisados < FAXINA_LOTE) || agora() - inicio > ORCAMENTO_MS) break;
+  }
   // CSVs exportados (14.1) dos dias anteriores: o link já venceu (5 min), o arquivo não serve mais.
   const exportacoes = await cleanOldExports();
   const r = { vagas_pausadas: vagasPausadas, candidaturas_abandonadas: abandonadas, propostas_expiradas: propostasExpiradas,
-    resumos_propostas: resumosPropostas, pastas_exportacao: exportacoes };
+    resumos_propostas: resumosPropostas, talentos_retirados: talentosRetirados, talentos_avisados: talentosAvisados, pastas_exportacao: exportacoes };
   console.info("faxina_diaria", r);
   return r;
 }
