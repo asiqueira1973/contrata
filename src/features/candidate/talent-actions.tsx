@@ -4,12 +4,13 @@
 // no servidor).
 import { useState } from "react";
 import { ERROS, copy } from "@/lib/copy";
+import { FUSO } from "@/lib/limits";
 import s from "./candidate.module.css";
 
 const t = copy.talentos;
 type Props = { token: string; empresa: string; meses: number; ate: string | null };
 
-const data = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { timeZone: "America/Sao_Paulo" });
+const data = (iso: string) => new Date(iso).toLocaleDateString("pt-BR", { timeZone: FUSO });
 
 export function TalentActions(p: Props) {
   const [ate, setAte] = useState(p.ate && new Date(p.ate) > new Date() ? p.ate : null);
@@ -36,7 +37,7 @@ export function TalentActions(p: Props) {
 
   return (
     <section className={s.cartao} aria-labelledby="talentos">
-      <p id="talentos" style={{ margin: 0, lineHeight: 1.5 }}>{ate ? t.dentro(p.empresa, data(ate)) : t.fora(p.empresa, p.meses)}</p>
+      <p id="talentos" style={{ margin: 0, lineHeight: 1.5 }}>{ate ? t.dentro(p.empresa, data(ate)) : copy.candidatura.talentos(p.empresa, p.meses)}</p>
       <div className={s.acoes}>
         {ate ? (
           <>

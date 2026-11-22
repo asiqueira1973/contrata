@@ -947,15 +947,14 @@ export const copy = {
     },
     // /c (15.1)
     dentro: (empresa: string, data: string) => `Você está no banco de talentos da ${empresa} até ${data}.`,
-    fora: (empresa: string, meses: number) => `Quer que a ${empresa} guarde seus dados por ${meses} meses para avisar você de outras vagas?`,
     renovar: (meses: number) => `Renovar por mais ${meses} meses`,
     sair: "Sair do banco de talentos",
     entrar: "Entrar no banco de talentos",
     renovado: (data: string) => `Pronto. Você está no banco de talentos até ${data}.`,
     saiu: "Pronto. Seus dados saíram do banco de talentos.",
     // Resumos do formulário e da API
-    convidados: (n: number, pulados: number) =>
-      `${n === 1 ? "1 pessoa convidada" : `${n} pessoas convidadas`}.${pulados ? ` ${pulados === 1 ? "1 já tinha se candidatado" : `${pulados} já tinham se candidatado`} a esta vaga.` : ""}`,
+    convidados: (n: number, pulados: number, fora = 0) =>
+      `${n === 1 ? "1 pessoa convidada" : `${n} pessoas convidadas`}.${pulados ? ` ${pulados === 1 ? "1 já tinha se candidatado" : `${pulados} já tinham se candidatado`} a esta vaga.` : ""}${fora ? ` ${fora === 1 ? "1 não está mais" : `${fora} não estão mais`} no banco de talentos.` : ""}`,
   },
 
   emailCandidato: {

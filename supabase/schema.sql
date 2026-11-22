@@ -546,17 +546,26 @@ declare
                         else pg_catalog.websearch_to_tsquery('pg_catalog.portuguese', extensions.unaccent(v_q)) end;
   v_vaga uuid := nullif(p_filtros ->> 'vaga_anterior', '')::uuid;
 begin
+  if v_q is not null and pg_catalog.strpos(v_q, '@') > 0 then
+    return;
+  end if;
   return query
+  with visiveis as (
+    select c.candidato_id, c.vaga_id, c.texto_busca
+      from public.rs_candidaturas c join public.rs_vagas v on v.id = c.vaga_id
+     where c.empresa_id = p_empresa and c.recebida_em is not null and p_alcance ->> 'tipo' <> 'equipe'
+       and public.rs_fn_vaga_no_alcance(v.id, v.area_id, p_alcance)
+  )
   select k.id, k.nome, k.cidade, k.linkedin_url, k.talentos_expira_em,
          case when v_tsq is null then null else
-           (select max(pg_catalog.ts_rank(c.texto_busca, v_tsq)) from public.rs_candidaturas c where c.candidato_id = k.id and c.texto_busca @@ v_tsq) end
+           (select max(pg_catalog.ts_rank(c.texto_busca, v_tsq)) from visiveis c where c.candidato_id = k.id and c.texto_busca @@ v_tsq) end
     from public.rs_candidatos k
    where k.empresa_id = p_empresa
      and k.anonimizado_em is null
      and k.talentos_expira_em > pg_catalog.now()
-     and public.rs_fn_talento_no_alcance(k.id, p_alcance)
-     and (v_vaga is null or exists (select 1 from public.rs_candidaturas c where c.candidato_id = k.id and c.vaga_id = v_vaga and c.recebida_em is not null))
-     and (v_tsq is null or exists (select 1 from public.rs_candidaturas c where c.candidato_id = k.id and c.texto_busca @@ v_tsq))
+     and exists (select 1 from visiveis c where c.candidato_id = k.id)
+     and (v_vaga is null or exists (select 1 from visiveis c where c.candidato_id = k.id and c.vaga_id = v_vaga))
+     and (v_tsq is null or exists (select 1 from visiveis c where c.candidato_id = k.id and c.texto_busca @@ v_tsq))
    order by 6 desc nulls last, k.talentos_expira_em desc, k.id
    offset greatest(p_inicio, 0) limit greatest(p_limite, 0);
 end $$;
@@ -865,8 +874,10 @@ begin
   -- Convite do banco de talentos (8.7): vale só se for desta empresa, desta vaga, desta pessoa
   -- (mesmo e-mail) e estiver no prazo; aí a origem é banco_talentos e o convite fica usado.
   -- Convite que não vale não é erro: a candidatura segue com a origem recebida.
+  -- Usado por uma candidatura que não existe mais (a faxina apaga a não concluída em 24 h) volta a
+  -- valer: a pessoa só tem uma candidatura por vaga (11.3), então chegar aqui é prova disso.
   if p_convite is not null and exists (select 1 from public.rs_convites_talento t where t.id = p_convite and t.empresa_id = p_empresa
-       and t.vaga_id = p_vaga and t.candidato_id = v_candidato and t.usado_em is null and t.expira_em > pg_catalog.now()) then
+       and t.vaga_id = p_vaga and t.candidato_id = v_candidato and t.expira_em > pg_catalog.now()) then
     v_origem := 'banco_talentos';
     update public.rs_convites_talento set usado_em = pg_catalog.now() where id = p_convite;
   end if;
@@ -1403,6 +1414,8 @@ begin
   for k in select id, empresa_id, talentos_expira_em from public.rs_candidatos
             where talentos_expira_em > pg_catalog.now() and talentos_expira_em <= pg_catalog.now() + interval '30 days'
               and talentos_avisado_em is null and anonimizado_em is null
+              -- Empresa suspensa ou excluída não manda o aviso; ele fica para quando ela voltar.
+              and exists (select 1 from public.rs_empresas e where e.id = rs_candidatos.empresa_id and e.excluida_em is null and e.suspensa_em is null)
             order by talentos_expira_em limit p_lote for update skip locked loop
     select id into v_cand from public.rs_candidaturas where candidato_id = k.id and recebida_em is not null
        and token_hash not like 'anonimizada:%' order by recebida_em desc limit 1;

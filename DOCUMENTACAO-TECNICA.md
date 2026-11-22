@@ -145,17 +145,17 @@ Do 8.6, migration `20261122140000_rs_decisoes.sql`:
 | `rs_fn_pede_revisao` / `rs_fn_responde_revisao` | funções | `/c`, `salvar_resposta_revisao` | 11.13: uma vez, reprovada ou encerrada com a vaga, antes do expurgo; a resposta manda `resposta_revisao` e pode reabrir (só com membro) |
 | `rs_fn_faxina_decisoes(lote)` | função | `/api/cron/diario` | Pendentes vencidas viram expiradas (`decisao_expirada`, ator sistema) |
 
-Do 8.7, migration `20261122160000_rs_talentos.sql`:
+Do 8.7, migrations `20261122160000_rs_talentos.sql` e `20261122170000_rs_talentos_ajustes.sql` (achados do verifier):
 
 | Nome | Tipo | Quando roda | O que faz |
 |---|---|---|---|
 | `rs_convites_talento`, `rs_candidatos.talentos_avisado_em` | tabela e coluna | — | Convites (decisão 1 do 8.7); aviso de 30 dias uma vez por período |
 | `rs_fn_cria_candidatura` (refeita, com `p_convite` opcional) | função | candidatar | Convite desta empresa, desta vaga, desta pessoa e no prazo → origem `banco_talentos` e convite usado; convite que não vale não é erro |
 | `rs_fn_talento_no_alcance` | auxiliar | busca e convite | Alguma candidatura recebida da pessoa numa vaga do alcance; avaliador (equipe) nunca |
-| `rs_fn_busca_talentos(empresa, alcance, filtros, início, limite)` | função | `buscar_talentos`, `GET /talentos` | Consentimento válido, não anonimizado, no alcance; `q` no texto das candidaturas dela; `vaga_anterior` |
+| `rs_fn_busca_talentos(empresa, alcance, filtros, início, limite)` | função | `buscar_talentos`, `GET /talentos` | Consentimento válido, não anonimizado, no alcance; `q` e `vaga_anterior` só nas candidaturas recebidas dela em vagas do alcance; `q` com `@` não busca |
 | `rs_fn_convida_talento(empresa, candidato, vaga, alcance, ator)` | função | convidar | Vaga publicada do alcance, pessoa no banco e no alcance (`talento_indisponivel`); quem já é candidato volta `ja_candidato`; cria ou reaproveita o convite; `talentos_convidado` |
 | `rs_fn_talentos_candidato(candidatura, ação)` | função | `/c` | Entrar, renovar (por `talentos_meses`, zera o aviso) ou sair; eventos do titular |
-| `rs_fn_faxina_talentos(lote)` | função | `/api/cron/diario` | Tira quem venceu (`talentos_retirado`, sistema) e devolve quem vence em até 30 dias, marcando o aviso |
+| `rs_fn_faxina_talentos(lote)` | função | `/api/cron/diario` | Tira quem venceu (`talentos_retirado`, sistema) e devolve quem vence em até 30 dias, marcando o aviso; empresa suspensa ou excluída não avisa (fica para depois) |
 
 ---
 
@@ -355,3 +355,11 @@ Todas já refletidas no `spec.md` (v0.4.8).
 68. **Alcance do banco de talentos:** como todo consentimento nasce de uma candidatura, vale "se candidatou a alguma vaga do alcance"; o caso "consentiu sem vaga" da 11.32 não existe aqui.
 69. **No `/c`, quem não está no banco pode entrar** ("Entrar no banco de talentos", com o texto da caixa do formulário), além de renovar e sair (15.1).
 70. **Pendente:** modelo com `{{link_agenda}}` vazio (recrutador sem link de agenda) deixa "por aqui: ." no texto. O formulário de mensagem mostra o texto antes; o ajuste da copy fica para o 8.9 (configurações).
+71. **Achados do verifier do 8.7, corrigidos com teste:**
+   - a busca por texto e o filtro de vaga anterior olhavam todas as candidaturas da pessoa: agora só as recebidas em vagas do alcance (11.32), senão o texto de uma candidatura de fora virava oráculo;
+   - texto com `@` não busca no banco de talentos (o modelo não descobre se um e-mail está lá);
+   - `POST /talentos/{id}/convidar` aceita só `{vaga_id}` (13.2) e usa o modelo `convite_vaga` da empresa: texto livre pela API segue a 11.8 em `POST /candidaturas/{id}/mensagens`;
+   - um e-mail por convite por dia (convidar de novo no mesmo dia não reenvia);
+   - no lote, quem saiu do banco entre abrir e salvar fica de fora e o resumo diz quantos; só dá erro se ninguém pôde ser convidado;
+   - convite usado por candidatura não concluída que a faxina apagou volta a valer;
+   - o `/c` mostra a quem está fora o texto da caixa do formulário (15.1).

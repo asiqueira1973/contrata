@@ -122,7 +122,7 @@ export function openApiDocument() {
       },
       "/talentos/{id}/convidar": {
         parameters: [idParam],
-        post: { summary: "Convidar a pessoa do banco para uma vaga publicada ({vaga_id, modelo?, assunto?, corpo?}, escopo escrita). Não cria candidatura", operationId: "convidarTalento", requestBody: corpoObjeto,
+        post: { summary: "Convidar a pessoa do banco para uma vaga publicada ({vaga_id}, escopo escrita), com o modelo convite_vaga da empresa. Não cria candidatura", operationId: "convidarTalento", requestBody: corpoObjeto,
           responses: { "201": { description: "Convidada", content: { "application/json": { schema: { type: "object" } } } }, "200": { description: "Já tinha se candidatado à vaga", content: { "application/json": { schema: { type: "object" } } } }, ...erros, "400": invalido, "404": naoEncontrado, "409": conflito } },
       },
       "/modelos-mensagem": { get: { summary: "Modelos de mensagem: os padrão com o que a empresa personalizou (leitura)", operationId: "listarModelosMensagem", responses: { "200": { description: "ok", content: { "application/json": { schema: { type: "object", properties: { itens: { type: "array", items: { type: "object" } } } } } } }, ...erros } } },

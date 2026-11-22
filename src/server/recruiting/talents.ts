@@ -60,8 +60,10 @@ export async function searchTalents(ctx: ContextoVagas, filtros: { q?: string; v
 // ---------------------------------------------------------------- convidar (8.7)
 // Convida até 50 pessoas do banco para uma vaga publicada do alcance: cria (ou reaproveita) o
 // convite e manda o e-mail do modelo convite_vaga (ou o texto editado), com o link da vaga +
-// ?convite=. Não cria candidatura. Quem já se candidatou à vaga é pulado. Recebe: contexto,
-// candidatos, vaga e o texto (opcional). Devolve quantos foram convidados e quantos pulados.
+// ?convite=. Não cria candidatura. Quem já se candidatou à vaga é pulado; quem saiu do banco entre
+// abrir e salvar fica de fora sem derrubar o lote (achado do verifier). Um e-mail por convite por dia:
+// convidar de novo no mesmo dia não reenvia. Recebe: contexto, candidatos, vaga e o texto (opcional;
+// a API v1 não manda texto, só o modelo da empresa). Devolve as contagens e o resumo.
 export async function inviteTalents(ctx: ContextoVagas & { empresa: { nome: string } }, p: { candidatos: string[]; vaga: string; texto?: TextoMensagem | null }) {
   const ids = [...new Set(p.candidatos)];
   if (!ids.length || ids.length > DECISOES_LOTE_MAX) throw new CamposInvalidos([{ campo: "candidatos", codigo: "lote_decisoes" }]);
@@ -75,10 +77,18 @@ export async function inviteTalents(ctx: ContextoVagas & { empresa: { nome: stri
   const r = await remetente(ctx, vaga.id);
   let convidados = 0;
   let pulados = 0;
+  let indisponiveis = 0;
+  let primeiroIndisponivel: unknown = null;
+  const dia = new Intl.DateTimeFormat("en-CA", { timeZone: FUSO }).format(new Date());
   for (const candidato of ids) {
     const { data, error: e } = await db().rpc("rs_fn_convida_talento", {
       p_empresa: ctx.empresa.id, p_candidato: candidato, p_vaga: vaga.id, p_alcance: alcanceJson(ctx.alcance) as never, p_ator: atorJson(ctx.ator),
     });
+    if (e?.message === "talento_indisponivel") {
+      indisponiveis++;
+      primeiroIndisponivel ??= e;
+      continue;
+    }
     if (e) throw e;
     const res = data as { convite_id: string | null; ja_candidato: boolean };
     if (res.ja_candidato || !res.convite_id) {
@@ -96,11 +106,13 @@ export async function inviteTalents(ctx: ContextoVagas & { empresa: { nome: stri
       .not("recebida_em", "is", null).order("recebida_em", { ascending: false }).limit(1).maybeSingle();
     const urlAcompanhamento = ultima ? await linkVigente(ctx.empresa.id, ultima.id) : null;
     const email = conviteVaga({ empresa: empresa.nome, cor: empresa.cor_destaque, assunto, corpo, urlVaga, urlAcompanhamento });
-    await enqueue({ empresaId: ctx.empresa.id, tipo: "mensagem_candidato", destinatario: k.email, chave: `convite:${res.convite_id}:${Date.now()}`,
+    await enqueue({ empresaId: ctx.empresa.id, tipo: "mensagem_candidato", destinatario: k.email, chave: `convite:${res.convite_id}:${dia}`,
       assunto, html: email.html, texto: email.texto, replyTo: empresa.email_contato, fromName: empresa.nome });
     convidados++;
   }
-  return { convidados, pulados, resumo: copy.talentos.convidados(convidados, pulados) };
+  // Ninguém convidável no lote: o erro de sempre (409 na API, aviso no formulário).
+  if (!convidados && !pulados && primeiroIndisponivel) throw primeiroIndisponivel;
+  return { convidados, pulados, indisponiveis, resumo: copy.talentos.convidados(convidados, pulados, indisponiveis) };
 }
 
 // ---------------------------------------------------------------- o titular no /c (8.7)
