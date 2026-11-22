@@ -160,3 +160,34 @@ export function empresaExcluida(p: { empresa: string; data: string }) {
   const corpo = [c.corpo(p.empresa, p.data), c.desfazer];
   return { assunto, html: layout(assunto, corpo, null), texto: corpo.join("\n\n") };
 }
+
+// resumo_diario (8.10; 11.11): por vaga, só contagens (sem nome de candidato).
+export function resumoDiario(p: { empresa: string; linhas: string[]; n: number }) {
+  const c = copy.resumoDiario;
+  const assunto = c.assunto(p.empresa, p.n);
+  const itens = p.linhas.map((l) => `<li>${escapeHtml(l)}</li>`).join("");
+  return {
+    assunto,
+    html: layout(assunto, [c.intro], null, "#0071e3", [c.depois], NOME_PRODUTO, `<ul style="padding-left:20px;font-size:16px;line-height:1.5">${itens}</ul>`),
+    texto: [c.intro, ...p.linhas.map((l) => `- ${l}`), "", c.depois].join("\n"),
+  };
+}
+
+// resumo_dono_vaga (8.10; 11.31): só contagens, com "Pedir acesso".
+export function resumoDonoVaga(p: {
+  empresa: string; cor?: string | null; logo?: string | null; nome: string; vaga: string; recrutador: string | null; url: string;
+  contagens: { em_analise: number; entrevistas: number; fase_final: number; encerradas_semana: number; contratada: boolean };
+}) {
+  const c = copy.resumoDonoVaga;
+  const assunto = c.assunto(p.vaga);
+  const corpo = [c.corpo(p.nome, p.vaga, p.contagens), c.quemConduz(p.recrutador), c.porque];
+  const rodape = c.rodape(p.empresa);
+  return { assunto, html: layout(assunto, corpo, { texto: c.botao, url: p.url }, corDe(p.cor), [], rodape, "", p.logo ?? null), texto: `${corpo.join("\n\n")}\n\n${c.botao}: ${p.url}\n\n${rodape}` };
+}
+
+// acesso_pedido (8.10; 11.31): aos administradores.
+export function acessoPedido(p: { empresa: string; nome: string }) {
+  const c = copy.emailAcessoPedido;
+  const assunto = c.assunto(p.nome, p.empresa);
+  return { assunto, html: layout(assunto, [c.corpo(p.nome)], null, "#0071e3", [c.depois]), texto: `${c.corpo(p.nome)}\n\n${c.depois}` };
+}

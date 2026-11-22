@@ -79,6 +79,7 @@ export const ERROS: Record<string, string> = {
   slug_nao_confere: "Digite o endereço da empresa exatamente como aparece.",
   empresa_com_ativas: "Ainda há candidaturas em andamento. Encerre as vagas (ou decida cada candidatura) pelo formulário de decisões; cada pessoa recebe a devolutiva. Depois, exclua a empresa.",
   prazo_vencido: "O prazo para desfazer a exclusão já passou.",
+  link_pedir_acesso_invalido: "Este link não vale mais. Use o do resumo mais recente.",
   empresa_excluida: "A empresa foi excluída. Um administrador pode desfazer a exclusão em até 7 dias.",
   termos_pendentes: "Aceite os Termos de uso e a Política de privacidade para continuar.",
   // Vagas (8.3; 11.1, 11.14, 11.22, 11.32, 12.1)
@@ -1042,6 +1043,40 @@ export const copy = {
           : `Há ${n} propostas de decisão (reprovar, contratar, encerrar vaga ou mensagem) esperando há mais de um dia. Elas só acontecem quando alguém da equipe confirmar.`,
       depois: "Para ver e confirmar, peça ao Claude: mostre as propostas. Propostas vencem em 7 dias.",
     },
+  },
+
+  // Faxina diária (8.10; 11.11, 11.31, 15.4).
+  resumoDiario: {
+    assunto: (empresa: string, n: number) => (n === 1 ? `${empresa}: 1 item precisa de você` : `${empresa}: ${n} itens precisam de você`),
+    intro: "Isto pede atenção nas vagas que você conduz:",
+    paradas: (n: number) => (n === 1 ? "1 candidatura parada há 14 dias ou mais" : `${n} candidaturas paradas há 14 dias ou mais`),
+    revisoes: (n: number, atrasadas: number) =>
+      `${n === 1 ? "1 revisão pedida sem resposta" : `${n} revisões pedidas sem resposta`}${atrasadas ? ` (${atrasadas === 1 ? "1 há mais de 15 dias" : `${atrasadas} há mais de 15 dias`})` : ""}`,
+    pausada: "pausada pelo prazo de inscrição (para reabrir, mude a data e publique de novo)",
+    linha: (vaga: string, itens: string[]) => `${vaga}: ${itens.join(" · ")}`,
+    depois: "Para ver os detalhes, peça ao Claude, por exemplo: quais candidaturas estão paradas nesta vaga? Ou: mostre as revisões pedidas.",
+  },
+  resumoDonoVaga: {
+    assunto: (vaga: string) => `${vaga}: resumo da semana`,
+    corpo: (nome: string, vaga: string, c: { em_analise: number; entrevistas: number; fase_final: number; encerradas_semana: number; contratada: boolean }) =>
+      `Olá, ${nome}. Como está a vaga ${vaga} que você pediu: ${c.em_analise} em análise, ${c.entrevistas} em entrevistas, ${c.fase_final} em fase final, ${c.encerradas_semana} encerradas nesta semana.${c.contratada ? " Já há uma pessoa contratada." : ""}`,
+    quemConduz: (recrutador: string | null) => (recrutador ? `Quem conduz: ${recrutador}.` : "Ainda não há um recrutador responsável pela vaga."),
+    botao: "Pedir acesso",
+    porque: "Para ver as candidaturas e avaliar, peça acesso: os administradores da empresa recebem o pedido.",
+    rodape: (empresa: string) => `Você recebe este resumo porque é dono(a) de uma vaga na ${empresa}. Para não receber mais, peça a quem cuida do recrutamento.`,
+  },
+  emailAcessoPedido: {
+    assunto: (nome: string, empresa: string) => `${nome} pediu acesso à ${empresa}`,
+    corpo: (nome: string) => `${nome}, dono(a) de vaga sem acesso, pediu para ver as candidaturas e avaliar.`,
+    depois: "Para dar acesso, peça ao Claude: dê acesso de avaliador a essa pessoa (formulário de pessoas).",
+  },
+  pedirAcesso: {
+    titulo: "Pedir acesso",
+    texto: (empresa: string) => `Os administradores da ${empresa} vão receber o seu pedido para ver as candidaturas das suas vagas e avaliar. Ninguém recebe acesso sem a confirmação deles.`,
+    botao: "Pedir acesso",
+    enviando: "Enviando…",
+    pronto: "Pedido enviado. Os administradores vão responder por e-mail.",
+    invalido: "Este link não vale mais. Use o do resumo mais recente.",
   },
 
   // Exclusão da empresa (8.9; 7.4): aviso aos administradores.

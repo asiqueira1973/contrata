@@ -220,3 +220,12 @@ export const SITE_URL_MAX = 300;
 export const COR_MAX = 7;
 export const CONFIRMACAO_SLUG_MAX = 60;
 export const AVISO_EXTRA_MAX = 1000;
+
+// Faxina diária (8.10; 7.4, 11.11, 12.4): orçamento de 45 s (a função tem 60 s); e-mail descartado
+// na 5ª falha; notificação enviada ou descartada apagada com 30 dias; revisão sem resposta há 15
+// dias aparece como atrasada; link de "Pedir acesso" do resumo semanal vale 30 dias.
+export const FAXINA_ORCAMENTO_MS = 45_000;
+export const NOTIFICACAO_TENTATIVAS = 5;
+export const NOTIFICACAO_GUARDA_DIAS = 30;
+export const REVISAO_ATRASADA_DIAS = 15;
+export const PEDIR_ACESSO_DIAS = 30;

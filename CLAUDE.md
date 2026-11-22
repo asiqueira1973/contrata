@@ -2,14 +2,14 @@
 
 Nome público: **Vaga Aberta** (vagaaberta.app.br, spec 25.1), sempre pela variável `NEXT_PUBLIC_NOME_PRODUTO` / `NOME_PRODUTO` do `copy.ts`, nunca escrito à mão. Repositório, pasta, bucket, banco (`rs_*`), prefixos das chaves, eventos `contrata_*` e cabeçalhos `X-Contrata-*` mantêm o nome de trabalho de propósito.
 
-Fonte única de verdade: `spec.md` (v0.4.10). Planos aprovados: `plans/`. Os princípios da seção 0 desempatam dúvidas. Itens da seção 25 → **pare e pergunte**. Referências: `~/assina` (login, R2, Resend, webhooks, OAuth) e `~/agenda-psi/mcp-server` (MCP Apps, formulários, fallback com prévia). Leia antes de reinventar. Mudou schema, rota, ferramenta ou tela → atualize `DOCUMENTACAO-TECNICA.md`, este arquivo e o README no mesmo commit.
+Fonte única de verdade: `spec.md` (v0.4.11). Planos aprovados: `plans/`. Os princípios da seção 0 desempatam dúvidas. Itens da seção 25 → **pare e pergunte**. Referências: `~/assina` (login, R2, Resend, webhooks, OAuth) e `~/agenda-psi/mcp-server` (MCP Apps, formulários, fallback com prévia). Leia antes de reinventar. Mudou schema, rota, ferramenta ou tela → atualize `DOCUMENTACAO-TECNICA.md`, este arquivo e o README no mesmo commit.
 
 ## Regra de ouro
 Se um teste falhar, corrija o código, não o teste; nunca pule nem apague teste que falha.
 Bug: teste que reproduz → ver falhar → commit → `touch .claude/fix-mode` → corrigir → `rm .claude/fix-mode`.
 
 ## Estado
-Spec **v0.4.10: um sistema para agentes, não para humanos**. Quem recruta opera pelo Claude ou pelo ChatGPT; não há painel. Clone e use: quem cria empresa é `CRIACAO_EMPRESA_EMAILS` (11.33). Épicos 8.0, 8.1, 8.2 (o conector), 8.3 (vagas e página de carreiras), 8.4 (candidatura e link `/c`), 8.5 (funil), 8.6 (decisões, devolutivas e mensagens), 8.7 (banco de talentos), 8.8 (webhooks e trilha) e 8.9 (empresa, LGPD e configurações) concluídos no local, com as migrations no remoto (21/11/2026). Pendentes, com o Alexandre: projeto e DNS de vagaaberta.app.br na Vercel, cliente OAuth do Google, bucket R2 e, com eles, o teste no Claude, no ChatGPT, no Teste de Pesquisa Aprimorada e o e-mail real pelo Resend. Próximo: 8.10 (faxina diária: expurgo, resumos, retentativas), em plan mode.
+Spec **v0.4.11: um sistema para agentes, não para humanos**. Quem recruta opera pelo Claude ou pelo ChatGPT; não há painel. Clone e use: quem cria empresa é `CRIACAO_EMPRESA_EMAILS` (11.33). Épicos 8.0, 8.1, 8.2 (o conector), 8.3 (vagas e página de carreiras), 8.4 (candidatura e link `/c`), 8.5 (funil), 8.6 (decisões, devolutivas e mensagens), 8.7 (banco de talentos), 8.8 (webhooks e trilha), 8.9 (empresa, LGPD e configurações) e 8.10 (faxina diária) concluídos no local, com as migrations no remoto (21/11/2026). Pendentes, com o Alexandre: projeto e DNS de vagaaberta.app.br na Vercel, cliente OAuth do Google, bucket R2 e, com eles, o teste no Claude, no ChatGPT, no Teste de Pesquisa Aprimorada e o e-mail real pelo Resend. Próximo: 8.11 (analytics), em plan mode.
 
 ## Como uma ação nova entra (padrão do 8.2)
 1. Função de domínio em `src/server/<área>/` com `ator` e, se lê candidaturas, `alcance`.
@@ -100,3 +100,7 @@ Spec **v0.4.10: um sistema para agentes, não para humanos**. Quem recruta opera
 - Logo: sempre por `files/logo.confereLogo` (bytes, SVG limpo) e `org/companies.saveLogo`; URL por `urlDoLogo(slug, logo_path)` (o hash está no nome do arquivo). E-mail ao candidato novo: passe `logo` junto com `cor`.
 - Cor de destaque: `lib/cor.contrasteComBranco` ≥ `COR_CONTRASTE_MIN` (o banco só confere o formato).
 - Escrita em `rs_empresas`: só por `rs_fn_salva_empresa` (evento `empresa_editada`), nunca `update` direto no código.
+- **Faxina (8.10):** passo novo entra em `runDailyCleanup` com `emLotes` (lote de 200) ou `umaVez`, na ordem da 8.10; sem tempo, o nome vai para `sobrou`. Contagens só; nada pessoal no log. E-mail da faxina sempre com chave por dia (`…:{dia em FUSO}`) ou semana, para rodar duas vezes sem duplicar.
+- Apagar empresa: só `rs_fn_expurga_empresa` (ordem explícita). Tabela nova com FK "no action" para outra tabela da empresa → acrescente o `delete` nela, na ordem, senão o expurgo falha.
+- Anonimizar candidatura: `rs_fn_anonimiza_candidatura(c, e, manter_curriculo)`; quem decide manter é o expurgo (banco de talentos, 11.12).
+- Resumo que vai por e-mail: só contagens por vaga, nunca nome de candidato.
