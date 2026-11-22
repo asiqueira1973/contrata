@@ -37,6 +37,13 @@ function aoEscolher(c: Campo, valor: string): void {
   if (opcao?.preencher) for (const [nome, v] of Object.entries(opcao.preencher)) montados.get(nome)?.preencher(v);
 }
 
+// Tipo do arquivo pela extensão, quando o navegador não diz (currículo e logo).
+const EXTENSOES: Record<string, string> = {
+  pdf: "application/pdf", docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  png: "image/png", jpg: "image/jpeg", jpeg: "image/jpeg", svg: "image/svg+xml",
+};
+const tipoPelaExtensao = (nome: string): string | undefined => EXTENSOES[/\.([a-z0-9]+)$/i.exec(nome)?.[1]?.toLowerCase() ?? ""];
+
 // Monta um campo uma vez. Devolve os ganchos para atualizar valor e opções.
 function montarCampo(c: Campo): void {
   const id = `campo-${c.nome}`;
@@ -84,6 +91,23 @@ function montarCampo(c: Campo): void {
     };
     preencher = () => opcoes?.(opcoesDe(c));
     bloco.append(grupo);
+  } else if (c.tipo === "cor") {
+    const seletor = el("input", { type: "color", "aria-label": c.rotulo });
+    const texto = el("input", { id, type: "text", autocomplete: "off", maxLength: 7, placeholder: "#0071e3", "aria-describedby": erro.id });
+    const mudou = (v: string) => despachar({ tipo: "valor", nome: c.nome, valor: v });
+    seletor.addEventListener("input", () => {
+      texto.value = seletor.value;
+      mudou(seletor.value);
+    });
+    texto.addEventListener("input", () => {
+      if (/^#[0-9a-fA-F]{6}$/.test(texto.value)) seletor.value = texto.value.toLowerCase();
+      mudou(texto.value);
+    });
+    preencher = (v) => {
+      texto.value = typeof v === "string" ? v : "";
+      if (/^#[0-9a-fA-F]{6}$/.test(texto.value)) seletor.value = texto.value.toLowerCase();
+    };
+    bloco.append(el("label", { for: id }, c.rotulo), el("div", { className: "cor" }, seletor, texto));
   } else if (c.tipo === "numero" || c.tipo === "data") {
     const input = el("input", { id, type: c.tipo === "data" ? "date" : "number", "aria-describedby": erro.id });
     if (c.tipo === "numero") {
@@ -108,7 +132,7 @@ function montarCampo(c: Campo): void {
     input.addEventListener("change", () => {
       const f = input.files?.[0];
       if (!f) return despachar({ tipo: "valor", nome: c.nome, valor: "" });
-      const tipo = c.tipos.includes(f.type) ? f.type : /\.pdf$/i.test(f.name) ? c.tipos[0] : /\.docx$/i.test(f.name) ? c.tipos[1] : f.type;
+      const tipo = c.tipos.includes(f.type) ? f.type : tipoPelaExtensao(f.name) ?? f.type;
       if (!c.tipos.includes(tipo) || f.size > c.maxBytes) {
         input.value = "";
         despachar({ tipo: "valor", nome: c.nome, valor: "" });

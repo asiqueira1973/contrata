@@ -31,7 +31,7 @@ export function jobPosting(empresa: EmpresaPublica, vaga: VagaPublica, url: stri
     description: descricao,
     datePosted: vaga.publicada_em,
     employmentType: TIPO_EMPREGO[vaga.regime],
-    hiringOrganization: { "@type": "Organization", name: empresa.nome, ...(empresa.site_url ? { sameAs: empresa.site_url } : {}) },
+    hiringOrganization: { "@type": "Organization", name: empresa.nome, ...(empresa.site_url ? { sameAs: empresa.site_url } : {}), ...(empresa.logo_url ? { logo: empresa.logo_url } : {}) },
     identifier: { "@type": "PropertyValue", name: empresa.nome, value: vaga.id },
     directApply: true,
     url,

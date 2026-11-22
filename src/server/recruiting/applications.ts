@@ -29,6 +29,7 @@ import { confereCurriculo, type TipoCurriculo } from "@/server/files/verifica";
 import { CamposInvalidos, DomainError } from "@/server/http";
 import { atorJson, type Ator } from "@/server/org/actor";
 import { deliverDueLater } from "@/server/webhooks/deliver";
+import { urlDoLogo } from "@/server/files/logo";
 
 type Origem = Database["public"]["Enums"]["rs_origem_candidatura"];
 type Situacao = Database["public"]["Enums"]["rs_situacao_candidatura"];
@@ -37,11 +38,11 @@ type Situacao = Database["public"]["Enums"]["rs_situacao_candidatura"];
 export const ATOR_CANDIDATO: Ator = { tipo: "candidato", origem: "publico" };
 
 export type EmpresaDaCandidatura = {
-  id: string; slug: string; nome: string; email_contato: string; cor_destaque: string | null;
+  id: string; slug: string; nome: string; email_contato: string; cor_destaque: string | null; logo_path: string | null;
   aviso_privacidade_extra: string | null; retencao_dias: number; talentos_meses: number;
 };
 
-const CAMPOS_EMPRESA = "id, slug, nome, email_contato, cor_destaque, aviso_privacidade_extra, retencao_dias, talentos_meses";
+const CAMPOS_EMPRESA = "id, slug, nome, email_contato, cor_destaque, logo_path, aviso_privacidade_extra, retencao_dias, talentos_meses";
 
 // Empresa ativa pelo id ou pela slug (sem conferir a página: quem chama decide).
 export async function empresaParaCandidatura(por: { id?: string; slug?: string }): Promise<EmpresaDaCandidatura | null> {
@@ -154,7 +155,13 @@ export async function applyToJob(p: {
   if (r.campos.length) throw new CamposInvalidos(r.campos);
   if (e.curriculo && (await usoDaEmpresa(p.empresa.id)) + e.curriculo.bytes > USO_EMPRESA_MAX_BYTES) throw new DomainError("armazenamento_cheio", 409);
   // Hash provisório (não é link de ninguém): o link de verdade nasce na conclusão (link.ts).
-  const criada = await chamaCria(p.empresa, vaga.id, e, r.respostas, p.origem, p.ator, versaoDoAviso(p.empresa.aviso_privacidade_extra), e.talentos, generateToken().hash, e.convite);
+  const versao = versaoDoAviso(p.empresa.aviso_privacidade_extra);
+  // O texto que esta versão representa fica guardado (8.9; 15.5), também para o texto anterior ao 8.9.
+  if (versao.includes("+") && p.empresa.aviso_privacidade_extra) {
+    await db().from("rs_avisos_privacidade").upsert({ empresa_id: p.empresa.id, versao, texto_extra: p.empresa.aviso_privacidade_extra.trim() },
+      { onConflict: "empresa_id,versao", ignoreDuplicates: true });
+  }
+  const criada = await chamaCria(p.empresa, vaga.id, e, r.respostas, p.origem, p.ator, versao, e.talentos, generateToken().hash, e.convite);
   if (criada.existente && criada.recebida) {
     // 11.3: não muda nada; gira o link e manda de novo.
     const url = await giraLink(p.empresa.id, criada.id);
@@ -247,7 +254,7 @@ async function conclui(empresa: EmpresaDaCandidatura, c: CandidaturaParaConcluir
   // Link derivado da versão atual (decisão 1 do 8.6): o hash vai ao banco na mesma chamada.
   const versao = await versaoDoLink(empresa.id, c.id);
   const email = candidaturaRecebida({
-    empresa: empresa.nome, cor: empresa.cor_destaque, vaga: c.vaga.titulo, nome: c.candidato.nome, url: urlDoLink(c.id, versao), manual: c.origem === "manual",
+    empresa: empresa.nome, cor: empresa.cor_destaque, logo: urlDoLogo(empresa.slug, empresa.logo_path), vaga: c.vaga.titulo, nome: c.candidato.nome, url: urlDoLink(c.id, versao), manual: c.origem === "manual",
   });
   const { data, error } = await db().rpc("rs_fn_conclui_candidatura", {
     p_candidatura: c.id,
@@ -390,7 +397,7 @@ export async function withdraw(token: string): Promise<void> {
   const c = await requireCandidaturaPorToken(token);
   if (!c) throw new DomainError("link_invalido", 404);
   if (c.situacao !== "ativa") throw new DomainError("transicao_proibida", 409);
-  const email = candidaturaRetirada({ empresa: c.empresa.nome, cor: c.empresa.cor_destaque, vaga: c.vaga.titulo, nome: c.candidato.nome, url: linkDoCandidato(token) });
+  const email = candidaturaRetirada({ empresa: c.empresa.nome, cor: c.empresa.cor_destaque, logo: urlDoLogo(c.empresa.slug, c.empresa.logo_path), vaga: c.vaga.titulo, nome: c.candidato.nome, url: linkDoCandidato(token) });
   const { data, error } = await db().rpc("rs_fn_encerra_candidatura", {
     p_candidatura: c.id,
     p_empresa: c.empresa.id,
@@ -415,10 +422,16 @@ export async function exportData(token: string) {
   const c = await requireCandidaturaPorToken(token);
   if (!c) throw new DomainError("link_invalido", 404);
   const { data, error } = await db().from("rs_candidaturas")
-    .select("id, situacao, criado_em, recebida_em, etapa:etapa_id(tipo), vaga:vaga_id(titulo), rs_respostas(valor, pergunta:pergunta_id(texto, ordem)), rs_arquivos(path, nome_original, tipo), rs_mensagens(criado_em, assunto, corpo)")
+    .select("id, situacao, criado_em, recebida_em, consentimento_versao, etapa:etapa_id(tipo), vaga:vaga_id(titulo), rs_respostas(valor, pergunta:pergunta_id(texto, ordem)), rs_arquivos(path, nome_original, tipo), rs_mensagens(criado_em, assunto, corpo)")
     .eq("empresa_id", c.empresa.id).eq("candidato_id", c.candidato_id).not("recebida_em", "is", null).order("criado_em");
   if (error) throw error;
-  type Linha = { id: string; situacao: Situacao; criado_em: string; etapa: { tipo: string } | null; vaga: { titulo: string };
+  // Texto extra do aviso que cada candidatura aceitou (8.9; 15.5), pela versão gravada.
+  const versoes = [...new Set((data ?? []).map((l) => l.consentimento_versao).filter((v) => v.includes("+")))];
+  const { data: avisos } = versoes.length
+    ? await db().from("rs_avisos_privacidade").select("versao, texto_extra").eq("empresa_id", c.empresa.id).in("versao", versoes)
+    : { data: [] };
+  const extra = new Map((avisos ?? []).map((a) => [a.versao, a.texto_extra]));
+  type Linha = { id: string; situacao: Situacao; criado_em: string; consentimento_versao: string; etapa: { tipo: string } | null; vaga: { titulo: string };
     rs_respostas: { valor: string; pergunta: { texto: string; ordem: number } }[]; rs_arquivos: { path: string; nome_original: string; tipo: string }[];
     rs_mensagens: { criado_em: string; assunto: string; corpo: string }[] };
   const candidaturas = await Promise.all(((data ?? []) as unknown as Linha[]).map(async (l) => {
@@ -426,6 +439,7 @@ export async function exportData(token: string) {
     return {
       vaga: l.vaga.titulo,
       candidatou_em: l.criado_em,
+      aviso_de_privacidade: { versao: l.consentimento_versao, texto_extra: extra.get(l.consentimento_versao) ?? null },
       situacao: copy.acompanhamento.situacao[situacaoParaCandidato(l.situacao, l.etapa?.tipo ?? null)],
       respostas: [...l.rs_respostas].sort((a, b) => a.pergunta.ordem - b.pergunta.ordem).map((r) => ({ pergunta: r.pergunta.texto, resposta: r.valor })),
       curriculo: cv ? { nome_original: cv.nome_original, url: (await storage().createDownloadUrl(cv.path, DOWNLOAD_URL_SEGUNDOS, cv.nome_original)).url } : null,
@@ -517,7 +531,7 @@ export async function deleteData(token: string, codigo: unknown): Promise<{ empr
 
 // ---------------------------------------------------------------- "Perdi o link" (6.2)
 async function mandaLinks(empresa: EmpresaDaCandidatura, email: string, links: { vaga: string; url: string }[], chave: string) {
-  const m = linksReenviados({ empresa: empresa.nome, cor: empresa.cor_destaque, links });
+  const m = linksReenviados({ empresa: empresa.nome, cor: empresa.cor_destaque, logo: urlDoLogo(empresa.slug, empresa.logo_path), links });
   await enqueue({ empresaId: empresa.id, tipo: "links_reenviados", destinatario: email, chave, assunto: m.assunto, html: m.html, texto: m.texto, replyTo: empresa.email_contato, fromName: empresa.nome });
 }
 

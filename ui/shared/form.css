@@ -158,3 +158,5 @@ input[type='number'], input[type='date'] { max-width: 220px; }
   font-size: 14px;
   line-height: 1.4;
 }
+.cor { display: flex; gap: 8px; align-items: center; }
+.cor input[type="color"] { width: 44px; height: 44px; padding: 2px; border-radius: 10px; flex: none; }

@@ -12,12 +12,12 @@ export function escapeHtml(s: string): string {
 // Moldura comum: título, parágrafos, botão (opcional) e rodapé. Cor do botão: a da empresa ou o
 // azul (16). `depois`: parágrafos depois do botão; `rodape`: o texto do rodapé (a candidato, 15.4);
 // `htmlExtra`: HTML já escapado que entra depois dos parágrafos (a lista de links).
-function layout(titulo: string, paragrafos: string[], botao: { texto: string; url: string } | null, cor = "#0071e3", depois: string[] = [], rodape = NOME_PRODUTO, htmlExtra = ""): string {
+function layout(titulo: string, paragrafos: string[], botao: { texto: string; url: string } | null, cor = "#0071e3", depois: string[] = [], rodape = NOME_PRODUTO, htmlExtra = "", logo: string | null = null): string {
   const p = (t: string) => `<p style="margin:0 0 16px;font-size:16px;line-height:1.5;color:#1d1d1f">${escapeHtml(t)}</p>`;
   const ps = paragrafos.map(p).join("");
   return `<!doctype html><html lang="pt-BR"><body style="margin:0;padding:32px 16px;background:#ffffff;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif">
 <div style="max-width:520px;margin:0 auto">
-<h1 style="margin:0 0 20px;font-size:26px;letter-spacing:-0.02em;color:#1d1d1f">${escapeHtml(titulo)}</h1>
+${logo ? `<p style="margin:0 0 24px"><img src="${escapeHtml(logo)}" alt="" height="40" style="height:40px;width:auto;display:block"></p>` : ""}<h1 style="margin:0 0 20px;font-size:26px;letter-spacing:-0.02em;color:#1d1d1f">${escapeHtml(titulo)}</h1>
 ${ps}${htmlExtra}
 ${botao ? `<p style="margin:24px 0"><a href="${escapeHtml(botao.url)}" style="display:inline-block;padding:12px 24px;border-radius:999px;background:${cor};color:#ffffff;font-weight:600;text-decoration:none">${escapeHtml(botao.texto)}</a></p>` : ""}
 ${depois.map(p).join("")}
@@ -42,14 +42,14 @@ const corDe = (cor: string | null | undefined) => (cor && /^#[0-9a-f]{6}$/.test(
 
 // candidatura_recebida (15.4), na versão da página e na manual (11.2). Recebe: empresa, vaga,
 // nome, link /c/{token} e se foi incluída pela empresa.
-export function candidaturaRecebida(p: { empresa: string; cor?: string | null; vaga: string; nome: string; url: string; manual: boolean }) {
+export function candidaturaRecebida(p: { empresa: string; cor?: string | null; logo?: string | null; vaga: string; nome: string; url: string; manual: boolean }) {
   const c = p.manual ? copy.emailCandidato.manual : copy.emailCandidato.recebida;
   const assunto = p.manual ? copy.emailCandidato.manual.assunto(p.empresa, p.vaga) : copy.emailCandidato.recebida.assunto(p.vaga);
   const corpo = p.manual ? copy.emailCandidato.manual.corpo(p.nome, p.empresa, p.vaga) : copy.emailCandidato.recebida.corpo(p.nome, p.empresa);
   const rodape = copy.emailCandidato.rodape(p.empresa);
   return {
     assunto,
-    html: layout(assunto, [corpo], { texto: c.botao, url: p.url }, corDe(p.cor), [c.depois], rodape),
+    html: layout(assunto, [corpo], { texto: c.botao, url: p.url }, corDe(p.cor), [c.depois], rodape, "", p.logo),
     texto: `${corpo}\n\n${c.botao}: ${p.url}\n\n${c.depois}\n\n${rodape}`,
     // Versão guardada em rs_mensagens: sem o link (20.3); a variável fica no lugar dele (11.29).
     corpoGuardado: `${corpo} {{link_acompanhamento}}\n\n${c.depois}`,
@@ -57,26 +57,26 @@ export function candidaturaRecebida(p: { empresa: string; cor?: string | null; v
 }
 
 // Desistência (mensagem_candidato, tipo desistencia). Recebe: empresa, vaga, nome e o link.
-export function candidaturaRetirada(p: { empresa: string; cor?: string | null; vaga: string; nome: string; url: string }) {
+export function candidaturaRetirada(p: { empresa: string; cor?: string | null; logo?: string | null; vaga: string; nome: string; url: string }) {
   const c = copy.emailCandidato.retirada;
   const assunto = c.assunto(p.vaga);
   const corpo = c.corpo(p.nome, p.empresa, p.vaga);
   const rodape = copy.emailCandidato.rodape(p.empresa);
   return {
     assunto,
-    html: layout(assunto, [corpo], { texto: c.botao, url: p.url }, corDe(p.cor), [], rodape),
+    html: layout(assunto, [corpo], { texto: c.botao, url: p.url }, corDe(p.cor), [], rodape, "", p.logo),
     texto: `${corpo}\n\n${c.botao}: ${p.url}\n\n${rodape}`,
     corpoGuardado: corpo,
   };
 }
 
 // links_reenviados ("Perdi o link", 6.2). Recebe: empresa e a lista {vaga, url}.
-export function linksReenviados(p: { empresa: string; cor?: string | null; links: { vaga: string; url: string }[] }) {
+export function linksReenviados(p: { empresa: string; cor?: string | null; logo?: string | null; links: { vaga: string; url: string }[] }) {
   const c = copy.emailCandidato.links;
   const assunto = c.assunto(p.empresa);
   const rodape = copy.emailCandidato.rodape(p.empresa);
   const itens = p.links.map((l) => `<li style="margin:0 0 10px"><a href="${escapeHtml(l.url)}" style="color:${corDe(p.cor)}">${escapeHtml(l.vaga)}</a></li>`).join("");
-  const html = layout(assunto, [c.corpo(p.empresa)], null, corDe(p.cor), [c.depois], rodape, `<ul style="padding-left:20px;font-size:16px">${itens}</ul>`);
+  const html = layout(assunto, [c.corpo(p.empresa)], null, corDe(p.cor), [c.depois], rodape, `<ul style="padding-left:20px;font-size:16px">${itens}</ul>`, p.logo);
   return {
     assunto,
     html,
@@ -100,13 +100,13 @@ export function codigoExclusao(p: { empresa: string; codigo: string }) {
 // Mensagem da empresa ao candidato (mensagem_candidato, 15.4): o texto já com as variáveis, o
 // botão do link de acompanhamento e, na devolutiva, o rodapé de revisão. Recebe: empresa, cor,
 // assunto, corpo (com o link resolvido), link e se é devolutiva.
-export function mensagemCandidato(p: { empresa: string; cor?: string | null; assunto: string; corpo: string; url: string | null; devolutiva: boolean }) {
+export function mensagemCandidato(p: { empresa: string; cor?: string | null; logo?: string | null; assunto: string; corpo: string; url: string | null; devolutiva: boolean }) {
   const c = copy.emailCandidato.mensagem;
   const paragrafos = p.corpo.split(/\n{2,}/).map((x) => x.trim()).filter(Boolean);
   const depois = p.devolutiva ? [c.revisao] : [];
   const rodape = copy.emailCandidato.rodape(p.empresa);
   return {
-    html: layout(p.assunto, paragrafos, p.url ? { texto: c.botao, url: p.url } : null, corDe(p.cor), depois, rodape),
+    html: layout(p.assunto, paragrafos, p.url ? { texto: c.botao, url: p.url } : null, corDe(p.cor), depois, rodape, "", p.logo),
     texto: [p.corpo, p.url ? `${c.botao}: ${p.url}` : "", ...depois, rodape].filter(Boolean).join("\n\n"),
   };
 }
@@ -133,22 +133,30 @@ export function decisoesPendentes(p: { empresa: string; n: number }) {
 
 // Convite do banco de talentos (8.7; modelo convite_vaga, 15.4): o texto com as variáveis, o botão
 // para a vaga (com ?convite=) e, embaixo, por que a pessoa recebe e como sair do banco.
-export function conviteVaga(p: { empresa: string; cor?: string | null; assunto: string; corpo: string; urlVaga: string; urlAcompanhamento: string | null }) {
+export function conviteVaga(p: { empresa: string; cor?: string | null; logo?: string | null; assunto: string; corpo: string; urlVaga: string; urlAcompanhamento: string | null }) {
   const c = copy.talentos.convite;
   const paragrafos = p.corpo.split(/\n{2,}/).map((x) => x.trim()).filter(Boolean);
   const rodape = copy.emailCandidato.rodape(p.empresa);
   const depois = [c.porque(p.empresa), ...(p.urlAcompanhamento ? [`${c.acompanhamento}: ${p.urlAcompanhamento}`] : [])];
   return {
-    html: layout(p.assunto, paragrafos, { texto: c.botao, url: p.urlVaga }, corDe(p.cor), depois, rodape),
+    html: layout(p.assunto, paragrafos, { texto: c.botao, url: p.urlVaga }, corDe(p.cor), depois, rodape, "", p.logo),
     texto: [p.corpo, `${c.botao}: ${p.urlVaga}`, ...depois, rodape].join("\n\n"),
   };
 }
 
 // talentos_expirando (15.4): 30 dias antes de vencer, com o botão para renovar no /c.
-export function talentosExpirando(p: { empresa: string; cor?: string | null; nome: string; data: string; url: string }) {
+export function talentosExpirando(p: { empresa: string; cor?: string | null; logo?: string | null; nome: string; data: string; url: string }) {
   const c = copy.talentos.expirando;
   const assunto = c.assunto(p.empresa);
   const corpo = c.corpo(p.nome, p.empresa, p.data);
   const rodape = copy.emailCandidato.rodape(p.empresa);
-  return { assunto, html: layout(assunto, [corpo], { texto: c.botao, url: p.url }, corDe(p.cor), [], rodape), texto: `${corpo}\n\n${c.botao}: ${p.url}\n\n${rodape}` };
+  return { assunto, html: layout(assunto, [corpo], { texto: c.botao, url: p.url }, corDe(p.cor), [], rodape, "", p.logo), texto: `${corpo}\n\n${c.botao}: ${p.url}\n\n${rodape}` };
+}
+
+// empresa_excluida (8.9; 7.4): aos administradores, com a data do expurgo e como desfazer pelo chat.
+export function empresaExcluida(p: { empresa: string; data: string }) {
+  const c = copy.emailEmpresaExcluida;
+  const assunto = c.assunto(p.empresa);
+  const corpo = [c.corpo(p.empresa, p.data), c.desfazer];
+  return { assunto, html: layout(assunto, corpo, null), texto: corpo.join("\n\n") };
 }

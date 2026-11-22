@@ -31,3 +31,4 @@
 .rodape { margin: 0; padding-top: 24px; border-top: 1px solid var(--hairline); font-size: 13px; color: var(--text-secondary); }
 .esqueleto { height: 72px; border-radius: var(--radius-row); background: var(--surface); }
 @media (max-width: 600px) { .page { padding-top: 32px; } .title { font-size: 28px; } }
+.logo { height: 48px; width: auto; max-width: 200px; object-fit: contain; align-self: flex-start; }

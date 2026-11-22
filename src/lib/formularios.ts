@@ -41,13 +41,16 @@ export type Campo =
   // Número e data chegam como texto ("2800.50", "AAAA-MM-DD"); o servidor converte e valida.
   | (Base & { tipo: "numero"; min?: number; max?: number; passo?: number })
   | (Base & { tipo: "data" })
+  // Cor #rrggbb (8.9): seletor e o texto; o servidor confere o contraste (11.20).
+  | (Base & { tipo: "cor" })
   // Itens que se repetem (etapas, perguntas): adicionar, remover, subir e descer. `novo` é o item
   // que entra ao clicar em adicionar; `somenteLeitura` mostra sem deixar mudar (perguntas de vaga
   // já publicada, 11.1). Erros de item chegam como "<nome>.<índice>.<subcampo>".
   // `fixa`: os itens vêm prontos do servidor (decisões, propostas, 8.6): não se adiciona nem
   // reordena, só se tira um item do lote.
   | (Base & { tipo: "lista"; subcampos: SubCampo[]; novo: ItemLista; rotuloItem: string; adicionar: string; min?: number; max?: number; somenteLeitura?: boolean; fixa?: boolean })
-  // Arquivo (currículo): `aceita` é o atributo accept do input; `maxBytes`, o teto conferido no navegador.
+  // Arquivo (currículo, logo): `aceita` é o atributo accept do input; `maxBytes`, o teto conferido no
+  // navegador; `tipos`, os tipos aceitos (sem tipo no navegador, vale a extensão do nome).
   | (Base & { tipo: "arquivo"; aceita: string; tipos: string[]; maxBytes: number; erroTipo: string; remover: string });
 
 // O que abrir_formulario_* devolve em structuredContent: o formulário pronto para desenhar.

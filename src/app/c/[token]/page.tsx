@@ -10,6 +10,8 @@ import s from "@/features/candidate/candidate.module.css";
 import { TalentActions } from "@/features/candidate/talent-actions";
 import { TrackingActions } from "@/features/candidate/tracking-actions";
 import { mensagensRecebidas, requireCandidaturaPorToken, situacaoParaCandidato } from "@/server/recruiting/applications";
+import { LogoDaEmpresa } from "@/features/careers/logo";
+import { urlDoLogo } from "@/server/files/logo";
 
 const c = copy.acompanhamento;
 export const instant = false;
@@ -39,6 +41,7 @@ async function Corpo({ params }: { params: PageProps<"/c/[token]">["params"] }) 
   return (
     <main className={s.page} style={estilo}>
       <header style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+        <LogoDaEmpresa url={urlDoLogo(cand.empresa.slug, cand.empresa.logo_path)} />
         <p className={s.empresa}>{cand.empresa.nome}</p>
         <h1 className={s.title}>{c.titulo(cand.vaga.titulo)}</h1>
         <p className={s.lead}>{c.enviadaEm(data(cand.recebida_em))}</p>

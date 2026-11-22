@@ -14,6 +14,7 @@ import { previaValida } from "@/server/careers/preview";
 import type { EmpresaPublica } from "@/server/careers/public";
 import { localDaVaga } from "@/features/careers/format";
 import { empresaEmCache, vagasEmCache } from "./dados";
+import { LogoDaEmpresa } from "@/features/careers/logo";
 
 const c = copy.carreiras;
 
@@ -97,6 +98,7 @@ function Pagina({ empresa, previa, children }: { empresa: EmpresaPublica; previa
       {previa && <meta name="robots" content="noindex, nofollow" />}
       {previa && <p className={s.previa} role="status">{c.previa}</p>}
       <header className={s.header}>
+        <LogoDaEmpresa url={empresa.logo_url} />
         <h1 className={s.title}>{empresa.nome}</h1>
         {empresa.descricao && <p className={s.lead}>{empresa.descricao}</p>}
         {empresa.site_url && <a className={s.link} href={empresa.site_url} rel="noopener">{c.site}</a>}

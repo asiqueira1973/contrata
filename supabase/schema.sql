@@ -292,7 +292,8 @@ CREATE TYPE "public"."rs_tipo_notificacao" AS ENUM (
     'decisoes_pendentes',
     'revisao_pedida',
     'talentos_expirando',
-    'resumo_dono_vaga'
+    'resumo_dono_vaga',
+    'empresa_excluida'
 );
 
 
@@ -846,7 +847,7 @@ CREATE TABLE IF NOT EXISTS "public"."rs_eventos" (
     "origem" "public"."rs_origem_evento" NOT NULL,
     "dados" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
     "criado_em" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "rs_eventos_tipo_catalogo" CHECK (("tipo" = ANY (ARRAY['empresa_criada'::"text", 'membro_convidado'::"text", 'convite_cancelado'::"text", 'membro_entrou'::"text", 'membro_acesso_alterado'::"text", 'membro_removido'::"text", 'area_criada'::"text", 'area_editada'::"text", 'area_arquivada'::"text", 'pessoa_cadastrada'::"text", 'pessoa_editada'::"text", 'pessoa_arquivada'::"text", 'acesso_pedido'::"text", 'vaga_dono_alterado'::"text", 'credencial_criada'::"text", 'credencial_revogada'::"text", 'mcp_conectado'::"text", 'vaga_criada'::"text", 'vaga_editada'::"text", 'vaga_publicada'::"text", 'vaga_pausada'::"text", 'vaga_pausada_prazo'::"text", 'vaga_encerrada'::"text", 'candidatura_criada'::"text", 'etapa_alterada'::"text", 'nota_adicionada'::"text", 'avaliacao_registrada'::"text", 'mensagem_enviada'::"text", 'candidatura_reprovada'::"text", 'candidatura_contratada'::"text", 'candidatura_desistiu'::"text", 'candidatura_encerrada_vaga'::"text", 'candidatura_reaberta'::"text", 'decisao_proposta'::"text", 'decisao_confirmada'::"text", 'decisao_descartada'::"text", 'decisao_expirada'::"text", 'revisao_pedida'::"text", 'revisao_respondida'::"text", 'dados_exportados'::"text", 'dados_excluidos'::"text", 'candidatura_anonimizada'::"text", 'talentos_consentido'::"text", 'talentos_retirado'::"text", 'talentos_convidado'::"text", 'candidaturas_exportadas'::"text", 'webhook_criado'::"text", 'webhook_editado'::"text", 'webhook_removido'::"text"])))
+    CONSTRAINT "rs_eventos_tipo_catalogo" CHECK (("tipo" = ANY (ARRAY['empresa_criada'::"text", 'membro_convidado'::"text", 'convite_cancelado'::"text", 'membro_entrou'::"text", 'membro_acesso_alterado'::"text", 'membro_removido'::"text", 'area_criada'::"text", 'area_editada'::"text", 'area_arquivada'::"text", 'pessoa_cadastrada'::"text", 'pessoa_editada'::"text", 'pessoa_arquivada'::"text", 'acesso_pedido'::"text", 'vaga_dono_alterado'::"text", 'credencial_criada'::"text", 'credencial_revogada'::"text", 'mcp_conectado'::"text", 'vaga_criada'::"text", 'vaga_editada'::"text", 'vaga_publicada'::"text", 'vaga_pausada'::"text", 'vaga_pausada_prazo'::"text", 'vaga_encerrada'::"text", 'candidatura_criada'::"text", 'etapa_alterada'::"text", 'nota_adicionada'::"text", 'avaliacao_registrada'::"text", 'mensagem_enviada'::"text", 'candidatura_reprovada'::"text", 'candidatura_contratada'::"text", 'candidatura_desistiu'::"text", 'candidatura_encerrada_vaga'::"text", 'candidatura_reaberta'::"text", 'decisao_proposta'::"text", 'decisao_confirmada'::"text", 'decisao_descartada'::"text", 'decisao_expirada'::"text", 'revisao_pedida'::"text", 'revisao_respondida'::"text", 'dados_exportados'::"text", 'dados_excluidos'::"text", 'candidatura_anonimizada'::"text", 'talentos_consentido'::"text", 'talentos_retirado'::"text", 'talentos_convidado'::"text", 'candidaturas_exportadas'::"text", 'webhook_criado'::"text", 'webhook_editado'::"text", 'webhook_removido'::"text", 'empresa_editada'::"text", 'empresa_excluida'::"text", 'exclusao_desfeita'::"text"])))
 );
 
 
@@ -1171,6 +1172,28 @@ end $$;
 ALTER FUNCTION "public"."rs_fn_descarta_decisao"("p_decisao" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_motivo" "text", "p_ator" "jsonb") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."rs_fn_desfaz_exclusao"("p_empresa" "uuid", "p_ator" "jsonb") RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare e public.rs_empresas;
+begin
+  perform public.rs_fn_exige_administrador(p_empresa, p_ator);
+  select * into e from public.rs_empresas where id = p_empresa for update;
+  if e.id is null or e.excluida_em is null then
+    raise exception 'nao_encontrado' using errcode = 'P0001';
+  end if;
+  if e.excluida_em <= pg_catalog.now() - interval '7 days' then
+    raise exception 'prazo_vencido' using errcode = 'P0001';
+  end if;
+  update public.rs_empresas set excluida_em = null where id = p_empresa;
+  perform public.rs_fn_registra_evento(p_empresa, null, null, 'exclusao_desfeita', p_ator, 'web', '{}');
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_desfaz_exclusao"("p_empresa" "uuid", "p_ator" "jsonb") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."rs_fn_desiste_entregas"("p_desiste" interval, "p_max" integer) RETURNS integer
     LANGUAGE "plpgsql"
     SET "search_path" TO ''
@@ -1383,6 +1406,35 @@ end $$;
 
 
 ALTER FUNCTION "public"."rs_fn_exclui_dados_candidato"("p_candidatura" "uuid", "p_empresa" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_exclui_empresa"("p_empresa" "uuid", "p_slug" "text", "p_ator" "jsonb") RETURNS "jsonb"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare
+  e public.rs_empresas;
+  v_ativas integer;
+begin
+  perform public.rs_fn_exige_administrador(p_empresa, p_ator);
+  select * into e from public.rs_empresas where id = p_empresa and excluida_em is null for update;
+  if e.id is null then
+    raise exception 'nao_encontrado' using errcode = 'P0001';
+  end if;
+  if p_slug is distinct from e.slug then
+    raise exception 'slug_nao_confere' using errcode = 'P0001';
+  end if;
+  select count(*) into v_ativas from public.rs_candidaturas where empresa_id = p_empresa and situacao = 'ativa' and recebida_em is not null;
+  if v_ativas > 0 then
+    raise exception 'empresa_com_ativas' using errcode = 'P0001', detail = v_ativas::text;
+  end if;
+  update public.rs_empresas set excluida_em = pg_catalog.now() where id = p_empresa;
+  perform public.rs_fn_registra_evento(p_empresa, null, null, 'empresa_excluida', p_ator, 'web', '{}');
+  return pg_catalog.jsonb_build_object('expurgar_em', pg_catalog.now() + interval '7 days');
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_exclui_empresa"("p_empresa" "uuid", "p_slug" "text", "p_ator" "jsonb") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."rs_fn_executa_decisao"("p_empresa" "uuid", "p_tipo" "public"."rs_tipo_decisao", "p_candidatura" "uuid", "p_vaga" "uuid", "p_payload" "jsonb", "p_mensagens" "jsonb", "p_ator" "jsonb", "p_decisao" "uuid") RETURNS integer
@@ -2285,6 +2337,63 @@ end $$;
 ALTER FUNCTION "public"."rs_fn_salva_area"("p_empresa" "uuid", "p_id" "uuid", "p_nome" "text", "p_responsavel" "uuid", "p_ator" "jsonb") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."rs_fn_salva_empresa"("p_empresa" "uuid", "p_dados" "jsonb", "p_versao_aviso" "text", "p_ator" "jsonb") RETURNS "text"[]
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare
+  a public.rs_empresas;
+  n public.rs_empresas;
+  v_campos text[] := '{}';
+begin
+  perform public.rs_fn_exige_administrador(p_empresa, p_ator);
+  select * into a from public.rs_empresas where id = p_empresa and excluida_em is null for update;
+  if a.id is null then
+    raise exception 'nao_encontrado' using errcode = 'P0001';
+  end if;
+  update public.rs_empresas set
+    nome = case when p_dados ? 'nome' then p_dados ->> 'nome' else nome end,
+    descricao = case when p_dados ? 'descricao' then nullif(p_dados ->> 'descricao', '') else descricao end,
+    site_url = case when p_dados ? 'site_url' then nullif(p_dados ->> 'site_url', '') else site_url end,
+    email_contato = case when p_dados ? 'email_contato' then (p_dados ->> 'email_contato')::extensions.citext else email_contato end,
+    cor_destaque = case when p_dados ? 'cor_destaque' then nullif(pg_catalog.lower(p_dados ->> 'cor_destaque'), '') else cor_destaque end,
+    pagina_publicada = case when p_dados ? 'pagina_publicada' then (p_dados ->> 'pagina_publicada')::boolean else pagina_publicada end,
+    retencao_dias = case when p_dados ? 'retencao_dias' then (p_dados ->> 'retencao_dias')::smallint else retencao_dias end,
+    talentos_meses = case when p_dados ? 'talentos_meses' then (p_dados ->> 'talentos_meses')::smallint else talentos_meses end,
+    mensagens_agente = case when p_dados ? 'mensagens_agente' then (p_dados ->> 'mensagens_agente')::public.rs_mensagens_agente else mensagens_agente end,
+    aviso_privacidade_extra = case when p_dados ? 'aviso_privacidade_extra' then nullif(pg_catalog.btrim(p_dados ->> 'aviso_privacidade_extra'), '') else aviso_privacidade_extra end
+   where id = p_empresa returning * into n;
+  if n.nome is distinct from a.nome then v_campos := pg_catalog.array_append(v_campos, 'nome'); end if;
+  if n.descricao is distinct from a.descricao then v_campos := pg_catalog.array_append(v_campos, 'descricao'); end if;
+  if n.site_url is distinct from a.site_url then v_campos := pg_catalog.array_append(v_campos, 'site_url'); end if;
+  if n.email_contato is distinct from a.email_contato then v_campos := pg_catalog.array_append(v_campos, 'email_contato'); end if;
+  if n.cor_destaque is distinct from a.cor_destaque then v_campos := pg_catalog.array_append(v_campos, 'cor_destaque'); end if;
+  if n.pagina_publicada is distinct from a.pagina_publicada then v_campos := pg_catalog.array_append(v_campos, 'pagina_publicada'); end if;
+  if n.retencao_dias is distinct from a.retencao_dias then v_campos := pg_catalog.array_append(v_campos, 'retencao_dias'); end if;
+  if n.talentos_meses is distinct from a.talentos_meses then v_campos := pg_catalog.array_append(v_campos, 'talentos_meses'); end if;
+  if n.mensagens_agente is distinct from a.mensagens_agente then v_campos := pg_catalog.array_append(v_campos, 'mensagens_agente'); end if;
+  if n.aviso_privacidade_extra is distinct from a.aviso_privacidade_extra then
+    v_campos := pg_catalog.array_append(v_campos, 'aviso_privacidade_extra');
+    if n.aviso_privacidade_extra is not null then
+      if p_versao_aviso is null then
+        raise exception 'dados_invalidos' using errcode = 'P0001';
+      end if;
+      insert into public.rs_avisos_privacidade (empresa_id, versao, texto_extra)
+      values (p_empresa, p_versao_aviso, n.aviso_privacidade_extra) on conflict on constraint rs_avisos_unico do nothing;
+    end if;
+  end if;
+  if pg_catalog.cardinality(v_campos) > 0 then
+    perform public.rs_fn_registra_evento(p_empresa, null, null, 'empresa_editada', p_ator, 'web',
+      pg_catalog.jsonb_build_object('campos', v_campos, 'retencao_dias', n.retencao_dias, 'talentos_meses', n.talentos_meses,
+        'mensagens_agente', n.mensagens_agente, 'pagina_publicada', n.pagina_publicada));
+  end if;
+  return v_campos;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_salva_empresa"("p_empresa" "uuid", "p_dados" "jsonb", "p_versao_aviso" "text", "p_ator" "jsonb") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."rs_fn_salva_pessoa"("p_empresa" "uuid", "p_id" "uuid", "p_nome" "text", "p_email" "text", "p_cargo" "text", "p_area" "uuid", "p_recebe_resumo" boolean, "p_ator" "jsonb") RETURNS "uuid"
     LANGUAGE "plpgsql"
     SET "search_path" TO ''
@@ -2652,6 +2761,33 @@ end $$;
 ALTER FUNCTION "public"."rs_fn_troca_link"("p_candidatura" "uuid", "p_empresa" "uuid", "p_versao" integer, "p_hash" "text") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."rs_fn_troca_logo"("p_empresa" "uuid", "p_path" "text", "p_mime" "text", "p_bytes" integer, "p_sha256" "text", "p_ator" "jsonb") RETURNS "text"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $_$
+declare
+  v_antigo text;
+begin
+  perform public.rs_fn_exige_administrador(p_empresa, p_ator);
+  select logo_path into v_antigo from public.rs_empresas where id = p_empresa and excluida_em is null for update;
+  if not found then
+    raise exception 'nao_encontrado' using errcode = 'P0001';
+  end if;
+  delete from public.rs_arquivos where empresa_id = p_empresa and tipo = 'logo';
+  if p_path is not null then
+    insert into public.rs_arquivos (empresa_id, candidatura_id, tipo, path, nome_original, mime, bytes, sha256, extracao_status, confirmado_em)
+    values (p_empresa, null, 'logo', p_path, pg_catalog.substring(p_path, '[^/]+$'), p_mime, p_bytes, p_sha256, 'ok', pg_catalog.now());
+  end if;
+  update public.rs_empresas set logo_path = p_path where id = p_empresa;
+  perform public.rs_fn_registra_evento(p_empresa, null, null, 'empresa_editada', p_ator, 'web',
+    pg_catalog.jsonb_build_object('campos', array['logo'], 'logo', p_path is not null));
+  return case when v_antigo is distinct from p_path then v_antigo end;
+end $_$;
+
+
+ALTER FUNCTION "public"."rs_fn_troca_logo"("p_empresa" "uuid", "p_path" "text", "p_mime" "text", "p_bytes" integer, "p_sha256" "text", "p_ator" "jsonb") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."rs_fn_vaga_no_alcance"("p_vaga" "uuid", "p_area" "uuid", "p_alcance" "jsonb") RETURNS boolean
     LANGUAGE "plpgsql" STABLE
     SET "search_path" TO ''
@@ -2947,6 +3083,19 @@ CREATE TABLE IF NOT EXISTS "public"."rs_avaliacoes" (
 
 
 ALTER TABLE "public"."rs_avaliacoes" OWNER TO "postgres";
+
+
+CREATE TABLE IF NOT EXISTS "public"."rs_avisos_privacidade" (
+    "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
+    "empresa_id" "uuid" NOT NULL,
+    "versao" "text" NOT NULL,
+    "texto_extra" "text" NOT NULL,
+    "criado_em" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "rs_avisos_texto" CHECK (("char_length"("texto_extra") <= 1000))
+);
+
+
+ALTER TABLE "public"."rs_avisos_privacidade" OWNER TO "postgres";
 
 
 CREATE TABLE IF NOT EXISTS "public"."rs_candidatos" (
@@ -3478,6 +3627,16 @@ ALTER TABLE ONLY "public"."rs_avaliacoes"
 
 ALTER TABLE ONLY "public"."rs_avaliacoes"
     ADD CONSTRAINT "rs_avaliacoes_uma_por_membro" UNIQUE ("candidatura_id", "etapa_id", "membro_id");
+
+
+
+ALTER TABLE ONLY "public"."rs_avisos_privacidade"
+    ADD CONSTRAINT "rs_avisos_privacidade_pkey" PRIMARY KEY ("id");
+
+
+
+ALTER TABLE ONLY "public"."rs_avisos_privacidade"
+    ADD CONSTRAINT "rs_avisos_unico" UNIQUE ("empresa_id", "versao");
 
 
 
@@ -4076,6 +4235,11 @@ ALTER TABLE ONLY "public"."rs_avaliacoes"
 
 
 
+ALTER TABLE ONLY "public"."rs_avisos_privacidade"
+    ADD CONSTRAINT "rs_avisos_privacidade_empresa_id_fkey" FOREIGN KEY ("empresa_id") REFERENCES "public"."rs_empresas"("id") ON DELETE CASCADE;
+
+
+
 ALTER TABLE ONLY "public"."rs_candidatos"
     ADD CONSTRAINT "rs_candidatos_empresa_id_fkey" FOREIGN KEY ("empresa_id") REFERENCES "public"."rs_empresas"("id") ON DELETE CASCADE;
 
@@ -4380,6 +4544,9 @@ ALTER TABLE "public"."rs_arquivos" ENABLE ROW LEVEL SECURITY;
 ALTER TABLE "public"."rs_avaliacoes" ENABLE ROW LEVEL SECURITY;
 
 
+ALTER TABLE "public"."rs_avisos_privacidade" ENABLE ROW LEVEL SECURITY;
+
+
 ALTER TABLE "public"."rs_candidatos" ENABLE ROW LEVEL SECURITY;
 
 
@@ -4591,6 +4758,11 @@ GRANT ALL ON FUNCTION "public"."rs_fn_descarta_decisao"("p_decisao" "uuid", "p_e
 
 
 
+REVOKE ALL ON FUNCTION "public"."rs_fn_desfaz_exclusao"("p_empresa" "uuid", "p_ator" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_desfaz_exclusao"("p_empresa" "uuid", "p_ator" "jsonb") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."rs_fn_desiste_entregas"("p_desiste" interval, "p_max" integer) FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_desiste_entregas"("p_desiste" interval, "p_max" integer) TO "service_role";
 
@@ -4618,6 +4790,11 @@ GRANT ALL ON FUNCTION "public"."rs_fn_envia_mensagem"("p_candidatura" "uuid", "p
 
 REVOKE ALL ON FUNCTION "public"."rs_fn_exclui_dados_candidato"("p_candidatura" "uuid", "p_empresa" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_exclui_dados_candidato"("p_candidatura" "uuid", "p_empresa" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_exclui_empresa"("p_empresa" "uuid", "p_slug" "text", "p_ator" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_exclui_empresa"("p_empresa" "uuid", "p_slug" "text", "p_ator" "jsonb") TO "service_role";
 
 
 
@@ -4771,6 +4948,11 @@ GRANT ALL ON FUNCTION "public"."rs_fn_salva_area"("p_empresa" "uuid", "p_id" "uu
 
 
 
+REVOKE ALL ON FUNCTION "public"."rs_fn_salva_empresa"("p_empresa" "uuid", "p_dados" "jsonb", "p_versao_aviso" "text", "p_ator" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_salva_empresa"("p_empresa" "uuid", "p_dados" "jsonb", "p_versao_aviso" "text", "p_ator" "jsonb") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."rs_fn_salva_pessoa"("p_empresa" "uuid", "p_id" "uuid", "p_nome" "text", "p_email" "text", "p_cargo" "text", "p_area" "uuid", "p_recebe_resumo" boolean, "p_ator" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_salva_pessoa"("p_empresa" "uuid", "p_id" "uuid", "p_nome" "text", "p_email" "text", "p_cargo" "text", "p_area" "uuid", "p_recebe_resumo" boolean, "p_ator" "jsonb") TO "service_role";
 
@@ -4818,6 +5000,11 @@ GRANT ALL ON FUNCTION "public"."rs_fn_troca_codigo_oauth"("p_codigo_hash" "text"
 
 REVOKE ALL ON FUNCTION "public"."rs_fn_troca_link"("p_candidatura" "uuid", "p_empresa" "uuid", "p_versao" integer, "p_hash" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_troca_link"("p_candidatura" "uuid", "p_empresa" "uuid", "p_versao" integer, "p_hash" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_troca_logo"("p_empresa" "uuid", "p_path" "text", "p_mime" "text", "p_bytes" integer, "p_sha256" "text", "p_ator" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_troca_logo"("p_empresa" "uuid", "p_path" "text", "p_mime" "text", "p_bytes" integer, "p_sha256" "text", "p_ator" "jsonb") TO "service_role";
 
 
 
@@ -4880,6 +5067,10 @@ GRANT ALL ON TABLE "public"."rs_arquivos" TO "service_role";
 
 
 GRANT ALL ON TABLE "public"."rs_avaliacoes" TO "service_role";
+
+
+
+GRANT ALL ON TABLE "public"."rs_avisos_privacidade" TO "service_role";
 
 
 

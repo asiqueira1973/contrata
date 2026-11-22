@@ -5,6 +5,7 @@
 import "server-only";
 import { db } from "@/server/db/client";
 import type { Database } from "@/server/db/types";
+import { urlDoLogo } from "@/server/files/logo";
 import { markdownSeguro } from "./markdown";
 
 type Enums = Database["public"]["Enums"];
@@ -17,6 +18,7 @@ export type EmpresaPublica = {
   site_url: string | null;
   cor_destaque: string | null;
   pagina_publicada: boolean;
+  logo_url: string | null;
 };
 
 export type VagaPublica = {
@@ -45,13 +47,15 @@ export type VagaPublica = {
 export async function empresaPorSlug(slug: string): Promise<EmpresaPublica | null> {
   const { data, error } = await db()
     .from("rs_empresas")
-    .select("id, slug, nome, descricao, site_url, cor_destaque, pagina_publicada")
+    .select("id, slug, nome, descricao, site_url, cor_destaque, pagina_publicada, logo_path")
     .eq("slug", slug)
     .is("excluida_em", null)
     .is("suspensa_em", null)
     .maybeSingle();
   if (error) throw error;
-  return data;
+  if (!data) return null;
+  const { logo_path, ...e } = data;
+  return { ...e, logo_url: urlDoLogo(e.slug, logo_path) };
 }
 
 // Guardião da API pública e das páginas (seção 5): só empresa com página publicada.

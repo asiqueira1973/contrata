@@ -11,6 +11,8 @@ import { ApplicationForm } from "@/features/candidate/application-form";
 import s from "@/features/candidate/candidate.module.css";
 import { empresaParaCandidatura, vagaParaFormulario } from "@/server/recruiting/applications";
 import { empresaPorSlug } from "@/server/careers/public";
+import { LogoDaEmpresa } from "@/features/careers/logo";
+import { urlDoLogo } from "@/server/files/logo";
 
 const c = copy.candidatura;
 type Props = PageProps<"/[empresa]/vagas/[slug]/candidatar">;
@@ -34,6 +36,7 @@ async function Corpo({ params }: { params: Props["params"] }) {
     <main className={s.page} style={estilo}>
       <title>{c.tituloPagina(vaga.titulo, empresa.nome)}</title>
       <header style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <LogoDaEmpresa url={urlDoLogo(empresa.slug, empresa.logo_path)} />
         <Link className={s.link} href={voltar}>{empresa.nome}</Link>
         <h1 className={s.title}>{c.titulo(vaga.titulo)}</h1>
         <p className={s.lead}>{c.subtitulo}</p>

@@ -204,3 +204,16 @@ export const WEBHOOK_RETENTATIVAS_S = [60, 600, 3600, 86_400];
 export const WEBHOOK_LOTE = 20;
 // Tempo máximo de uma rodada de envios (a função da Vercel tem 60 s; cada POST, até 10 s).
 export const WEBHOOK_ORCAMENTO_MS = 40_000;
+
+// Empresa (8.9; 11.12, 11.20): contraste mínimo da cor de destaque com o branco (WCAG AA); logo
+// PNG, JPG ou SVG até 1 MB; retenção 90–365 dias; banco de talentos 6–24 meses; exclusão desfeita
+// em até 7 dias (7.4). O banco confere as mesmas faixas.
+export const COR_CONTRASTE_MIN = 4.5;
+export const LOGO_MAX_BYTES = 1024 * 1024;
+export const RETENCAO_DIAS_MIN = 90;
+export const RETENCAO_DIAS_MAX = 365;
+export const TALENTOS_MESES_MIN = 6;
+export const TALENTOS_MESES_MAX = 24;
+export const EXCLUSAO_EMPRESA_DIAS = 7;
+export const EMPRESA_DESCRICAO_MAX = 2000;
+export const AVISO_EXTRA_MAX = 1000;

@@ -23,9 +23,12 @@ import { formularioPublicarVaga } from "./forms/publicar_vaga";
 import { formularioVaga } from "./forms/vaga";
 import { formularioPessoa } from "./forms/pessoa";
 import { formularioWebhooks } from "./forms/webhooks";
+import { formularioEmpresa } from "./forms/empresa";
+import { formularioExcluirEmpresa } from "./forms/excluir_empresa";
+import { formularioDesfazerExclusao } from "./forms/desfazer_exclusao";
 import { registrarFormulario } from "./forms/registrar";
 import { exigirAnotacoes, type ToolContext } from "./kit";
-import { registrarConsultas } from "./read";
+import { registrarConsultas, registrarQuemSouEu } from "./read";
 import { registrarConsultasDeCandidatura } from "./read-applications";
 import { registrarConsultasDeVaga } from "./read-jobs";
 import { registrarOperacoes } from "./operations";
@@ -36,6 +39,13 @@ export const SERVER_INFO = { name: NOME_PRODUTO.toLowerCase().replace(/\s+/g, "-
 export function buildMcpServer(ctx: ToolContext): McpServer {
   const server = new McpServer(SERVER_INFO);
   exigirAnotacoes(server);
+  // Empresa excluída (8.9): só ver o estado e desfazer, pelo administrador.
+  if (ctx.empresaExcluida) {
+    registrarQuemSouEu(server, ctx);
+    if (ctx.membro && ctx.ui !== "nao") registrarRecursoDoFormulario(server);
+    if (ctx.membro) registrarFormulario(server, ctx, formularioDesfazerExclusao);
+    return server;
+  }
   registrarConsultas(server, ctx);
   registrarConsultasDeVaga(server, ctx);
   registrarConsultasDeCandidatura(server, ctx);
@@ -61,6 +71,8 @@ export function buildMcpServer(ctx: ToolContext): McpServer {
     registrarFormulario(server, ctx, formularioRespostaRevisao);
     registrarFormulario(server, ctx, formularioConvidarParaVaga);
     registrarFormulario(server, ctx, formularioWebhooks);
+    registrarFormulario(server, ctx, formularioEmpresa);
+    registrarFormulario(server, ctx, formularioExcluirEmpresa);
   }
   return server;
 }

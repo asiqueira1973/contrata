@@ -17,6 +17,7 @@ import { siteOrigin } from "@/server/oauth/server";
 import { requireCandidaturaPorToken } from "./applications";
 import { alcanceJson, getJob, type ContextoVagas } from "./jobs";
 import { remetente, type TextoMensagem } from "./messages";
+import { urlDoLogo } from "@/server/files/logo";
 
 export type Talento = {
   candidato_id: string;
@@ -72,7 +73,7 @@ export async function inviteTalents(ctx: ContextoVagas & { empresa: { nome: stri
   const modelo = await getTemplate(ctx.empresa.id, "convite_vaga");
   const texto = p.texto ?? { assunto: modelo?.assunto ?? "", corpo: modelo?.corpo ?? "" };
   conferirVariaveis({ assunto: texto.assunto, corpo: texto.corpo });
-  const { data: empresa, error } = await db().from("rs_empresas").select("nome, slug, email_contato, cor_destaque").eq("id", ctx.empresa.id).single();
+  const { data: empresa, error } = await db().from("rs_empresas").select("nome, slug, email_contato, cor_destaque, logo_path").eq("id", ctx.empresa.id).single();
   if (error) throw error;
   const r = await remetente(ctx, vaga.id);
   let convidados = 0;
@@ -105,7 +106,7 @@ export async function inviteTalents(ctx: ContextoVagas & { empresa: { nome: stri
     const { data: ultima } = await db().from("rs_candidaturas").select("id").eq("empresa_id", ctx.empresa.id).eq("candidato_id", candidato)
       .not("recebida_em", "is", null).order("recebida_em", { ascending: false }).limit(1).maybeSingle();
     const urlAcompanhamento = ultima ? await linkVigente(ctx.empresa.id, ultima.id) : null;
-    const email = conviteVaga({ empresa: empresa.nome, cor: empresa.cor_destaque, assunto, corpo, urlVaga, urlAcompanhamento });
+    const email = conviteVaga({ empresa: empresa.nome, cor: empresa.cor_destaque, logo: urlDoLogo(empresa.slug, empresa.logo_path), assunto, corpo, urlVaga, urlAcompanhamento });
     await enqueue({ empresaId: ctx.empresa.id, tipo: "mensagem_candidato", destinatario: k.email, chave: `convite:${res.convite_id}:${dia}`,
       assunto, html: email.html, texto: email.texto, replyTo: empresa.email_contato, fromName: empresa.nome });
     convidados++;
@@ -137,11 +138,11 @@ export async function expiringTalentsDigest(lote: number): Promise<{ retirados: 
   const r = data as { retirados: number; avisar: { empresa_id: string; candidato_id: string; candidatura_id: string; expira_em: string }[] };
   let avisados = 0;
   for (const a of r.avisar) {
-    const { data: e } = await db().from("rs_empresas").select("nome, email_contato, cor_destaque").eq("id", a.empresa_id).is("excluida_em", null).maybeSingle();
+    const { data: e } = await db().from("rs_empresas").select("nome, slug, email_contato, cor_destaque, logo_path").eq("id", a.empresa_id).is("excluida_em", null).maybeSingle();
     const { data: k } = await db().from("rs_candidatos").select("nome, email").eq("empresa_id", a.empresa_id).eq("id", a.candidato_id).maybeSingle();
     const url = await linkVigente(a.empresa_id, a.candidatura_id);
     if (!e || !k?.email || !url) continue;
-    const m = talentosExpirando({ empresa: e.nome, cor: e.cor_destaque, nome: primeiroNome(k.nome), data: DATA.format(new Date(a.expira_em)), url });
+    const m = talentosExpirando({ empresa: e.nome, cor: e.cor_destaque, logo: urlDoLogo(e.slug, e.logo_path), nome: primeiroNome(k.nome), data: DATA.format(new Date(a.expira_em)), url });
     const id = await enqueue({ empresaId: a.empresa_id, tipo: "talentos_expirando", destinatario: k.email, chave: `talentos_expirando:${a.candidato_id}:${a.expira_em}`,
       assunto: m.assunto, html: m.html, texto: m.texto, replyTo: e.email_contato, fromName: e.nome });
     if (id) avisados++;

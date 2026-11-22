@@ -17,6 +17,7 @@ import { conferirVariaveis, getTemplate, listTemplates, primeiroNome, renderizar
 import { atorJson } from "@/server/org/actor";
 import { siteOrigin } from "@/server/oauth/server";
 import { alcanceJson, type ContextoVagas } from "./jobs";
+import { urlDoLogo } from "@/server/files/logo";
 
 type TipoMensagem = Database["public"]["Enums"]["rs_tipo_mensagem"];
 export type TextoMensagem = { assunto: string; corpo: string };
@@ -28,13 +29,13 @@ export type MensagemPronta = {
 
 type DadosCandidatura = {
   id: string; vaga_id: string; nome: string; email: string | null; vaga: { titulo: string; slug: string };
-  empresa: { nome: string; slug: string; email_contato: string; cor_destaque: string | null };
+  empresa: { nome: string; slug: string; email_contato: string; cor_destaque: string | null; logo_path: string | null };
 };
 
 // Dados de uma candidatura recebida da empresa, para montar a mensagem.
 async function dados(empresaId: string, id: string): Promise<DadosCandidatura> {
   const { data, error } = await db().from("rs_candidaturas")
-    .select("id, vaga_id, candidato:candidato_id(nome, email), vaga:vaga_id(titulo, slug), empresa:empresa_id(nome, slug, email_contato, cor_destaque)")
+    .select("id, vaga_id, candidato:candidato_id(nome, email), vaga:vaga_id(titulo, slug), empresa:empresa_id(nome, slug, email_contato, cor_destaque, logo_path)")
     .eq("empresa_id", empresaId).eq("id", id).not("recebida_em", "is", null).maybeSingle();
   if (error) throw error;
   if (!data) throw new DomainError("candidatura_nao_encontrada", 404);
@@ -80,7 +81,7 @@ function montarCom(d: DadosCandidatura, v: Valores, url: string | null, tipo: Ti
   const assunto = renderizar(texto.assunto, v);
   const guardado = renderizar(texto.corpo, v, { manterLink: true });
   const corpoEmail = renderizar(texto.corpo, { ...v, link_acompanhamento: url ?? "" });
-  const email = mensagemCandidato({ empresa: d.empresa.nome, cor: d.empresa.cor_destaque, assunto, corpo: corpoEmail, url, devolutiva: tipo === "devolutiva" });
+  const email = mensagemCandidato({ empresa: d.empresa.nome, cor: d.empresa.cor_destaque, logo: urlDoLogo(d.empresa.slug, d.empresa.logo_path), assunto, corpo: corpoEmail, url, devolutiva: tipo === "devolutiva" });
   return {
     tipo, assunto, corpo: guardado,
     notificacao: { tipo: "mensagem_candidato", destinatario: d.email, chave: `mensagem:${id}:${randomUUID()}`, assunto, html: email.html, texto: email.texto, reply_to: d.empresa.email_contato },
@@ -101,7 +102,7 @@ export async function textoFinal(ctx: ContextoVagas, id: string, texto: TextoMen
 export async function mensagensDaVaga(ctx: ContextoVagas, vagaId: string, texto: TextoMensagem): Promise<Record<string, MensagemPronta>> {
   conferirVariaveis({ assunto: texto.assunto, corpo: texto.corpo });
   const { data, error } = await db().from("rs_candidaturas")
-    .select("id, vaga_id, link_versao, token_hash, candidato:candidato_id(nome, email), vaga:vaga_id(titulo, slug), empresa:empresa_id(nome, slug, email_contato, cor_destaque)")
+    .select("id, vaga_id, link_versao, token_hash, candidato:candidato_id(nome, email), vaga:vaga_id(titulo, slug), empresa:empresa_id(nome, slug, email_contato, cor_destaque, logo_path)")
     .eq("empresa_id", ctx.empresa.id).eq("vaga_id", vagaId).eq("situacao", "ativa").not("recebida_em", "is", null).limit(ENCERRAR_VAGA_ATIVAS_MAX + 1);
   if (error) throw error;
   type Linha = { id: string; vaga_id: string; link_versao: number; token_hash: string; candidato: { nome: string; email: string | null }; vaga: DadosCandidatura["vaga"]; empresa: DadosCandidatura["empresa"] };

@@ -9,6 +9,8 @@ import { listAreas } from "@/server/org/areas";
 import { listTeam } from "@/server/org/members";
 import { listPeople } from "@/server/org/people";
 import { bloqueio, consultar, erro, type ToolContext } from "./kit";
+import { companySettings } from "@/server/org/companies";
+import { EXCLUSAO_EMPRESA_DIAS } from "@/lib/limits";
 
 // Registra uma consulta com título e descrição da copy e a guarda de escopo leitura. `entrada`:
 // os filtros que o modelo pode passar (zod com .describe() em português, 13.3). `papel`: papel
@@ -29,15 +31,29 @@ export function consulta<E extends z.ZodObject>(
   );
 }
 
+// quem_sou_eu (8.2; 8.9): quem conectou, os escopos e a configuração da empresa (o que o agente
+// precisa para preencher o formulário da empresa). Empresa excluída: a data do expurgo.
+export function registrarQuemSouEu(server: McpServer, ctx: ToolContext): void {
+  consulta(server, ctx, "quem_sou_eu", async () => {
+    const e = await companySettings(ctx.empresa.id);
+    return {
+      empresa: {
+        nome: e.nome, slug: e.slug, descricao: e.descricao, site_url: e.site_url, email_contato: e.email_contato, cor_destaque: e.cor_destaque,
+        logo_url: e.logo_url, pagina_publicada: e.pagina_publicada, retencao_dias: e.retencao_dias, talentos_meses: e.talentos_meses,
+        mensagens_agente: e.mensagens_agente, aviso_privacidade_extra: e.aviso_privacidade_extra,
+        ...(e.excluida_em ? { excluida_em: e.excluida_em, expurgar_em: new Date(new Date(e.excluida_em).getTime() + EXCLUSAO_EMPRESA_DIAS * 86_400_000).toISOString() } : {}),
+      },
+      credencial: { tipo: ctx.credencial.tipo, nome: ctx.credencial.nome },
+      membro: ctx.membro ? { nome: ctx.membro.usuario.nome, email: ctx.membro.usuario.email, papel: ctx.membro.membro.papel } : null,
+      escopos: ctx.escopos,
+      alcance: ctx.alcance.tipo,
+    };
+  });
+}
+
 export function registrarConsultas(server: McpServer, ctx: ToolContext): void {
   const avaliador = ctx.membro?.membro.papel === "avaliador";
-  consulta(server, ctx, "quem_sou_eu", async () => ({
-    empresa: { nome: ctx.empresa.nome, slug: ctx.empresa.slug },
-    credencial: { tipo: ctx.credencial.tipo, nome: ctx.credencial.nome },
-    membro: ctx.membro ? { nome: ctx.membro.usuario.nome, email: ctx.membro.usuario.email, papel: ctx.membro.membro.papel } : null,
-    escopos: ctx.escopos,
-    alcance: ctx.alcance.tipo,
-  }));
+  registrarQuemSouEu(server, ctx);
   consulta(server, ctx, "listar_equipe", async () => {
     const equipe = await listTeam(ctx.empresa.id);
     return {

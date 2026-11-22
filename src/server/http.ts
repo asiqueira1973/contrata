@@ -77,6 +77,9 @@ const STATUS: Record<string, number> = {
   url_recusada: 400,
   eventos_invalidos: 400,
   limite_webhooks: 409,
+  empresa_com_ativas: 409,
+  prazo_vencido: 409,
+  slug_nao_confere: 400,
 };
 
 // Resposta de erro padrão. Recebe: código e status (opcional). Devolve: Response JSON.

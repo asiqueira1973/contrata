@@ -2,14 +2,14 @@
 
 Nome público: **Vaga Aberta** (vagaaberta.app.br, spec 25.1), sempre pela variável `NEXT_PUBLIC_NOME_PRODUTO` / `NOME_PRODUTO` do `copy.ts`, nunca escrito à mão. Repositório, pasta, bucket, banco (`rs_*`), prefixos das chaves, eventos `contrata_*` e cabeçalhos `X-Contrata-*` mantêm o nome de trabalho de propósito.
 
-Fonte única de verdade: `spec.md` (v0.4.9). Planos aprovados: `plans/`. Os princípios da seção 0 desempatam dúvidas. Itens da seção 25 → **pare e pergunte**. Referências: `~/assina` (login, R2, Resend, webhooks, OAuth) e `~/agenda-psi/mcp-server` (MCP Apps, formulários, fallback com prévia). Leia antes de reinventar. Mudou schema, rota, ferramenta ou tela → atualize `DOCUMENTACAO-TECNICA.md`, este arquivo e o README no mesmo commit.
+Fonte única de verdade: `spec.md` (v0.4.10). Planos aprovados: `plans/`. Os princípios da seção 0 desempatam dúvidas. Itens da seção 25 → **pare e pergunte**. Referências: `~/assina` (login, R2, Resend, webhooks, OAuth) e `~/agenda-psi/mcp-server` (MCP Apps, formulários, fallback com prévia). Leia antes de reinventar. Mudou schema, rota, ferramenta ou tela → atualize `DOCUMENTACAO-TECNICA.md`, este arquivo e o README no mesmo commit.
 
 ## Regra de ouro
 Se um teste falhar, corrija o código, não o teste; nunca pule nem apague teste que falha.
 Bug: teste que reproduz → ver falhar → commit → `touch .claude/fix-mode` → corrigir → `rm .claude/fix-mode`.
 
 ## Estado
-Spec **v0.4.9: um sistema para agentes, não para humanos**. Quem recruta opera pelo Claude ou pelo ChatGPT; não há painel. Clone e use: quem cria empresa é `CRIACAO_EMPRESA_EMAILS` (11.33). Épicos 8.0, 8.1, 8.2 (o conector), 8.3 (vagas e página de carreiras), 8.4 (candidatura e link `/c`), 8.5 (funil), 8.6 (decisões, devolutivas e mensagens), 8.7 (banco de talentos) e 8.8 (webhooks e trilha) concluídos no local, com as migrations no remoto (21/11/2026). Pendentes, com o Alexandre: projeto e DNS de vagaaberta.app.br na Vercel, cliente OAuth do Google, bucket R2 e, com eles, o teste no Claude, no ChatGPT, no Teste de Pesquisa Aprimorada e o e-mail real pelo Resend. Próximo: 8.9 (empresa, LGPD e configurações), em plan mode.
+Spec **v0.4.10: um sistema para agentes, não para humanos**. Quem recruta opera pelo Claude ou pelo ChatGPT; não há painel. Clone e use: quem cria empresa é `CRIACAO_EMPRESA_EMAILS` (11.33). Épicos 8.0, 8.1, 8.2 (o conector), 8.3 (vagas e página de carreiras), 8.4 (candidatura e link `/c`), 8.5 (funil), 8.6 (decisões, devolutivas e mensagens), 8.7 (banco de talentos), 8.8 (webhooks e trilha) e 8.9 (empresa, LGPD e configurações) concluídos no local, com as migrations no remoto (21/11/2026). Pendentes, com o Alexandre: projeto e DNS de vagaaberta.app.br na Vercel, cliente OAuth do Google, bucket R2 e, com eles, o teste no Claude, no ChatGPT, no Teste de Pesquisa Aprimorada e o e-mail real pelo Resend. Próximo: 8.10 (faxina diária: expurgo, resumos, retentativas), em plan mode.
 
 ## Como uma ação nova entra (padrão do 8.2)
 1. Função de domínio em `src/server/<área>/` com `ator` e, se lê candidaturas, `alcance`.
@@ -96,3 +96,7 @@ Spec **v0.4.9: um sistema para agentes, não para humanos**. Quem recruta opera 
 - "Vencida" é pelo relógio do banco (`rs_fn_entregas_vencidas`, que também deixa de fora webhook desligado, empresa suspensa e entrega no máximo): não filtre `proxima_tentativa_em` com `new Date()` do Node. Envio sempre com prazo (`deliverDue(empresa, lote, prazoMs)`): a função da Vercel tem 60 s.
 - Teste de webhook: `setRemoteFetchTestMode(true)` + `startHttps` de `tests/https-server.ts` (TLS autoassinado). Fora do modo de teste, 127.0.0.1 e localhost são recusados, como devem.
 - `CHAVES_ENC_KEY` (32 bytes base64) é obrigatória para webhooks; `tests/setup.ts` gera uma.
+- **Empresa excluída (8.9):** `resolveCredential` aceita, por 7 dias, só o token do conector de administrador, com `ctx.empresaExcluida`; o `/mcp` monta só `quem_sou_eu` e `desfazer_exclusao`. Ferramenta nova não aparece aí por engano: o retorno antecipado em `buildMcpServer` cuida disso.
+- Logo: sempre por `files/logo.confereLogo` (bytes, SVG limpo) e `org/companies.saveLogo`; URL por `urlDoLogo(slug, logo_path)` (o hash está no nome do arquivo). E-mail ao candidato novo: passe `logo` junto com `cor`.
+- Cor de destaque: `lib/cor.contrasteComBranco` ≥ `COR_CONTRASTE_MIN` (o banco só confere o formato).
+- Escrita em `rs_empresas`: só por `rs_fn_salva_empresa` (evento `empresa_editada`), nunca `update` direto no código.

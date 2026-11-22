@@ -15,6 +15,7 @@ import { previaValida } from "@/server/careers/preview";
 import type { EmpresaPublica, VagaPublica } from "@/server/careers/public";
 import { siteOrigin } from "@/server/oauth/server";
 import { empresaEmCache, vagaEmCache } from "../../dados";
+import { LogoDaEmpresa } from "@/features/careers/logo";
 
 const c = copy.carreiras;
 
@@ -55,6 +56,7 @@ function Vaga({ empresa, vaga, previa }: { empresa: EmpresaPublica; vaga: VagaPu
       {previa && <p className={s.previa} role="status">{c.previa}</p>}
       {ld && <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLdSeguro(ld) }} />}
       <header className={s.header}>
+        <LogoDaEmpresa url={empresa.logo_url} />
         <Link className={s.link} href={voltar}>{c.voltar(empresa.nome)}</Link>
         <h1 className={s.title}>{vaga.titulo}</h1>
         {vaga.area && <p className={s.empresa}>{vaga.area}</p>}

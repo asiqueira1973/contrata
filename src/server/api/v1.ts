@@ -58,7 +58,13 @@ export function paginar<T>(itens: T[], p: { inicio: number; limite: number }) {
 export const Erro = z.object({ codigo: z.string(), mensagem: z.string() });
 export const EmpresaV1 = z
   .object({
-    empresa: z.object({ id: z.uuid(), slug: z.string(), nome: z.string() }),
+    empresa: z.object({
+      id: z.uuid(), slug: z.string(), nome: z.string(),
+      // Configuração (8.9): o que aparece na página e as regras de retenção e mensagens.
+      descricao: z.string().nullable(), site_url: z.string().nullable(), email_contato: z.string(), cor_destaque: z.string().nullable(),
+      logo_url: z.string().nullable(), pagina_publicada: z.boolean(), retencao_dias: z.number().int(), talentos_meses: z.number().int(),
+      mensagens_agente: z.enum(["confirmar", "direto"]),
+    }),
     credencial: z.object({ nome: z.string(), escopos: z.array(z.enum(["leitura", "escrita", "decisao"])) }),
   });
 export const AreaV1 = z

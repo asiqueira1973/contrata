@@ -69,6 +69,17 @@ export const ERROS: Record<string, string> = {
   url_recusada: "Use um endereço https público (sem usuário e senha, sem endereço interno da rede).",
   eventos_invalidos: "Escolha pelo menos um evento da lista.",
   limite_webhooks: "A empresa já tem 5 webhooks. Remova algum antes de criar outro.",
+  // Empresa (8.9)
+  cor_sem_contraste: "Essa cor fica clara demais para o texto branco do botão. Escolha uma mais escura (contraste mínimo de 4,5:1).",
+  site_invalido: "Use o endereço completo do site, começando com https://.",
+  retencao_invalida: "A retenção vai de 90 a 365 dias.",
+  talentos_invalido: "A validade do banco de talentos vai de 6 a 24 meses.",
+  logo_invalido: "Envie o logo em PNG, JPG ou SVG.",
+  logo_grande: "O logo pode ter até 1 MB.",
+  slug_nao_confere: "Digite o endereço da empresa exatamente como aparece.",
+  empresa_com_ativas: "Ainda há candidaturas em andamento. Encerre as vagas (ou decida cada candidatura) pelo formulário de decisões; cada pessoa recebe a devolutiva. Depois, exclua a empresa.",
+  prazo_vencido: "O prazo para desfazer a exclusão já passou.",
+  empresa_excluida: "A empresa foi excluída. Um administrador pode desfazer a exclusão em até 7 dias.",
   termos_pendentes: "Aceite os Termos de uso e a Política de privacidade para continuar.",
   // Vagas (8.3; 11.1, 11.14, 11.22, 11.32, 12.1)
   fora_do_alcance: "Essa área está fora das áreas em que você recruta. Escolha outra.",
@@ -767,6 +778,52 @@ export const copy = {
         aviso: "A pessoa recebe um e-mail dizendo que a empresa a incluiu no processo, com o link para acompanhar, retirar ou excluir os dados.",
         resumo: (nome: string, vaga: string) => `Candidatura de ${nome} adicionada à vaga ${vaga}.`,
       },
+      // Empresa (8.9; 10.2, 11.12, 11.20, 15.5): só administrador.
+      empresa: {
+        titulo: "Empresa",
+        descricao: "Abre o formulário da empresa (só administrador), já preenchido com a configuração atual e o que foi dito: nome, descrição, site, e-mail de contato, cor de destaque, logo, página de carreiras publicada, retenção dos dados, validade do banco de talentos, como as mensagens da API são tratadas e o texto extra do aviso de privacidade. Não grava nada: a pessoa confere e clica em Salvar. O logo só pode ser enviado pelo formulário.",
+        botao: "Salvar",
+        nome: "Nome da empresa",
+        descricaoCampo: "Descrição (aparece na página de carreiras)",
+        site: "Site (https://…)",
+        email: "E-mail de contato (recebe as respostas dos candidatos)",
+        cor: "Cor de destaque",
+        corDica: "Usada no botão \"Candidatar-me\" e nos links. Precisa contrastar com texto branco.",
+        logo: "Logo (PNG, JPG ou SVG, até 1 MB)",
+        logoAtual: "Já há um logo. Envie outro para trocar.",
+        removerLogo: "Tirar o logo",
+        removerArquivo: "Remover",
+        publicada: "Página de carreiras publicada",
+        retencao: "Guardar os dados das candidaturas encerradas por (dias, de 90 a 365)",
+        retencaoDica: "Vale para candidaturas encerradas a partir de agora; as já encerradas mantêm o prazo que tinham. Depois do prazo, os dados pessoais são apagados.",
+        talentos: "Validade do banco de talentos (meses, de 6 a 24)",
+        talentosDica: "Por quanto tempo a empresa guarda os dados de quem autorizou, a partir da autorização ou da renovação.",
+        mensagens: "Mensagens enviadas por integrações (chaves de API)",
+        mensagensConfirmar: "Viram proposta: alguém da equipe confirma no chat (recomendado)",
+        mensagensDireto: "Saem na hora, até 200 por dia",
+        avisoExtra: "Texto extra do aviso de privacidade (opcional, até 1.000 caracteres)",
+        avisoExtraDica: "O aviso padrão já diz quem cuida dos dados, para quê, a base legal, quem acessa, por quanto tempo e os direitos da pessoa. Escreva aqui só o que a empresa quer acrescentar. Mudar o texto muda a versão do aviso gravada nas próximas candidaturas.",
+        resumo: (campos: string[]) => (campos.length ? `Empresa atualizada: ${campos.join(", ")}.` : "Nada mudou."),
+        camposRotulos: {
+          nome: "nome", descricao: "descrição", site_url: "site", email_contato: "e-mail de contato", cor_destaque: "cor", pagina_publicada: "página publicada",
+          retencao_dias: "retenção", talentos_meses: "banco de talentos", mensagens_agente: "mensagens das integrações", aviso_privacidade_extra: "aviso de privacidade", logo: "logo",
+        } as Record<string, string>,
+      },
+      excluir_empresa: {
+        titulo: "Excluir a empresa",
+        descricao: "Abre o formulário para excluir a empresa (só administrador). A pessoa digita o endereço da empresa para confirmar. Só dá para excluir sem candidaturas em andamento. A página sai do ar e as conexões param na hora; tudo é apagado de vez em 7 dias, e um administrador pode desfazer até lá. Sem formulário, não há como excluir.",
+        botao: "Excluir a empresa",
+        aviso: (empresa: string) => `Excluir ${empresa} tira a página de carreiras do ar e para as chaves de API e as conexões na hora. Em 7 dias, todos os dados e arquivos são apagados de vez. Até lá, um administrador pode desfazer pelo conector.`,
+        confirmacao: (slug: string) => `Para confirmar, digite o endereço da empresa: ${slug}`,
+        resumo: (data: string) => `Empresa excluída. Os dados serão apagados em ${data}; até lá, dá para desfazer pedindo "desfazer a exclusão da empresa".`,
+      },
+      desfazer_exclusao: {
+        titulo: "Desfazer a exclusão da empresa",
+        descricao: "Abre o formulário para desfazer a exclusão da empresa, dentro de 7 dias (só administrador). Não grava nada: a pessoa confirma.",
+        botao: "Desfazer a exclusão",
+        aviso: (empresa: string, data: string) => `${empresa} está excluída e será apagada em ${data}. Desfazer devolve tudo como estava; a página de carreiras volta se estava publicada.`,
+        resumo: "Exclusão desfeita. A empresa voltou ao normal.",
+      },
       pagina_de_carreiras: {
         titulo: "Página de carreiras",
         descricao: "Abre o formulário para publicar ou despublicar a página de carreiras da empresa (só administrador) e mostra o link de pré-visualização, válido por 10 minutos, enquanto ela não está publicada. Não grava nada: o administrador confere e confirma.",
@@ -985,6 +1042,14 @@ export const copy = {
           : `Há ${n} propostas de decisão (reprovar, contratar, encerrar vaga ou mensagem) esperando há mais de um dia. Elas só acontecem quando alguém da equipe confirmar.`,
       depois: "Para ver e confirmar, peça ao Claude: mostre as propostas. Propostas vencem em 7 dias.",
     },
+  },
+
+  // Exclusão da empresa (8.9; 7.4): aviso aos administradores.
+  emailEmpresaExcluida: {
+    assunto: (empresa: string) => `${empresa} será excluída do ${NOME_PRODUTO}`,
+    corpo: (empresa: string, data: string) =>
+      `A empresa ${empresa} foi excluída. A página de carreiras saiu do ar e as chaves de API e conexões pararam. Em ${data}, todos os dados e arquivos dela serão apagados de vez.`,
+    desfazer: `Para desfazer até lá, abra o Claude ou o ChatGPT com o conector do ${NOME_PRODUTO} e peça: "desfazer a exclusão da empresa".`,
   },
 
   // Banco de talentos (8.7; 15.1, 15.4).

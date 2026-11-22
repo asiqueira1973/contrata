@@ -15,6 +15,7 @@ import type { Ator } from "@/server/org/actor";
 import { computeScope, type Alcance } from "@/server/org/scope";
 import { hashToken } from "./tokens";
 import type { ContextoMembro, Empresa, Membro } from "./require-membro";
+import { EXCLUSAO_EMPRESA_DIAS } from "@/lib/limits";
 
 export type ContextoCredencial = {
   empresa: Empresa;
@@ -24,6 +25,9 @@ export type ContextoCredencial = {
   ator: Ator;
   // Só para o token do conector: o membro que o autorizou, com o contexto do domínio do 8.1.
   membro?: ContextoMembro;
+  // Empresa excluída há menos de 7 dias (só o conector de administrador chega aqui): o /mcp
+  // oferece só quem_sou_eu e desfazer_exclusao (8.9).
+  empresaExcluida?: string;
 };
 
 // Expande a hierarquia (6.3): escrita implica leitura; decisao implica as duas.
@@ -51,7 +55,11 @@ export async function resolveCredential(authorization: string | null): Promise<C
     .is("revogada_em", null)
     .maybeSingle();
   if (error) throw error;
-  if (!c || c.rs_empresas.excluida_em || c.rs_empresas.suspensa_em) return null;
+  if (!c || c.rs_empresas.suspensa_em) return null;
+  // Empresa excluída (7.4; decisão do 8.9): só o conector de um administrador, dentro dos 7 dias,
+  // para desfazer; o resto (chaves de API, outros papéis) para na hora.
+  const excluida = c.rs_empresas.excluida_em;
+  if (excluida && (c.tipo !== "mcp" || new Date(excluida).getTime() <= Date.now() - EXCLUSAO_EMPRESA_DIAS * 86_400_000)) return null;
   const empresa: Empresa = { id: c.rs_empresas.id, slug: c.rs_empresas.slug, nome: c.rs_empresas.nome, email_contato: c.rs_empresas.email_contato };
   const credencial = { id: c.id, tipo: c.tipo, nome: c.nome };
 
@@ -68,6 +76,7 @@ export async function resolveCredential(authorization: string | null): Promise<C
       .maybeSingle();
     if (e2) throw e2;
     if (!mb || mb.rs_usuarios.suspenso_em) return null;
+    if (excluida && mb.papel !== "administrador") return null;
     const membro: Membro = { id: mb.id, papel: mb.papel, todas_areas: mb.todas_areas };
     const alcance = computeScope(membro, (mb.rs_membro_areas ?? []).map((a) => a.area_id));
     const permitidos = new Set(scopesForRole(membro.papel));
@@ -81,6 +90,7 @@ export async function resolveCredential(authorization: string | null): Promise<C
       alcance,
       ator,
       membro: { usuario, membro, empresa, alcance, ator },
+      ...(excluida ? { empresaExcluida: excluida } : {}),
     };
   }
   // Último uso no máximo uma vez por minuto (6.3).
