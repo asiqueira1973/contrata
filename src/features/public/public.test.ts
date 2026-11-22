@@ -133,3 +133,67 @@ describe("README (8.12)", () => {
     for (const x of ["supabase db push", "CRIACAO_EMPRESA_EMAILS", "vercel.json", "/api/auth/google/callback", "/mcp"]) expect(readme).toContain(x);
   });
 });
+
+// Achados do verifier do 8.12: o que as páginas e o README afirmam tem de bater com o código.
+describe("achados do verifier (8.12)", () => {
+  const textoApi = () => JSON.stringify(copy.docs.api.secoes("https://x.exemplo"));
+  const readme = () => readFileSync("README.md", "utf8");
+
+  it("B1: Idempotency-Key só é prometida em POST /api/v1/vagas, a única rota que a lê", () => {
+    expect(textoApi()).not.toMatch(/Escritas aceitam Idempotency-Key/);
+    expect(textoApi()).toMatch(/Idempotency-Key[^"]*\/api\/v1\/vagas|\/api\/v1\/vagas[^"]*Idempotency-Key/);
+  });
+
+  it("B2: nem o README nem a inicial dizem que toda escrita abre formulário (mover e anotar são diretas)", () => {
+    expect(readme()).not.toMatch(/[Tt]oda escrita abre um formulário/);
+    expect(JSON.stringify(copy.inicio)).not.toMatch(/Para gravar ou decidir/);
+    expect(readme()).toMatch(/mover de etapa e anotar/i);
+  });
+
+  it("B3: a política de privacidade cita a medição de uso (analytics) e o que vai nela", () => {
+    expect(html(privacidade)).toMatch(/medição de uso/);
+  });
+
+  it("C2: sem OPERADOR_NOME e sem ADMIN_EMAIL, o texto não fica redundante nem promete um contato que não existe", () => {
+    delete process.env.OPERADOR_NOME;
+    delete process.env.OPERADOR_CONTATO;
+    delete process.env.ADMIN_EMAIL;
+    for (const p of [privacidade, termos]) {
+      const h = html(p);
+      expect(h).not.toContain("operada por quem hospeda esta instância");
+      expect(h).not.toContain("o contato de quem hospeda");
+    }
+  });
+
+  it("C3: o guia da API pública dá o caminho certo do concluir", () => {
+    expect(textoApi()).toContain("/api/publico/{empresa}/candidaturas/{id}/concluir");
+    expect(textoApi()).toContain("concluir_token");
+  });
+
+  it("C4: as retentativas não aparecem como horários exatos", () => {
+    expect(textoApi()).toMatch(/faxina/);
+  });
+
+  it("C5: a canônica sai absoluta (metadataBase no layout raiz)", async () => {
+    const { metadata } = await import("@/app/layout");
+    expect(metadata.metadataBase).toBeInstanceOf(URL);
+  });
+
+  it("C6: /docs/mcp avisa que no Claude Code não há formulário (decisão vira proposta)", () => {
+    const sec = copy.docs.mcp.secoes("https://x.exemplo/mcp").find((x) => x.titulo.includes("Claude Code"))!;
+    expect(JSON.stringify(sec)).toMatch(/proposta/);
+  });
+
+  it("C8: a política não cita campo que o formulário não tem (cidade)", () => {
+    expect(html(privacidade)).not.toMatch(/cidade/i);
+  });
+
+  it("C1 e C9: ADMIN_EMAIL é opcional no README, e o README avisa que as páginas legais pedem nova publicação", () => {
+    expect(readme()).toMatch(/\| `ADMIN_EMAIL` \| não \|/);
+    expect(readme()).toMatch(/publique de novo/);
+  });
+
+  it("C10: o .env.example não fala de painel", () => {
+    expect(readFileSync(".env.example", "utf8")).not.toMatch(/painel/);
+  });
+});
