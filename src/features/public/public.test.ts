@@ -185,7 +185,7 @@ describe("achados do verifier (8.12)", () => {
   });
 
   it("C8: a política não cita campo que o formulário não tem (cidade)", () => {
-    expect(html(privacidade)).not.toMatch(/cidade/i);
+    expect(html(privacidade)).not.toMatch(/\bcidade\b/i);
   });
 
   it("C1 e C9: ADMIN_EMAIL é opcional no README, e o README avisa que as páginas legais pedem nova publicação", () => {

@@ -21,7 +21,7 @@ export default function TermosPage() {
       titulo={c.titulo}
       atualizado={copy.legal.atualizado}
       aviso={copy.legal.modelo}
-      secoes={c.secoes(op.nome ?? copy.legal.quemHospeda, op.contato ?? copy.legal.semContato)}
+      secoes={c.secoes(op.nome, op.contato)}
     />
   );
 }

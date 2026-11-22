@@ -184,6 +184,14 @@ export const COPY_FORMULARIO = {
   somenteLeitura: "Só leitura",
 };
 
+// Primeira frase das páginas legais (8.12): quem opera a instância, ou, sem OPERADOR_NOME, uma
+// frase que não repete "quem hospeda".
+const QUEM_HOSPEDA = "quem hospeda esta instância";
+
+function instancia(nome: string | null): string {
+  return nome ? `Esta instância do ${NOME_PRODUTO} é operada por ${nome}.` : `Esta é uma instância do ${NOME_PRODUTO} mantida por quem a hospeda.`;
+}
+
 export const copy = {
   appName: NOME_PRODUTO,
   carregando: "Carregando…",
@@ -895,7 +903,7 @@ export const copy = {
       titulo: "O modelo propõe, você decide",
       passos: [
         { titulo: "Pergunte", texto: "\"Quais candidaturas estão paradas há uma semana?\" O agente consulta e responde na conversa." },
-        { titulo: "Confira", texto: "Para gravar ou decidir, o agente abre um formulário no chat, já preenchido com o que foi dito." },
+        { titulo: "Confira", texto: "Para cadastrar ou decidir, o agente abre um formulário no chat, já preenchido com o que foi dito. Mover de etapa e anotar são diretos e reversíveis." },
         { titulo: "Clique", texto: "Reprovar, contratar ou encerrar a vaga só acontece com o seu clique, e cada pessoa recebe a devolutiva." },
       ],
     },
@@ -952,7 +960,7 @@ export const copy = {
           `Crie um conector com o endereço ${url} e autenticação OAuth.`,
           "Entre com o Google, escolha a empresa e os escopos, e use o conector na conversa.",
         ] },
-        { titulo: "No Claude Code", paragrafos: ["No terminal:", "Depois, dentro do Claude Code, rode /mcp e escolha autenticar: o navegador abre o login com o Google."], codigo: `claude mcp add --transport http vaga-aberta ${url}` },
+        { titulo: "No Claude Code", paragrafos: ["No terminal:", "Depois, dentro do Claude Code, rode /mcp e escolha autenticar: o navegador abre o login com o Google.", "O Claude Code não mostra formulários: lá o agente consulta, move de etapa, anota e grava cadastros por uma prévia que você confirma na conversa. Decisões sobre uma pessoa viram proposta, para alguém da equipe confirmar no Claude ou no ChatGPT, e convites e acessos ficam só no formulário."], codigo: `claude mcp add --transport http vaga-aberta ${url}` },
         { titulo: "Escopos e papéis", paragrafos: [
           "Leitura: consultar vagas, candidaturas, currículos e histórico. Escrita: cadastrar e editar, mover de etapa, anotar, mandar mensagem. Decisão: reprovar, contratar, encerrar vaga e reabrir, sempre pelo formulário.",
           "O papel na empresa limita o que a conexão pode: o avaliador só lê e avalia as vagas da equipe dele; o recrutador vê as áreas dele (ou todas); o administrador vê tudo e cuida da equipe, das chaves e da empresa.",
@@ -984,17 +992,17 @@ export const copy = {
         { titulo: "Convenções", paragrafos: [
           "JSON com os nomes do banco em português; datas em ISO 8601 (UTC); paginação por cursor (?cursor=&limite=, padrão 50, máximo 200).",
           "Erros: {\"codigo\": \"…\", \"mensagem\": \"…\"}, com 400 e a lista de campos quando os dados não passam.",
-          "Escritas aceitam Idempotency-Key (24 h, por chave).",
+          "POST /api/v1/vagas aceita Idempotency-Key: repetir a mesma chave devolve a vaga já criada (200), sem criar outra.",
           "Reprovar, contratar e encerrar vaga com candidaturas em andamento respondem 202 com a proposta: a decisão acontece quando alguém da equipe confirma no chat.",
         ] },
         { titulo: "Webhooks", paragrafos: [
           "O administrador cadastra pelo chat (formulário de webhooks). Cada aviso é um POST JSON {id, tipo, criado_em, empresa_id, dados} sem nome, e-mail ou telefone: busque a pessoa em GET /api/v1/candidaturas/{id}.",
-          "Cabeçalhos X-Contrata-Evento, X-Contrata-Entrega e X-Contrata-Assinatura: t={unix},v1={hex}, o HMAC SHA-256 de \"{t}.{corpo}\" com o segredo whsec_… Responda 2xx; senão há nova tentativa em 1 min, 10 min, 1 h e depois uma por dia, por até 3 dias.",
+          "Cabeçalhos X-Contrata-Evento, X-Contrata-Entrega e X-Contrata-Assinatura: t={unix},v1={hex}, o HMAC SHA-256 de \"{t}.{corpo}\" com o segredo whsec_… Responda 2xx; senão há novas tentativas a partir de 1 min, 10 min e 1 h (na próxima atividade da empresa ou na faxina diária) e depois uma por dia, por até 3 dias.",
           "Só endereços https públicos, sem redirecionamento.",
         ] },
         { titulo: "Trilha (sincronização)", paragrafos: ["GET /api/v1/eventos?desde={id} devolve a trilha em ordem crescente, com quem fez cada coisa; proximo_desde quando há mais."] },
         { titulo: "API pública (site da empresa)", paragrafos: [
-          "Sem chave: GET /api/publico/{empresa}/vagas e /vagas/{slug} para listar as vagas publicadas; POST …/vagas/{slug}/candidaturas para receber a candidatura no site da própria empresa (o currículo sobe direto para o armazenamento e a candidatura é concluída em …/candidaturas/{id}/concluir).",
+          "Sem chave: GET /api/publico/{empresa}/vagas e /vagas/{slug} para listar as vagas publicadas; POST /api/publico/{empresa}/vagas/{slug}/candidaturas para receber a candidatura no site da própria empresa: a resposta traz o id, o upload_url (o currículo sobe direto para o armazenamento) e o concluir_token, e a candidatura é concluída em POST /api/publico/{empresa}/candidaturas/{id}/concluir com esse token.",
         ] },
       ],
     },
@@ -1016,28 +1024,28 @@ export const copy = {
       ],
     },
   },
-  // Páginas legais (8.12; seção 20): modelos que quem hospeda ajusta. `op` é quem opera a
+  // Páginas legais (8.12; seção 20): modelos que quem hospeda ajusta. `nome` é quem opera a
   // instância (OPERADOR_NOME); `contato`, o canal de privacidade (OPERADOR_CONTATO ou ADMIN_EMAIL).
+  // Sem eles (nulos), o texto fala de "quem hospeda esta instância" sem repetir a expressão.
   legal: {
     atualizado: "Atualizado em 22 de novembro de 2026.",
-    quemHospeda: "quem hospeda esta instância",
-    semContato: "o contato de quem hospeda esta instância",
+    quemHospeda: QUEM_HOSPEDA,
     modelo: "Este texto é um modelo. Quem hospeda esta instância deve revisá-lo com o seu jurídico.",
     privacidade: {
       titulo: "Política de privacidade",
       meta: `Como o ${NOME_PRODUTO} trata dados pessoais.`,
-      secoes: (op: string, contato: string) => [
+      secoes: (nome: string | null, contato: string | null) => [
         { titulo: "Quem somos", paragrafos: [
-          `Esta instância do ${NOME_PRODUTO} é operada por ${op}. O ${NOME_PRODUTO} é um sistema de recrutamento e seleção de código aberto que as empresas usam pelo Claude, pelo ChatGPT e por integrações.`,
-          `Para qualquer assunto sobre privacidade: ${contato}.`,
+          `${instancia(nome)} O ${NOME_PRODUTO} é um sistema de recrutamento e seleção de código aberto que as empresas usam pelo Claude, pelo ChatGPT e por integrações.`,
+          contato ? `Para qualquer assunto sobre privacidade: ${contato}.` : `Para qualquer assunto sobre privacidade, fale com ${QUEM_HOSPEDA}.`,
         ] },
         { titulo: "Quem é o controlador", paragrafos: [
           "Cada empresa que usa o sistema é a controladora dos dados dos processos seletivos dela: decide as vagas, quem recebe as candidaturas, por quanto tempo guarda e quem decide sobre cada pessoa.",
-          `A operadora é ${op}: guarda e processa esses dados em nome de cada empresa, seguindo as instruções dela e esta política. Dos dados da conta de quem usa o sistema pela empresa (nome, e-mail, foto do Google), a controladora é ${op}.`,
+          `A operadora é ${nome ?? QUEM_HOSPEDA}: guarda e processa esses dados em nome de cada empresa, seguindo as instruções dela e esta política. Dos dados da conta de quem usa o sistema pela empresa (nome, e-mail, foto do Google), a controladora é ${nome ?? QUEM_HOSPEDA}.`,
         ] },
         { titulo: "Que dados tratamos", paragrafos: [
           "De quem recruta: nome, e-mail e foto da conta Google, a empresa, o papel e as ações feitas (a trilha de quem fez o quê).",
-          "De quem se candidata: o que a pessoa envia no formulário da vaga (nome, e-mail, telefone, LinkedIn, cidade, respostas e currículo), as mensagens recebidas, o andamento no processo e as notas e avaliações da equipe.",
+          "De quem se candidata: o que a pessoa envia no formulário da vaga (nome, e-mail, telefone, LinkedIn, respostas e currículo), as mensagens recebidas, o andamento no processo e as notas e avaliações da equipe.",
           "Não usamos cookies de publicidade. Os cookies servem só para a sessão de quem entra.",
         ] },
         { titulo: "Para quê", paragrafos: [
@@ -1048,6 +1056,7 @@ export const copy = {
         { titulo: "Com quem compartilhamos", paragrafos: [
           "Com os fornecedores que fazem o sistema funcionar, como operadores: banco de dados (Supabase), armazenamento de arquivos (Cloudflare R2 ou S3), envio de e-mail (Resend), hospedagem (Vercel) e login (Google). Alguns ficam fora do Brasil; a transferência segue a LGPD.",
           "Com os assistentes de IA e as integrações que cada empresa conecta, sob responsabilidade dela.",
+          "Quando quem hospeda liga a medição de uso do produto, vão eventos de uso sem o conteúdo dos processos: o e-mail de quem recruta ou um código da candidatura como identificador, e contagens; nunca nome de candidato, currículo, respostas, notas ou devolutivas.",
           "Nunca vendemos dados.",
         ] },
         { titulo: "Por quanto tempo", paragrafos: [
@@ -1057,7 +1066,7 @@ export const copy = {
         ] },
         { titulo: "Os seus direitos", paragrafos: [
           "Quem se candidata acompanha, baixa os próprios dados, exclui os dados e pede revisão de uma decisão pelo link de acompanhamento que recebe por e-mail, e fala com a empresa pelo e-mail de contato dela.",
-          `Quem usa o sistema pela empresa fala com ${contato}.`,
+          contato ? `Quem usa o sistema pela empresa fala com ${contato}.` : `Quem usa o sistema pela empresa fala com ${QUEM_HOSPEDA}.`,
         ] },
         { titulo: "Segurança", paragrafos: ["Acesso só pelo servidor, com login do Google, permissões por papel e área, segredos cifrados, links do candidato guardados só como hash e trilha de quem fez cada coisa."] },
         { titulo: "Mudanças", paragrafos: ["Quando esta política mudar, a data acima muda junto."] },
@@ -1066,9 +1075,9 @@ export const copy = {
     termos: {
       titulo: "Termos de uso",
       meta: `As regras de uso do ${NOME_PRODUTO}.`,
-      secoes: (op: string, contato: string) => [
+      secoes: (nome: string | null, contato: string | null) => [
         { titulo: "O serviço", paragrafos: [
-          `Esta instância do ${NOME_PRODUTO} é operada por ${op}. O sistema é gratuito, de código aberto (licença MIT) e oferecido como está, sem garantia de disponibilidade.`,
+          `${instancia(nome)} O sistema é gratuito, de código aberto (licença MIT) e oferecido como está, sem garantia de disponibilidade.`,
         ] },
         { titulo: "Contas e empresas", paragrafos: [
           "O acesso de quem recruta é pela conta Google. Quem pode criar empresa nesta instância é definido por quem a hospeda.",
@@ -1085,7 +1094,7 @@ export const copy = {
           "Tentar acessar dados de outra empresa, contornar as permissões ou sobrecarregar o sistema.",
         ] },
         { titulo: "Fim do uso", paragrafos: ["A empresa pode ser excluída pelo administrador a qualquer momento, sem candidaturas em andamento; os dados são apagados 7 dias depois. Quem hospeda pode suspender quem descumprir estes termos."] },
-        { titulo: "Contato", paragrafos: [`Dúvidas sobre estes termos: ${contato}.`] },
+        { titulo: "Contato", paragrafos: [contato ? `Dúvidas sobre estes termos: ${contato}.` : `Dúvidas sobre estes termos: fale com ${QUEM_HOSPEDA}.`] },
       ],
     },
   },

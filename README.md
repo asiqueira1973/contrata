@@ -8,7 +8,7 @@ A especificação completa está em [`spec.md`](spec.md); os planos de cada épi
 
 ## O que tem
 - **Pelo chat:** vagas (com etapas, perguntas e equipe), página de carreiras com JSON-LD para o Google, funil (listar, buscar, ler currículo, anotar, mover de etapa, exportar CSV), avaliações da equipe, decisões com devolutiva (reprovar, contratar, encerrar a vaga, reabrir), mensagens com modelos, banco de talentos com consentimento, equipe e áreas, chaves de API, webhooks e os dados da empresa.
-- **O modelo propõe, a pessoa grava:** toda escrita abre um formulário no chat, já preenchido; decisão sobre uma pessoa só com o clique de alguém da equipe. Pela API, decisão vira proposta.
+- **O modelo propõe, a pessoa grava:** cadastros, mensagens e decisões abrem um formulário no chat, já preenchido, que só grava com o clique; mover de etapa e anotar são operações diretas e reversíveis. Decisão sobre uma pessoa só com o clique de alguém da equipe: pela API ou num cliente sem formulários, vira proposta.
 - **Para quem se candidata:** candidatura sem conta, link `/c/{token}` para acompanhar, retirar, pedir revisão, baixar e excluir os dados; devolutiva sempre.
 - **LGPD:** retenção por empresa com anonimização automática, banco de talentos só com consentimento e prazo, trilha de quem fez o quê, nenhum dado pessoal em log, evento ou webhook.
 - **Faxina diária** (`/api/cron/diario`), **analytics opcional** sem dado pessoal, e as páginas públicas `/`, `/docs/mcp`, `/docs/api`, `/docs/auto-hospedagem`, `/privacidade` e `/termos`.
@@ -65,7 +65,7 @@ Quem usa Microsoft 365 pode criar uma conta Google com o mesmo e-mail corporativ
 3. Pelo chat: "crie as áreas Financeiro e Loja", "convide a Ana como recrutadora", "abra uma vaga de…" e "publique a página de carreiras".
 
 ### 8. Textos legais
-As páginas `/privacidade` e `/termos` e o aviso de privacidade da candidatura são **modelos**: preencha `OPERADOR_NOME` e `OPERADOR_CONTATO` com os dados de quem hospeda e revise os textos (em `src/lib/copy.ts`, chaves `legal` e `avisoPrivacidade`) com quem cuida do jurídico.
+As páginas `/privacidade` e `/termos` e o aviso de privacidade da candidatura são **modelos**: preencha `OPERADOR_NOME` e `OPERADOR_CONTATO` com os dados de quem hospeda e revise os textos (em `src/lib/copy.ts`, chaves `legal` e `avisoPrivacidade`) com quem cuida do jurídico. As páginas `/privacidade` e `/termos` são geradas na publicação: depois de mudar essas variáveis, publique de novo.
 
 ### Variáveis
 
@@ -89,7 +89,7 @@ As páginas `/privacidade` e `/termos` e o aviso de privacidade da candidatura s
 | `CRON_SECRET` | sim | Protege `/api/cron/diario`. `openssl rand -base64 32` |
 | `CRIACAO_EMPRESA_EMAILS` | sim | E-mails ou `@dominio` que podem criar empresa, separados por vírgula. Vazia, ninguém cria |
 | `EMAILS_BLOQUEADOS` | não | E-mails que não entram |
-| `ADMIN_EMAIL` | sim | Alertas da instância; contato padrão das páginas legais |
+| `ADMIN_EMAIL` | não | Contato padrão das páginas legais (sem `OPERADOR_CONTATO`) |
 | `OPERADOR_NOME` | não | Quem opera a instância, no aviso de privacidade e nas páginas legais |
 | `OPERADOR_CONTATO` | não | Canal de privacidade (sem ela, o `ADMIN_EMAIL`) |
 | `RESEND_API_KEY` | sim | Envio de e-mail. Sem ela, só em desenvolvimento, os e-mails vão para `.caixa-de-saida-local/` |
@@ -104,7 +104,7 @@ O endereço do conector é `{NEXT_PUBLIC_SITE_URL}/mcp` — na instância oficia
 - **ChatGPT:** Configurações → Apps e conectores → modo desenvolvedor → criar conector com OAuth.
 - **Claude Code:** `claude mcp add --transport http vaga-aberta https://SEU_DOMINIO/mcp` e, dentro dele, `/mcp` para autenticar.
 
-Ao conectar, você entra com o Google, aceita os Termos, escolhe (ou cria) a empresa e os escopos. Depois é conversar: "quem sou eu?", "convide a Ana como recrutadora da Loja". Toda escrita abre um formulário no chat, já preenchido, e só grava quando você clica. Mais exemplos em `/docs/mcp`.
+Ao conectar, você entra com o Google, aceita os Termos, escolhe (ou cria) a empresa e os escopos. Depois é conversar: "quem sou eu?", "convide a Ana como recrutadora da Loja". Cadastros, mensagens e decisões abrem um formulário no chat, já preenchido, que só grava quando você clica; mover de etapa e anotar são diretos. Num cliente sem formulários (como o Claude Code), o agente mostra uma prévia para você confirmar, e decisões viram proposta. Mais exemplos em `/docs/mcp`.
 
 Para automação, crie uma chave de API pelo conector ("crie uma chave de API para o n8n") e use `Authorization: Bearer rsk_…` na API v1 (guia em `/docs/api`, documento em `/api/v1/openapi.json`).
 
