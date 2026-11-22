@@ -7,6 +7,7 @@ import { z } from "zod";
 import type { Escopo } from "@/lib/limits";
 import { requireCredencial, type ContextoCredencial } from "@/server/auth/credential";
 import { errorResponse } from "@/server/http";
+import { deliverDueLater } from "@/server/webhooks/deliver";
 
 export const LIMITE_PADRAO = 50;
 export const LIMITE_MAX = 200;
@@ -19,6 +20,9 @@ export async function apiRoute(req: NextRequest, escopo: Escopo, fn: (ctx: Conte
     return await fn(ctx);
   } catch (e) {
     return errorResponse(e);
+  } finally {
+    // Toda escrita pode ter gerado evento com webhook (8.8): entrega as vencidas da empresa.
+    if (escopo !== "leitura") deliverDueLater(ctx.empresa.id);
   }
 }
 

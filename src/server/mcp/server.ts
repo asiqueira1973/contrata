@@ -22,6 +22,7 @@ import { formularioPausarVaga } from "./forms/pausar_vaga";
 import { formularioPublicarVaga } from "./forms/publicar_vaga";
 import { formularioVaga } from "./forms/vaga";
 import { formularioPessoa } from "./forms/pessoa";
+import { formularioWebhooks } from "./forms/webhooks";
 import { registrarFormulario } from "./forms/registrar";
 import { exigirAnotacoes, type ToolContext } from "./kit";
 import { registrarConsultas } from "./read";
@@ -59,6 +60,7 @@ export function buildMcpServer(ctx: ToolContext): McpServer {
     registrarFormulario(server, ctx, formularioModelos);
     registrarFormulario(server, ctx, formularioRespostaRevisao);
     registrarFormulario(server, ctx, formularioConvidarParaVaga);
+    registrarFormulario(server, ctx, formularioWebhooks);
   }
   return server;
 }

@@ -9,6 +9,7 @@ import { requireCredencial } from "@/server/auth/credential";
 import { suporteAUi } from "@/server/mcp/client-capabilities";
 import { buildMcpServer } from "@/server/mcp/server";
 import { corsHeaders, resourceMetadataUrl } from "@/server/oauth/server";
+import { deliverDueLater } from "@/server/webhooks/deliver";
 
 // Runtime Node (o padrão): o SDK usa node:crypto. Com Cache Components, "runtime" não pode ser declarado.
 export const maxDuration = 60;
@@ -30,6 +31,8 @@ async function handle(req: NextRequest): Promise<Response> {
   const handler = createMcpHandler(() => buildMcpServer({ ...ctx, ui }));
   const authInfo = { token: "", clientId: ctx.credencial.id, scopes: ctx.escopos, extra: { ui } };
   const res = await handler.fetch(req, corpo === undefined ? { authInfo } : { authInfo, parsedBody: corpo });
+  // Uma ferramenta de escrita pode ter gerado evento com webhook (8.8): entrega as vencidas da empresa.
+  if (req.method === "POST") deliverDueLater(ctx.empresa.id);
   return withCors(res);
 }
 

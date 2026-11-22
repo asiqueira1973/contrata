@@ -2,8 +2,8 @@
 
 Descreve o que está **de fato** implementado, na ordem da seção 19 do `spec.md` (v0.4). Toda mudança de schema, trigger, rota, ferramenta ou lógica de tela atualiza este documento no mesmo commit.
 
-## Estado (21/11/2026)
-Épicos 8.0 (guardrails), 8.1 (fundação), 8.2 (o conector), 8.3 (vagas e página de carreiras), 8.4 (candidatura e link de acompanhamento), 8.5 (funil: etapas, avaliações, notas e busca), 8.6 (decisões, devolutivas e mensagens) e **8.7 (banco de talentos)** concluídos no local, com as migrations no remoto (pelo `apply_migration`, mesmo SQL dos arquivos; nenhuma função `rs_` exposta a `anon`/`authenticated`). **Spec v0.4.8: sistema para agentes, sem painel.** Quem recruta conecta o Contrata no Claude ou no ChatGPT (`{site}/mcp`) e, pelo chat, administra a equipe e cria, edita, publica, pausa e encerra vagas; a vaga publicada aparece na página de carreiras, no feed, no sitemap e na API pública. A pessoa se candidata pela página da vaga (upload direto do currículo), acompanha pelo link `/c/{token}` que recebe por e-mail, retira a candidatura, baixa e exclui os dados; a empresa inclui candidatos pelo chat (`adicionar_candidato`) ou pela API v1, e conduz o funil conversando: lista, busca, lê currículos, anota, move de etapa em lote, exporta o CSV, e cada avaliador registra a própria avaliação pelo formulário sem ver a dos outros antes. Pendentes, com o Alexandre: projeto e DNS de vagaaberta.app.br na Vercel, cliente OAuth do Google, bucket R2 e, com eles, o teste no Claude, no ChatGPT, no Teste de Pesquisa Aprimorada do Google e o e-mail real pelo Resend. Reprovar, contratar, encerrar a vaga com pessoas em andamento e reabrir só acontecem com o clique de alguém da equipe no formulário de decisões; integrações e clientes sem formulário criam propostas, que a equipe confirma ou descarta. Toda reprovação leva devolutiva; mensagens saem de modelos editáveis; o candidato pode pedir revisão pelo link. O banco de talentos guarda só quem consentiu, com prazo: a equipe busca e convida para vagas novas, e a pessoa entra, renova ou sai pelo link. Webhooks e trilha chegam no 8.8.
+## Estado (22/11/2026)
+Épicos 8.0 (guardrails), 8.1 (fundação), 8.2 (o conector), 8.3 (vagas e página de carreiras), 8.4 (candidatura e link de acompanhamento), 8.5 (funil: etapas, avaliações, notas e busca), 8.6 (decisões, devolutivas e mensagens) 8.7 (banco de talentos) e **8.8 (webhooks e trilha)** concluídos no local, com as migrations no remoto (pelo `apply_migration`, mesmo SQL dos arquivos; nenhuma função `rs_` exposta a `anon`/`authenticated`). **Spec v0.4.9: sistema para agentes, sem painel.** Quem recruta conecta o Contrata no Claude ou no ChatGPT (`{site}/mcp`) e, pelo chat, administra a equipe e cria, edita, publica, pausa e encerra vagas; a vaga publicada aparece na página de carreiras, no feed, no sitemap e na API pública. A pessoa se candidata pela página da vaga (upload direto do currículo), acompanha pelo link `/c/{token}` que recebe por e-mail, retira a candidatura, baixa e exclui os dados; a empresa inclui candidatos pelo chat (`adicionar_candidato`) ou pela API v1, e conduz o funil conversando: lista, busca, lê currículos, anota, move de etapa em lote, exporta o CSV, e cada avaliador registra a própria avaliação pelo formulário sem ver a dos outros antes. Pendentes, com o Alexandre: projeto e DNS de vagaaberta.app.br na Vercel, cliente OAuth do Google, bucket R2 e, com eles, o teste no Claude, no ChatGPT, no Teste de Pesquisa Aprimorada do Google e o e-mail real pelo Resend. Reprovar, contratar, encerrar a vaga com pessoas em andamento e reabrir só acontecem com o clique de alguém da equipe no formulário de decisões; integrações e clientes sem formulário criam propostas, que a equipe confirma ou descarta. Toda reprovação leva devolutiva; mensagens saem de modelos editáveis; o candidato pode pedir revisão pelo link. O banco de talentos guarda só quem consentiu, com prazo: a equipe busca e convida para vagas novas, e a pessoa entra, renova ou sai pelo link. Integrações recebem webhooks assinados (HMAC, retentativas, endereço público só) configurados pelo formulário `webhooks`, e sincronizam a trilha por `GET /api/v1/eventos?desde=`; o histórico de cada candidatura diz quem fez cada coisa (pessoa pelo formulário, agente em nome de alguém, integração, sistema, candidato).
 
 ---
 
@@ -157,6 +157,23 @@ Do 8.7, migrations `20261122160000_rs_talentos.sql` e `20261122170000_rs_talento
 | `rs_fn_talentos_candidato(candidatura, ação)` | função | `/c` | Entrar, renovar (por `talentos_meses`, zera o aviso) ou sair; eventos do titular |
 | `rs_fn_faxina_talentos(lote)` | função | `/api/cron/diario` | Tira quem venceu (`talentos_retirado`, sistema) e devolve quem vence em até 30 dias, marcando o aviso; empresa suspensa ou excluída não avisa (fica para depois) |
 
+Do 8.8, migration `20261122180000_rs_webhooks.sql`:
+
+| Nome | Tipo | Quando roda | O que faz |
+|---|---|---|---|
+| `rs_eventos_tipo_catalogo` (refeito) | check | todo evento | Catálogo 15.3 + `webhook_criado`, `webhook_editado`, `webhook_removido` (decisão 9 do 8.8) |
+| `rs_webhooks_eventos_catalogo`, `rs_webhooks_url_tamanho` | checks | salvar webhook | Eventos só do catálogo 13.4; URL até 500 |
+| `rs_fn_tipo_webhook(tipo)` | auxiliar | trigger | Tipo da trilha → tipo do webhook (`vaga_pausada_prazo` → `vaga.pausada`, `dados_excluidos` → `candidatura.anonimizada`); null = não vira webhook |
+| `rs_fn_corpo_webhook(evento, tipo)` | auxiliar | trigger | `{id, tipo, criado_em, empresa_id, dados}`: `dados` do evento + resumo da candidatura (etapa, situação, origem…), da vaga e da decisão. **Sem nome, e-mail, telefone ou texto** |
+| `rs_tg_eventos_webhook` | trigger (after insert em `rs_eventos`) | todo evento | Uma entrega por webhook ativo que assina o tipo, na mesma transação; empresa suspensa ou excluída não gera |
+| `rs_fn_exige_administrador(empresa, ator)` | auxiliar | salvar/remover | `papel_insuficiente` se o membro do ator não for administrador ativo da empresa |
+| `rs_fn_salva_webhook(...)` / `rs_fn_remove_webhook(...)` | funções | `salvar_webhooks` | Até 5 por empresa (`limite_webhooks`); editar mantém o que vier nulo; trilha com o host, sem segredo; remover leva as entregas |
+| `rs_fn_reserva_entrega(id, max)` | função | envio | Reserva de 2 min e conta a tentativa; só vencida, não entregue, abaixo do máximo |
+| `rs_fn_resultado_entrega(id, status, espera, max, desiste)` | função | envio | 2xx → `entregue`; senão `falhou` com a próxima em `espera`, ou `desistiu` (8 tentativas ou 3 dias) |
+| `rs_fn_entregas_vencidas(empresa, lote)` | função | envio, faxina | Vencidas pelo relógio do banco (o do servidor pode estar atrás) |
+| `rs_fn_desiste_entregas(prazo)` | função | `/api/cron/diario` | Pendentes mais velhas que 3 dias (webhook desligado, empresa suspensa) → `desistiu` |
+| `rs_fn_lista_eventos(empresa, alcance, admin, desde, limite)` | função | `GET /api/v1/eventos` | Trilha crescente depois de `desde`; evento de vaga só no alcance, sem vaga só administrador |
+
 ---
 
 ## 4. Mapas
@@ -204,6 +221,7 @@ Formulários: cada um registra `abrir_formulario_<acao>` (modelo), `opcoes_<acao
 | `modelos_mensagem` | editar, criar, voltar ao padrão; prévia com dados fictícios | recrutador, `escrita` | sim |
 | `resposta_revisao` | responder o pedido de revisão e, opcionalmente, reabrir (reabrir exige também o escopo `decisao`) | recrutador, `escrita` | sim, **sem reabrir** (`soNoFormulario`) |
 | `convidar_para_vaga` | pessoas do banco de talentos (só as válidas, no alcance), vaga publicada e o texto do modelo `convite_vaga`; não cria candidatura | recrutador, `escrita` | sim |
+| `webhooks` | criar, editar (endereço, eventos, ligado), remover, gerar novo segredo, enviar teste; o segredo só no `structuredContent.segredo`, uma vez | administrador, `escrita` | sim, mas **criar, trocar o endereço e gerar segredo** ficam em `soNoFormulario` (o endereço é para onde os dados vão) |
 | `conexoes` | revogar a própria conexão (basta `leitura`); revogar credencial de outro e criar chave de API (administrador **com conexão de `escrita`**; a chave nova tem no máximo os escopos da conexão) | qualquer membro, `leitura` | **não**: a chave só aparece no `structuredContent.segredo` do `salvar_conexoes`, nunca no texto |
 
 ### Ação → domínio → portas
@@ -240,6 +258,8 @@ Formulários: cada um registra `abrir_formulario_<acao>` (modelo), `opcoes_<acao
 | Modelos de mensagem | `messages/templates.listTemplates`; `recruiting/messages.saveTemplate`, `resetTemplate`, `previewTemplate` | — | `GET /modelos-mensagem` | `listar_modelos_mensagem`, `salvar_modelos_mensagem` |
 | Pedir e responder revisão (11.13) | `recruiting/applications.requestReview`; `recruiting/messages.respondReview` | `POST /api/c/{token}/revisao` | — | `salvar_resposta_revisao` |
 | Banco de talentos (8.7) | `recruiting/talents.searchTalents`, `inviteTalents`, `talentAction`, `expiringTalentsDigest` | `/c/{token}` (`POST /api/c/{token}/talentos`), candidatura com `?convite=` | `GET /talentos`, `POST /talentos/{id}/convidar` | `buscar_talentos`, `salvar_convidar_para_vaga` |
+| Webhooks (8.8; 11.17) | `webhooks/settings.listWebhooks`, `createWebhook`, `updateWebhook`, `removeWebhook`, `testWebhook`; envio em `webhooks/deliver` (`deliverOne`, `deliverDue`, `deliverDueLater`, `retryWebhooks`, `sendTest`) | — | — (sem porta, 13.2) | `salvar_webhooks`, `registrar_webhooks` |
+| Trilha para integrações (8.8) | `audit/events.listEvents` | — | `GET /eventos?desde=&limite=` | `historico_da_candidatura` (por candidatura) |
 | Avaliar (11.9) | `recruiting/pipeline.registerEvaluation` | — | — (a API não avalia) | `salvar_avaliacao` |
 | Exportar CSV (14.1) | `recruiting/pipeline.exportApplications` | — | — | `exportar_candidaturas` |
 | Pausar vencidas (faxina) | `recruiting/jobs.pauseExpiredJobs` via `server/cron.runDailyCleanup` | `GET /api/cron/diario` (`CRON_SECRET`) | — | — |
@@ -363,3 +383,11 @@ Todas já refletidas no `spec.md` (v0.4.8).
    - no lote, quem saiu do banco entre abrir e salvar fica de fora e o resumo diz quantos; só dá erro se ninguém pôde ser convidado;
    - convite usado por candidatura não concluída que a faxina apagou volta a valer;
    - o `/c` mostra a quem está fora o texto da caixa do formulário (15.1).
+72. **Webhooks nascem no banco** (trigger em `rs_eventos`), não em cada função: nenhum caminho esquece de avisar. A entrega guarda o corpo na hora do evento.
+73. **Corpo do webhook sem nome, e-mail ou telefone:** a 13.4 pede "o objeto resumido como na API v1"; aqui vão ids, etapa, situação, origem, datas e o resumo da vaga. Quem integra busca a pessoa em `GET /candidaturas/{id}` com a chave. Assim nada pessoal fica guardado em `rs_entregas_webhook` nem vai para um endereço mal configurado.
+74. **Retentativas sem esperar dentro do `after()`:** 1ª tentativa logo depois da resposta; as seguintes (1 min, 10 min, 1 h, depois 1 por dia, até 8 ou 3 dias) saem na próxima atividade da empresa (toda escrita pela API, `/mcp`, e as ações do candidato chamam `deliverDueLater`) ou na faxina diária. A 11.17 fala em "na hora, com `after()`", o que não cabe nos 60 s da Vercel.
+75. **Segredo `whsec_` mostrado uma vez** (como a chave de API); para outro, "Gerar novo segredo". O Assina deixa revelar de novo, mas aqui não há painel.
+76. **`registrar_webhooks` existe, mas criar, trocar o endereço e gerar segredo são só no formulário** (`soNoFormulario`): o endereço é para onde os dados da empresa vão; um modelo enganado por texto malicioso não escolhe esse destino.
+77. **Trilha de webhook:** `webhook_criado`, `webhook_editado`, `webhook_removido` entraram no catálogo 15.3 (v0.4.9), com o host e sem o segredo.
+78. **Rótulo de integração no histórico** segue "Integração · {chave}" (8.5, já testado), e não "Integração n8n" como escrito no critério do 8.8.
+79. **`GET /eventos`:** a chave de API é da empresa e vê tudo; o filtro de alcance (evento de vaga só no alcance, sem vaga só administrador) vale quando a porta for usada por um membro.

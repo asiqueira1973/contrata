@@ -74,6 +74,9 @@ const STATUS: Record<string, number> = {
   talento_indisponivel: 409,
   acao_invalida: 400,
   devolutiva_obrigatoria: 400,
+  url_recusada: 400,
+  eventos_invalidos: 400,
+  limite_webhooks: 409,
 };
 
 // Resposta de erro padrão. Recebe: código e status (opcional). Devolve: Response JSON.

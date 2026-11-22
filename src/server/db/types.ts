@@ -852,6 +852,9 @@ isOneToOne: false
 "rs_fn_convida_talento":
 { Args: { "p_alcance": Json,"p_ator": Json,"p_candidato": string,"p_empresa": string,"p_vaga": string }; Returns: Json
                            },
+"rs_fn_corpo_webhook":
+{ Args: { "p_evento": Omit<Database["public"]['Tables']["rs_eventos"]['Row'], Database["public"]['Tables']["rs_eventos"]['ComputedFields']>,"p_tipo": string }; Returns: Json
+                           },
 "rs_fn_cria_candidatura":
 { Args: { "p_ator": Json,"p_candidato": Json,"p_consentimento": string,"p_convite"?: string,"p_empresa": string,"p_max_por_vaga": number,"p_origem": Database["public"]['Enums']["rs_origem_candidatura"],"p_respostas": Json,"p_talentos": boolean,"p_token_hash": string,"p_vaga": string }; Returns: Json
                            },
@@ -876,11 +879,17 @@ isOneToOne: false
 "rs_fn_descarta_decisao":
 { Args: { "p_alcance": Json,"p_ator": Json,"p_decisao": string,"p_empresa": string,"p_motivo": string }; Returns: undefined
                            },
+"rs_fn_desiste_entregas":
+{ Args: { "p_desiste": string }; Returns: number
+                           },
 "rs_fn_encerra_candidatura":
 { Args: { "p_ator": Json,"p_candidatura": string,"p_dados"?: Json,"p_empresa": string,"p_mensagem": Json,"p_motivo": Database["public"]['Enums']["rs_motivo_reprovacao"],"p_situacao": Database["public"]['Enums']["rs_situacao_candidatura"] }; Returns: Json
                            },
 "rs_fn_entra_usuario":
 { Args: { "p_email": string,"p_foto": string,"p_google_sub": string,"p_nome": string }; Returns: Json
+                           },
+"rs_fn_entregas_vencidas":
+{ Args: { "p_empresa": string,"p_lote": number }; Returns: string[]
                            },
 "rs_fn_envia_mensagem":
 { Args: { "p_ator": Json,"p_candidatura": string,"p_cota": number,"p_decisao": string,"p_empresa": string,"p_mensagem": Json,"p_tipo": Database["public"]['Enums']["rs_tipo_mensagem"] }; Returns: string
@@ -890,6 +899,9 @@ isOneToOne: false
                            },
 "rs_fn_executa_decisao":
 { Args: { "p_ator": Json,"p_candidatura": string,"p_decisao": string,"p_empresa": string,"p_mensagens": Json,"p_payload": Json,"p_tipo": Database["public"]['Enums']["rs_tipo_decisao"],"p_vaga": string }; Returns: number
+                           },
+"rs_fn_exige_administrador":
+{ Args: { "p_ator": Json,"p_empresa": string }; Returns: undefined
                            },
 "rs_fn_expurga_empresa":
 { Args: { "p_empresa": string }; Returns: undefined
@@ -926,6 +938,27 @@ isOneToOne: false
               "atualizado_em": string,"encerrada_em": string,"etapa_id": string,"id": string,"movida_em": string,"nome": string,"recebida_em": string,"relevancia": number,"sinalizada": boolean,"situacao": string,"vaga_id": string
             }[]
                            },
+"rs_fn_lista_eventos":
+{ Args: { "p_admin": boolean,"p_alcance": Json,"p_desde": number,"p_empresa": string,"p_limite": number }; Returns: {
+              "ator_tipo": Database["public"]['Enums']["rs_tipo_ator"],
+"autorizado_por_membro_id": string | null,
+"candidatura_id": string | null,
+"credencial_id": string | null,
+"criado_em": string,
+"dados": NonNullable<Json>,
+"empresa_id": string,
+"id": number,
+"membro_id": string | null,
+"origem": Database["public"]['Enums']["rs_origem_evento"],
+"tipo": string,
+"vaga_id": string | null
+            }[]
+                          SetofOptions: {
+        from: "*"
+        to: "rs_eventos"
+        isOneToOne: false
+        isSetofReturn: true
+      } },
 "rs_fn_move_etapa":
 { Args: { "p_alcance": Json,"p_ator": Json,"p_empresa": string,"p_etapa": string,"p_ids": (string)[] }; Returns: number
                            },
@@ -956,8 +989,17 @@ isOneToOne: false
 "rs_fn_remove_membro":
 { Args: { "p_ator": Json,"p_membro": string }; Returns: undefined
                            },
+"rs_fn_remove_webhook":
+{ Args: { "p_ator": Json,"p_empresa": string,"p_id": string }; Returns: undefined
+                           },
+"rs_fn_reserva_entrega":
+{ Args: { "p_id": string,"p_max": number }; Returns: boolean
+                           },
 "rs_fn_responde_revisao":
 { Args: { "p_alcance": Json,"p_ator": Json,"p_candidatura": string,"p_empresa": string,"p_mensagem": Json,"p_reabrir": boolean }; Returns: undefined
+                           },
+"rs_fn_resultado_entrega":
+{ Args: { "p_desiste": string,"p_espera": string,"p_id": string,"p_max": number,"p_status_http": number }; Returns: Database["public"]['Enums']["rs_status_entrega"]
                            },
 "rs_fn_revoga_credencial":
 { Args: { "p_ator": Json,"p_credencial": string,"p_empresa": string }; Returns: undefined
@@ -971,6 +1013,9 @@ isOneToOne: false
 "rs_fn_salva_vaga":
 { Args: { "p_alcance": Json,"p_ator": Json,"p_dados": Json,"p_empresa": string,"p_vaga": string }; Returns: undefined
                            },
+"rs_fn_salva_webhook":
+{ Args: { "p_ativo": boolean,"p_ator": Json,"p_empresa": string,"p_eventos": (string)[],"p_id": string,"p_max": number,"p_segredo_cifrado": string,"p_url": string }; Returns: string
+                           },
 "rs_fn_slug_vaga":
 { Args: { "p_base": string,"p_empresa": string,"p_vaga": string }; Returns: string
                            },
@@ -979,6 +1024,9 @@ isOneToOne: false
                            },
 "rs_fn_talentos_candidato":
 { Args: { "p_acao": string,"p_candidatura": string }; Returns: string
+                           },
+"rs_fn_tipo_webhook":
+{ Args: { "p_tipo": string }; Returns: string
                            },
 "rs_fn_transicao_vaga":
 { Args: { "p_alcance": Json,"p_ator": Json,"p_empresa": string,"p_max_publicadas": number,"p_motivo": Database["public"]['Enums']["rs_motivo_encerramento_vaga"],"p_para": Database["public"]['Enums']["rs_status_vaga"],"p_vaga": string }; Returns: undefined

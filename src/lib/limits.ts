@@ -190,3 +190,15 @@ export const CODIGOS_POR_HORA = 5;
 export const CODIGO_TENTATIVAS = 5;
 // Versão do aviso de privacidade padrão (15.5).
 export const AVISO_PRIVACIDADE_VERSAO = "2026-11-20";
+
+// Webhooks (8.8; 6, 11.17, 12.4): até 5 por empresa; POST com 10 s; resposta lida até 64 KB (só o
+// status importa); até 8 tentativas em 3 dias; retentativas em 1 min, 10 min, 1 h e depois 1 por dia.
+export const WEBHOOKS_POR_EMPRESA = 5;
+export const WEBHOOK_URL_MAX = 500;
+export const WEBHOOK_TIMEOUT_MS = 10_000;
+export const WEBHOOK_RESPOSTA_MAX = 64 * 1024;
+export const WEBHOOK_TENTATIVAS = 8;
+export const WEBHOOK_DESISTE_DIAS = 3;
+export const WEBHOOK_RETENTATIVAS_S = [60, 600, 3600, 86_400];
+// Entregas vencidas enviadas de uma vez depois de cada escrita da empresa.
+export const WEBHOOK_LOTE = 20;

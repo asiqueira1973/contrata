@@ -7,6 +7,7 @@ import { siteOrigin } from "@/server/oauth/server";
 import { candidaturaSchema } from "@/lib/schemas/applications";
 import { vagaSchema } from "@/lib/schemas/jobs";
 import { AreaV1, CandidaturaV1, CurriculoV1, EmpresaV1, Erro, ErroCampos, ListaAreas, ListaCandidaturas, ListaPessoas, ListaVagas, Movidas, NotaCriada, PessoaV1, ResumoVagaV1, VagaV1 } from "./v1";
+import { EventoV1, ListaEventos } from "@/server/audit/events";
 
 // Entrada de vaga: o mesmo schema da 11.1 do formulário (as checagens cruzadas, como cidade fora
 // do remoto e salário máximo ≥ mínimo, não aparecem no JSON Schema, mas valem: voltam em campos).
@@ -19,7 +20,7 @@ const CandidaturaCriada = z.object({
   concluir_token: z.string().optional().describe("vai no corpo de /candidaturas/{id}/concluir"),
   duplicada: z.boolean().optional().describe("true quando a pessoa já se candidatou: o link de acompanhamento é reenviado a ela"),
 });
-const schemas = { CandidaturaEntrada, CandidaturaCriada, Candidatura: CandidaturaV1, ListaCandidaturas, Curriculo: CurriculoV1, Movidas, NotaCriada, Erro, ErroCampos, Empresa: EmpresaV1, Area: AreaV1, Pessoa: PessoaV1, ListaAreas, ListaPessoas, Vaga: VagaV1, ListaVagas, ResumoVaga: ResumoVagaV1, VagaEntrada };
+const schemas = { Evento: EventoV1, ListaEventos, CandidaturaEntrada, CandidaturaCriada, Candidatura: CandidaturaV1, ListaCandidaturas, Curriculo: CurriculoV1, Movidas, NotaCriada, Erro, ErroCampos, Empresa: EmpresaV1, Area: AreaV1, Pessoa: PessoaV1, ListaAreas, ListaPessoas, Vaga: VagaV1, ListaVagas, ResumoVaga: ResumoVagaV1, VagaEntrada };
 
 function componentes() {
   const out: Record<string, unknown> = {};
@@ -115,6 +116,11 @@ export function openApiDocument() {
           responses: { "200": { description: "ok", content: { "application/json": { schema: { type: "object", properties: { itens: { type: "array", items: { type: "object" } } } } } } }, ...erros, "400": invalido } },
       },
       "/decisoes/{id}": { parameters: [idParam], get: { summary: "Ver uma proposta (leitura)", operationId: "verDecisao", responses: { "200": { description: "ok", content: { "application/json": { schema: { type: "object" } } } }, ...erros, "404": naoEncontrado } } },
+      "/eventos": {
+        get: { summary: "Trilha da empresa depois de ?desde={id}, em ordem crescente, para sincronização incremental (leitura). proximo_desde quando há mais", operationId: "listarEventos",
+          parameters: [{ name: "desde", in: "query", required: false, schema: { type: "integer", minimum: 0, default: 0 } }, { name: "limite", in: "query", required: false, schema: { type: "integer", minimum: 1, maximum: 200, default: 50 } }],
+          responses: { "200": json("ListaEventos"), ...erros, "400": invalido } },
+      },
       "/talentos": {
         get: { summary: "Banco de talentos (leitura): só quem consentiu e está no prazo; q (texto) e vaga_id (vaga anterior)", operationId: "listarTalentos",
           parameters: [...paginacao, { name: "q", in: "query", required: false, schema: { type: "string", maxLength: 200 } }, { name: "vaga_id", in: "query", required: false, schema: { type: "string", format: "uuid" } }],

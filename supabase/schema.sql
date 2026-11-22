@@ -828,6 +828,72 @@ end $$;
 
 ALTER FUNCTION "public"."rs_fn_convida_talento"("p_empresa" "uuid", "p_candidato" "uuid", "p_vaga" "uuid", "p_alcance" "jsonb", "p_ator" "jsonb") OWNER TO "postgres";
 
+SET default_tablespace = '';
+
+SET default_table_access_method = "heap";
+
+
+CREATE TABLE IF NOT EXISTS "public"."rs_eventos" (
+    "id" bigint NOT NULL,
+    "empresa_id" "uuid" NOT NULL,
+    "vaga_id" "uuid",
+    "candidatura_id" "uuid",
+    "tipo" "text" NOT NULL,
+    "ator_tipo" "public"."rs_tipo_ator" NOT NULL,
+    "membro_id" "uuid",
+    "credencial_id" "uuid",
+    "autorizado_por_membro_id" "uuid",
+    "origem" "public"."rs_origem_evento" NOT NULL,
+    "dados" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
+    "criado_em" timestamp with time zone DEFAULT "now"() NOT NULL,
+    CONSTRAINT "rs_eventos_tipo_catalogo" CHECK (("tipo" = ANY (ARRAY['empresa_criada'::"text", 'membro_convidado'::"text", 'convite_cancelado'::"text", 'membro_entrou'::"text", 'membro_acesso_alterado'::"text", 'membro_removido'::"text", 'area_criada'::"text", 'area_editada'::"text", 'area_arquivada'::"text", 'pessoa_cadastrada'::"text", 'pessoa_editada'::"text", 'pessoa_arquivada'::"text", 'acesso_pedido'::"text", 'vaga_dono_alterado'::"text", 'credencial_criada'::"text", 'credencial_revogada'::"text", 'mcp_conectado'::"text", 'vaga_criada'::"text", 'vaga_editada'::"text", 'vaga_publicada'::"text", 'vaga_pausada'::"text", 'vaga_pausada_prazo'::"text", 'vaga_encerrada'::"text", 'candidatura_criada'::"text", 'etapa_alterada'::"text", 'nota_adicionada'::"text", 'avaliacao_registrada'::"text", 'mensagem_enviada'::"text", 'candidatura_reprovada'::"text", 'candidatura_contratada'::"text", 'candidatura_desistiu'::"text", 'candidatura_encerrada_vaga'::"text", 'candidatura_reaberta'::"text", 'decisao_proposta'::"text", 'decisao_confirmada'::"text", 'decisao_descartada'::"text", 'decisao_expirada'::"text", 'revisao_pedida'::"text", 'revisao_respondida'::"text", 'dados_exportados'::"text", 'dados_excluidos'::"text", 'candidatura_anonimizada'::"text", 'talentos_consentido'::"text", 'talentos_retirado'::"text", 'talentos_convidado'::"text", 'candidaturas_exportadas'::"text", 'webhook_criado'::"text", 'webhook_editado'::"text", 'webhook_removido'::"text"])))
+);
+
+
+ALTER TABLE "public"."rs_eventos" OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_corpo_webhook"("p_evento" "public"."rs_eventos", "p_tipo" "text") RETURNS "jsonb"
+    LANGUAGE "plpgsql" STABLE
+    SET "search_path" TO ''
+    AS $$
+declare
+  v_dados jsonb := coalesce(p_evento.dados, '{}');
+  v_cand uuid := coalesce(p_evento.candidatura_id, nullif(p_evento.dados ->> 'candidatura_id', '')::uuid);
+  v_vaga uuid := p_evento.vaga_id;
+  v_decisao uuid := nullif(p_evento.dados ->> 'decisao_id', '')::uuid;
+  v_obj jsonb;
+begin
+  if v_cand is not null then
+    select pg_catalog.jsonb_build_object('id', c.id, 'vaga_id', c.vaga_id,
+             'etapa', case when e.id is null then null else pg_catalog.jsonb_build_object('id', e.id, 'nome', e.nome) end,
+             'situacao', c.situacao, 'origem', c.origem, 'sinalizada', c.sinalizada,
+             'recebida_em', c.recebida_em, 'encerrada_em', c.encerrada_em), c.vaga_id
+      into v_obj, v_vaga
+      from public.rs_candidaturas c left join public.rs_etapas e on e.id = c.etapa_id
+     where c.id = v_cand and c.empresa_id = p_evento.empresa_id;
+    if v_obj is not null then v_dados := v_dados || pg_catalog.jsonb_build_object('candidatura', v_obj); end if;
+  end if;
+  if v_vaga is not null then
+    select pg_catalog.jsonb_build_object('id', v.id, 'titulo', v.titulo, 'slug', v.slug, 'status', v.status, 'area_id', v.area_id)
+      into v_obj from public.rs_vagas v where v.id = v_vaga and v.empresa_id = p_evento.empresa_id;
+    if v_obj is not null then v_dados := v_dados || pg_catalog.jsonb_build_object('vaga', v_obj); end if;
+  end if;
+  if v_decisao is not null then
+    select pg_catalog.jsonb_build_object('id', d.id, 'tipo', d.tipo, 'status', d.status, 'candidatura_id', d.candidatura_id, 'vaga_id', d.vaga_id)
+      into v_obj from public.rs_decisoes d where d.id = v_decisao and d.empresa_id = p_evento.empresa_id;
+    if v_obj is not null then v_dados := v_dados || pg_catalog.jsonb_build_object('decisao', v_obj); end if;
+  end if;
+  if p_evento.tipo = 'dados_excluidos' then
+    v_dados := v_dados || '{"motivo":"titular"}';
+  end if;
+  return pg_catalog.jsonb_build_object('id', p_evento.id::text, 'tipo', p_tipo, 'criado_em', p_evento.criado_em,
+    'empresa_id', p_evento.empresa_id, 'dados', v_dados);
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_corpo_webhook"("p_evento" "public"."rs_eventos", "p_tipo" "text") OWNER TO "postgres";
+
 
 CREATE OR REPLACE FUNCTION "public"."rs_fn_cria_candidatura"("p_empresa" "uuid", "p_vaga" "uuid", "p_candidato" "jsonb", "p_respostas" "jsonb", "p_origem" "public"."rs_origem_candidatura", "p_ator" "jsonb", "p_consentimento" "text", "p_talentos" boolean, "p_token_hash" "text", "p_max_por_vaga" integer, "p_convite" "uuid" DEFAULT NULL::"uuid") RETURNS "jsonb"
     LANGUAGE "plpgsql"
@@ -1105,6 +1171,22 @@ end $$;
 ALTER FUNCTION "public"."rs_fn_descarta_decisao"("p_decisao" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_motivo" "text", "p_ator" "jsonb") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."rs_fn_desiste_entregas"("p_desiste" interval) RETURNS integer
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare v_n integer;
+begin
+  update public.rs_entregas_webhook set status = 'desistiu', reservada_em = null
+   where status in ('pendente', 'falhou') and criado_em < pg_catalog.now() - p_desiste;
+  get diagnostics v_n = row_count;
+  return v_n;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_desiste_entregas"("p_desiste" interval) OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."rs_fn_encerra_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid", "p_situacao" "public"."rs_situacao_candidatura", "p_ator" "jsonb", "p_motivo" "public"."rs_motivo_reprovacao", "p_mensagem" "jsonb", "p_dados" "jsonb" DEFAULT '{}'::"jsonb") RETURNS "jsonb"
     LANGUAGE "plpgsql"
     SET "search_path" TO ''
@@ -1203,6 +1285,20 @@ end $$;
 
 
 ALTER FUNCTION "public"."rs_fn_entra_usuario"("p_google_sub" "text", "p_email" "text", "p_nome" "text", "p_foto" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_entregas_vencidas"("p_empresa" "uuid", "p_lote" integer) RETURNS SETOF "uuid"
+    LANGUAGE "sql" STABLE
+    SET "search_path" TO ''
+    AS $$
+  select id from public.rs_entregas_webhook
+   where status in ('pendente', 'falhou') and proxima_tentativa_em <= pg_catalog.now()
+     and (reservada_em is null or reservada_em < pg_catalog.now() - interval '2 minutes')
+     and (p_empresa is null or empresa_id = p_empresa)
+   order by criado_em limit greatest(p_lote, 0) $$;
+
+
+ALTER FUNCTION "public"."rs_fn_entregas_vencidas"("p_empresa" "uuid", "p_lote" integer) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."rs_fn_envia_mensagem"("p_candidatura" "uuid", "p_empresa" "uuid", "p_tipo" "public"."rs_tipo_mensagem", "p_mensagem" "jsonb", "p_ator" "jsonb", "p_decisao" "uuid", "p_cota" integer) RETURNS "uuid"
@@ -1328,6 +1424,21 @@ end $$;
 
 
 ALTER FUNCTION "public"."rs_fn_executa_decisao"("p_empresa" "uuid", "p_tipo" "public"."rs_tipo_decisao", "p_candidatura" "uuid", "p_vaga" "uuid", "p_payload" "jsonb", "p_mensagens" "jsonb", "p_ator" "jsonb", "p_decisao" "uuid") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_exige_administrador"("p_empresa" "uuid", "p_ator" "jsonb") RETURNS "void"
+    LANGUAGE "plpgsql" STABLE
+    SET "search_path" TO ''
+    AS $$
+begin
+  if not exists (select 1 from public.rs_membros m where m.id = nullif(p_ator ->> 'membro_id', '')::uuid and m.empresa_id = p_empresa
+                   and m.papel = 'administrador' and m.aceito_em is not null and m.removido_em is null) then
+    raise exception 'papel_insuficiente' using errcode = 'P0001';
+  end if;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_exige_administrador"("p_empresa" "uuid", "p_ator" "jsonb") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."rs_fn_expurga_empresa"("p_empresa" "uuid") RETURNS "void"
@@ -1677,6 +1788,22 @@ end $$;
 ALTER FUNCTION "public"."rs_fn_lista_candidaturas"("p_empresa" "uuid", "p_alcance" "jsonb", "p_filtros" "jsonb", "p_inicio" integer, "p_limite" integer) OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."rs_fn_lista_eventos"("p_empresa" "uuid", "p_alcance" "jsonb", "p_admin" boolean, "p_desde" bigint, "p_limite" integer) RETURNS SETOF "public"."rs_eventos"
+    LANGUAGE "plpgsql" STABLE
+    SET "search_path" TO ''
+    AS $$
+begin
+  return query
+  select e.* from public.rs_eventos e left join public.rs_vagas v on v.id = e.vaga_id
+   where e.empresa_id = p_empresa and e.id > coalesce(p_desde, 0)
+     and (case when e.vaga_id is null then p_admin else v.id is not null and public.rs_fn_vaga_no_alcance(v.id, v.area_id, p_alcance) end)
+   order by e.id limit greatest(p_limite, 0);
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_lista_eventos"("p_empresa" "uuid", "p_alcance" "jsonb", "p_admin" boolean, "p_desde" bigint, "p_limite" integer) OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."rs_fn_move_etapa"("p_ids" "uuid"[], "p_empresa" "uuid", "p_etapa" "uuid", "p_alcance" "jsonb", "p_ator" "jsonb") RETURNS integer
     LANGUAGE "plpgsql"
     SET "search_path" TO ''
@@ -2003,6 +2130,40 @@ end $$;
 ALTER FUNCTION "public"."rs_fn_remove_membro"("p_membro" "uuid", "p_ator" "jsonb") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."rs_fn_remove_webhook"("p_empresa" "uuid", "p_id" "uuid", "p_ator" "jsonb") RETURNS "void"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare v public.rs_webhooks;
+begin
+  perform public.rs_fn_exige_administrador(p_empresa, p_ator);
+  delete from public.rs_webhooks where id = p_id and empresa_id = p_empresa returning * into v;
+  if v.id is null then
+    raise exception 'nao_encontrado' using errcode = 'P0001';
+  end if;
+  perform public.rs_fn_registra_evento(p_empresa, null, null, 'webhook_removido', p_ator, 'web',
+    pg_catalog.jsonb_build_object('webhook_id', v.id, 'host', pg_catalog.substring(v.url, '^https://([^/:?#]+)')));
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_remove_webhook"("p_empresa" "uuid", "p_id" "uuid", "p_ator" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_reserva_entrega"("p_id" "uuid", "p_max" integer) RETURNS boolean
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+begin
+  update public.rs_entregas_webhook set reservada_em = pg_catalog.now(), tentativas = tentativas + 1
+   where id = p_id and status in ('pendente', 'falhou') and tentativas < p_max and proxima_tentativa_em <= pg_catalog.now()
+     and (reservada_em is null or reservada_em < pg_catalog.now() - interval '2 minutes');
+  return found;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_reserva_entrega"("p_id" "uuid", "p_max" integer) OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."rs_fn_responde_revisao"("p_candidatura" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_mensagem" "jsonb", "p_reabrir" boolean, "p_ator" "jsonb") RETURNS "void"
     LANGUAGE "plpgsql"
     SET "search_path" TO ''
@@ -2033,6 +2194,35 @@ end $$;
 
 
 ALTER FUNCTION "public"."rs_fn_responde_revisao"("p_candidatura" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_mensagem" "jsonb", "p_reabrir" boolean, "p_ator" "jsonb") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_resultado_entrega"("p_id" "uuid", "p_status_http" integer, "p_espera" interval, "p_max" integer, "p_desiste" interval) RETURNS "public"."rs_status_entrega"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare v public.rs_entregas_webhook;
+begin
+  select * into v from public.rs_entregas_webhook where id = p_id for update;
+  if v.id is null then
+    raise exception 'nao_encontrado' using errcode = 'P0001';
+  end if;
+  if p_status_http between 200 and 299 then
+    update public.rs_entregas_webhook set status = 'entregue', ultimo_status_http = p_status_http, entregue_em = pg_catalog.now(), reservada_em = null
+     where id = p_id;
+    return 'entregue';
+  end if;
+  if v.tentativas >= p_max or v.criado_em < pg_catalog.now() - p_desiste then
+    update public.rs_entregas_webhook set status = 'desistiu', ultimo_status_http = nullif(p_status_http, 0), reservada_em = null where id = p_id;
+    return 'desistiu';
+  end if;
+  update public.rs_entregas_webhook set status = 'falhou', ultimo_status_http = nullif(p_status_http, 0), reservada_em = null,
+         proxima_tentativa_em = pg_catalog.now() + p_espera
+   where id = p_id;
+  return 'falhou';
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_resultado_entrega"("p_id" "uuid", "p_status_http" integer, "p_espera" interval, "p_max" integer, "p_desiste" interval) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."rs_fn_revoga_credencial"("p_credencial" "uuid", "p_empresa" "uuid", "p_ator" "jsonb") RETURNS "void"
@@ -2200,6 +2390,43 @@ end $$;
 ALTER FUNCTION "public"."rs_fn_salva_vaga"("p_vaga" "uuid", "p_empresa" "uuid", "p_dados" "jsonb", "p_alcance" "jsonb", "p_ator" "jsonb") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."rs_fn_salva_webhook"("p_empresa" "uuid", "p_id" "uuid", "p_url" "text", "p_eventos" "text"[], "p_ativo" boolean, "p_segredo_cifrado" "text", "p_max" integer, "p_ator" "jsonb") RETURNS "uuid"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare
+  v public.rs_webhooks;
+begin
+  perform public.rs_fn_exige_administrador(p_empresa, p_ator);
+  if p_id is null then
+    if p_url is null or p_eventos is null or p_segredo_cifrado is null then
+      raise exception 'dados_invalidos' using errcode = 'P0001';
+    end if;
+    if (select count(*) from public.rs_webhooks where empresa_id = p_empresa) >= p_max then
+      raise exception 'limite_webhooks' using errcode = 'P0001';
+    end if;
+    insert into public.rs_webhooks (empresa_id, url, segredo_cifrado, eventos, ativo)
+    values (p_empresa, p_url, p_segredo_cifrado, p_eventos, coalesce(p_ativo, true)) returning * into v;
+    perform public.rs_fn_registra_evento(p_empresa, null, null, 'webhook_criado', p_ator, 'web',
+      pg_catalog.jsonb_build_object('webhook_id', v.id, 'host', pg_catalog.substring(v.url, '^https://([^/:?#]+)'), 'eventos', v.eventos));
+    return v.id;
+  end if;
+  update public.rs_webhooks set url = coalesce(p_url, url), eventos = coalesce(p_eventos, eventos), ativo = coalesce(p_ativo, ativo),
+         segredo_cifrado = coalesce(p_segredo_cifrado, segredo_cifrado)
+   where id = p_id and empresa_id = p_empresa returning * into v;
+  if v.id is null then
+    raise exception 'nao_encontrado' using errcode = 'P0001';
+  end if;
+  perform public.rs_fn_registra_evento(p_empresa, null, null, 'webhook_editado', p_ator, 'web',
+    pg_catalog.jsonb_build_object('webhook_id', v.id, 'host', pg_catalog.substring(v.url, '^https://([^/:?#]+)'), 'eventos', v.eventos,
+      'ativo', v.ativo, 'url_trocada', p_url is not null, 'segredo_trocado', p_segredo_cifrado is not null));
+  return v.id;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_salva_webhook"("p_empresa" "uuid", "p_id" "uuid", "p_url" "text", "p_eventos" "text"[], "p_ativo" boolean, "p_segredo_cifrado" "text", "p_max" integer, "p_ator" "jsonb") OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."rs_fn_slug_vaga"("p_empresa" "uuid", "p_base" "text", "p_vaga" "uuid") RETURNS "text"
     LANGUAGE "plpgsql"
     SET "search_path" TO ''
@@ -2276,6 +2503,34 @@ end $$;
 
 
 ALTER FUNCTION "public"."rs_fn_talentos_candidato"("p_candidatura" "uuid", "p_acao" "text") OWNER TO "postgres";
+
+
+CREATE OR REPLACE FUNCTION "public"."rs_fn_tipo_webhook"("p_tipo" "text") RETURNS "text"
+    LANGUAGE "sql" IMMUTABLE
+    SET "search_path" TO ''
+    AS $$
+  select case p_tipo
+    when 'vaga_publicada' then 'vaga.publicada'
+    when 'vaga_pausada' then 'vaga.pausada'
+    when 'vaga_pausada_prazo' then 'vaga.pausada'
+    when 'vaga_encerrada' then 'vaga.encerrada'
+    when 'candidatura_criada' then 'candidatura.criada'
+    when 'etapa_alterada' then 'candidatura.etapa_alterada'
+    when 'candidatura_reprovada' then 'candidatura.reprovada'
+    when 'candidatura_contratada' then 'candidatura.contratada'
+    when 'candidatura_desistiu' then 'candidatura.desistiu'
+    when 'candidatura_encerrada_vaga' then 'candidatura.encerrada_vaga'
+    when 'candidatura_reaberta' then 'candidatura.reaberta'
+    when 'candidatura_anonimizada' then 'candidatura.anonimizada'
+    when 'dados_excluidos' then 'candidatura.anonimizada'
+    when 'decisao_proposta' then 'decisao.proposta'
+    when 'decisao_confirmada' then 'decisao.confirmada'
+    when 'decisao_descartada' then 'decisao.descartada'
+    when 'revisao_pedida' then 'revisao.pedida'
+  end $$;
+
+
+ALTER FUNCTION "public"."rs_fn_tipo_webhook"("p_tipo" "text") OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."rs_fn_transicao_vaga"("p_vaga" "uuid", "p_empresa" "uuid", "p_para" "public"."rs_status_vaga", "p_motivo" "public"."rs_motivo_encerramento_vaga", "p_alcance" "jsonb", "p_ator" "jsonb", "p_max_publicadas" integer) RETURNS "void"
@@ -2525,6 +2780,27 @@ end $$;
 ALTER FUNCTION "public"."rs_tg_eventos_imutaveis"() OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."rs_tg_eventos_webhook"() RETURNS "trigger"
+    LANGUAGE "plpgsql"
+    SET "search_path" TO ''
+    AS $$
+declare v_tipo text := public.rs_fn_tipo_webhook(new.tipo);
+begin
+  if v_tipo is null or not exists (select 1 from public.rs_webhooks w where w.empresa_id = new.empresa_id and w.ativo and v_tipo = any (w.eventos))
+     or not exists (select 1 from public.rs_empresas e where e.id = new.empresa_id and e.excluida_em is null and e.suspensa_em is null) then
+    return null;
+  end if;
+  insert into public.rs_entregas_webhook (empresa_id, webhook_id, evento_id, tipo, corpo)
+  select new.empresa_id, w.id, new.id, v_tipo, public.rs_fn_corpo_webhook(new, v_tipo)
+    from public.rs_webhooks w where w.empresa_id = new.empresa_id and w.ativo and v_tipo = any (w.eventos)
+  on conflict on constraint rs_entregas_unica do nothing;
+  return null;
+end $$;
+
+
+ALTER FUNCTION "public"."rs_tg_eventos_webhook"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."rs_tg_situacao_candidatura"() RETURNS "trigger"
     LANGUAGE "plpgsql"
     SET "search_path" TO ''
@@ -2614,10 +2890,6 @@ end $$;
 
 
 ALTER FUNCTION "public"."rs_tg_vaga_encerrada_filhos"() OWNER TO "postgres";
-
-SET default_tablespace = '';
-
-SET default_table_access_method = "heap";
 
 
 CREATE TABLE IF NOT EXISTS "public"."rs_areas" (
@@ -2870,26 +3142,6 @@ CREATE TABLE IF NOT EXISTS "public"."rs_etapas" (
 
 
 ALTER TABLE "public"."rs_etapas" OWNER TO "postgres";
-
-
-CREATE TABLE IF NOT EXISTS "public"."rs_eventos" (
-    "id" bigint NOT NULL,
-    "empresa_id" "uuid" NOT NULL,
-    "vaga_id" "uuid",
-    "candidatura_id" "uuid",
-    "tipo" "text" NOT NULL,
-    "ator_tipo" "public"."rs_tipo_ator" NOT NULL,
-    "membro_id" "uuid",
-    "credencial_id" "uuid",
-    "autorizado_por_membro_id" "uuid",
-    "origem" "public"."rs_origem_evento" NOT NULL,
-    "dados" "jsonb" DEFAULT '{}'::"jsonb" NOT NULL,
-    "criado_em" timestamp with time zone DEFAULT "now"() NOT NULL,
-    CONSTRAINT "rs_eventos_tipo_catalogo" CHECK (("tipo" = ANY (ARRAY['empresa_criada'::"text", 'membro_convidado'::"text", 'convite_cancelado'::"text", 'membro_entrou'::"text", 'membro_acesso_alterado'::"text", 'membro_removido'::"text", 'area_criada'::"text", 'area_editada'::"text", 'area_arquivada'::"text", 'pessoa_cadastrada'::"text", 'pessoa_editada'::"text", 'pessoa_arquivada'::"text", 'acesso_pedido'::"text", 'vaga_dono_alterado'::"text", 'credencial_criada'::"text", 'credencial_revogada'::"text", 'mcp_conectado'::"text", 'vaga_criada'::"text", 'vaga_editada'::"text", 'vaga_publicada'::"text", 'vaga_pausada'::"text", 'vaga_pausada_prazo'::"text", 'vaga_encerrada'::"text", 'candidatura_criada'::"text", 'etapa_alterada'::"text", 'nota_adicionada'::"text", 'avaliacao_registrada'::"text", 'mensagem_enviada'::"text", 'candidatura_reprovada'::"text", 'candidatura_contratada'::"text", 'candidatura_desistiu'::"text", 'candidatura_encerrada_vaga'::"text", 'candidatura_reaberta'::"text", 'decisao_proposta'::"text", 'decisao_confirmada'::"text", 'decisao_descartada'::"text", 'decisao_expirada'::"text", 'revisao_pedida'::"text", 'revisao_respondida'::"text", 'dados_exportados'::"text", 'dados_excluidos'::"text", 'candidatura_anonimizada'::"text", 'talentos_consentido'::"text", 'talentos_retirado'::"text", 'talentos_convidado'::"text", 'candidaturas_exportadas'::"text"])))
-);
-
-
-ALTER TABLE "public"."rs_eventos" OWNER TO "postgres";
 
 
 ALTER TABLE "public"."rs_eventos" ALTER COLUMN "id" ADD GENERATED ALWAYS AS IDENTITY (
@@ -3197,7 +3449,9 @@ CREATE TABLE IF NOT EXISTS "public"."rs_webhooks" (
     "ativo" boolean DEFAULT true NOT NULL,
     "criado_em" timestamp with time zone DEFAULT "now"() NOT NULL,
     CONSTRAINT "rs_webhooks_eventos" CHECK (("cardinality"("eventos") > 0)),
-    CONSTRAINT "rs_webhooks_https" CHECK (("url" ~ '^https://'::"text"))
+    CONSTRAINT "rs_webhooks_eventos_catalogo" CHECK (("eventos" <@ ARRAY['vaga.publicada'::"text", 'vaga.pausada'::"text", 'vaga.encerrada'::"text", 'candidatura.criada'::"text", 'candidatura.etapa_alterada'::"text", 'candidatura.reprovada'::"text", 'candidatura.contratada'::"text", 'candidatura.desistiu'::"text", 'candidatura.encerrada_vaga'::"text", 'candidatura.reaberta'::"text", 'candidatura.anonimizada'::"text", 'decisao.proposta'::"text", 'decisao.confirmada'::"text", 'decisao.descartada'::"text", 'revisao.pedida'::"text"])),
+    CONSTRAINT "rs_webhooks_https" CHECK (("url" ~ '^https://'::"text")),
+    CONSTRAINT "rs_webhooks_url_tamanho" CHECK (("char_length"("url") <= 500))
 );
 
 
@@ -3572,6 +3826,10 @@ CREATE INDEX "rs_entregas_fila" ON "public"."rs_entregas_webhook" USING "btree" 
 
 
 
+CREATE INDEX "rs_entregas_webhook_id" ON "public"."rs_entregas_webhook" USING "btree" ("webhook_id");
+
+
+
 CREATE INDEX "rs_eventos_candidatura" ON "public"."rs_eventos" USING "btree" ("empresa_id", "candidatura_id", "id");
 
 
@@ -3753,6 +4011,10 @@ CREATE OR REPLACE TRIGGER "rs_tg_etapa_da_vaga" BEFORE INSERT OR UPDATE OF "etap
 
 
 CREATE OR REPLACE TRIGGER "rs_tg_eventos_imutaveis" BEFORE DELETE OR UPDATE ON "public"."rs_eventos" FOR EACH ROW EXECUTE FUNCTION "public"."rs_tg_eventos_imutaveis"();
+
+
+
+CREATE OR REPLACE TRIGGER "rs_tg_eventos_webhook" AFTER INSERT ON "public"."rs_eventos" FOR EACH ROW EXECUTE FUNCTION "public"."rs_tg_eventos_webhook"();
 
 
 
@@ -4277,6 +4539,15 @@ GRANT ALL ON FUNCTION "public"."rs_fn_convida_talento"("p_empresa" "uuid", "p_ca
 
 
 
+GRANT ALL ON TABLE "public"."rs_eventos" TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_corpo_webhook"("p_evento" "public"."rs_eventos", "p_tipo" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_corpo_webhook"("p_evento" "public"."rs_eventos", "p_tipo" "text") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."rs_fn_cria_candidatura"("p_empresa" "uuid", "p_vaga" "uuid", "p_candidato" "jsonb", "p_respostas" "jsonb", "p_origem" "public"."rs_origem_candidatura", "p_ator" "jsonb", "p_consentimento" "text", "p_talentos" boolean, "p_token_hash" "text", "p_max_por_vaga" integer, "p_convite" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_cria_candidatura"("p_empresa" "uuid", "p_vaga" "uuid", "p_candidato" "jsonb", "p_respostas" "jsonb", "p_origem" "public"."rs_origem_candidatura", "p_ator" "jsonb", "p_consentimento" "text", "p_talentos" boolean, "p_token_hash" "text", "p_max_por_vaga" integer, "p_convite" "uuid") TO "service_role";
 
@@ -4317,6 +4588,11 @@ GRANT ALL ON FUNCTION "public"."rs_fn_descarta_decisao"("p_decisao" "uuid", "p_e
 
 
 
+REVOKE ALL ON FUNCTION "public"."rs_fn_desiste_entregas"("p_desiste" interval) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_desiste_entregas"("p_desiste" interval) TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."rs_fn_encerra_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid", "p_situacao" "public"."rs_situacao_candidatura", "p_ator" "jsonb", "p_motivo" "public"."rs_motivo_reprovacao", "p_mensagem" "jsonb", "p_dados" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_encerra_candidatura"("p_candidatura" "uuid", "p_empresa" "uuid", "p_situacao" "public"."rs_situacao_candidatura", "p_ator" "jsonb", "p_motivo" "public"."rs_motivo_reprovacao", "p_mensagem" "jsonb", "p_dados" "jsonb") TO "service_role";
 
@@ -4324,6 +4600,11 @@ GRANT ALL ON FUNCTION "public"."rs_fn_encerra_candidatura"("p_candidatura" "uuid
 
 REVOKE ALL ON FUNCTION "public"."rs_fn_entra_usuario"("p_google_sub" "text", "p_email" "text", "p_nome" "text", "p_foto" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_entra_usuario"("p_google_sub" "text", "p_email" "text", "p_nome" "text", "p_foto" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_entregas_vencidas"("p_empresa" "uuid", "p_lote" integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_entregas_vencidas"("p_empresa" "uuid", "p_lote" integer) TO "service_role";
 
 
 
@@ -4339,6 +4620,11 @@ GRANT ALL ON FUNCTION "public"."rs_fn_exclui_dados_candidato"("p_candidatura" "u
 
 REVOKE ALL ON FUNCTION "public"."rs_fn_executa_decisao"("p_empresa" "uuid", "p_tipo" "public"."rs_tipo_decisao", "p_candidatura" "uuid", "p_vaga" "uuid", "p_payload" "jsonb", "p_mensagens" "jsonb", "p_ator" "jsonb", "p_decisao" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_executa_decisao"("p_empresa" "uuid", "p_tipo" "public"."rs_tipo_decisao", "p_candidatura" "uuid", "p_vaga" "uuid", "p_payload" "jsonb", "p_mensagens" "jsonb", "p_ator" "jsonb", "p_decisao" "uuid") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_exige_administrador"("p_empresa" "uuid", "p_ator" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_exige_administrador"("p_empresa" "uuid", "p_ator" "jsonb") TO "service_role";
 
 
 
@@ -4397,6 +4683,11 @@ GRANT ALL ON FUNCTION "public"."rs_fn_lista_candidaturas"("p_empresa" "uuid", "p
 
 
 
+REVOKE ALL ON FUNCTION "public"."rs_fn_lista_eventos"("p_empresa" "uuid", "p_alcance" "jsonb", "p_admin" boolean, "p_desde" bigint, "p_limite" integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_lista_eventos"("p_empresa" "uuid", "p_alcance" "jsonb", "p_admin" boolean, "p_desde" bigint, "p_limite" integer) TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."rs_fn_move_etapa"("p_ids" "uuid"[], "p_empresa" "uuid", "p_etapa" "uuid", "p_alcance" "jsonb", "p_ator" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_move_etapa"("p_ids" "uuid"[], "p_empresa" "uuid", "p_etapa" "uuid", "p_alcance" "jsonb", "p_ator" "jsonb") TO "service_role";
 
@@ -4447,8 +4738,23 @@ GRANT ALL ON FUNCTION "public"."rs_fn_remove_membro"("p_membro" "uuid", "p_ator"
 
 
 
+REVOKE ALL ON FUNCTION "public"."rs_fn_remove_webhook"("p_empresa" "uuid", "p_id" "uuid", "p_ator" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_remove_webhook"("p_empresa" "uuid", "p_id" "uuid", "p_ator" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_reserva_entrega"("p_id" "uuid", "p_max" integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_reserva_entrega"("p_id" "uuid", "p_max" integer) TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."rs_fn_responde_revisao"("p_candidatura" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_mensagem" "jsonb", "p_reabrir" boolean, "p_ator" "jsonb") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_responde_revisao"("p_candidatura" "uuid", "p_empresa" "uuid", "p_alcance" "jsonb", "p_mensagem" "jsonb", "p_reabrir" boolean, "p_ator" "jsonb") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_resultado_entrega"("p_id" "uuid", "p_status_http" integer, "p_espera" interval, "p_max" integer, "p_desiste" interval) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_resultado_entrega"("p_id" "uuid", "p_status_http" integer, "p_espera" interval, "p_max" integer, "p_desiste" interval) TO "service_role";
 
 
 
@@ -4472,6 +4778,11 @@ GRANT ALL ON FUNCTION "public"."rs_fn_salva_vaga"("p_vaga" "uuid", "p_empresa" "
 
 
 
+REVOKE ALL ON FUNCTION "public"."rs_fn_salva_webhook"("p_empresa" "uuid", "p_id" "uuid", "p_url" "text", "p_eventos" "text"[], "p_ativo" boolean, "p_segredo_cifrado" "text", "p_max" integer, "p_ator" "jsonb") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_salva_webhook"("p_empresa" "uuid", "p_id" "uuid", "p_url" "text", "p_eventos" "text"[], "p_ativo" boolean, "p_segredo_cifrado" "text", "p_max" integer, "p_ator" "jsonb") TO "service_role";
+
+
+
 REVOKE ALL ON FUNCTION "public"."rs_fn_slug_vaga"("p_empresa" "uuid", "p_base" "text", "p_vaga" "uuid") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_slug_vaga"("p_empresa" "uuid", "p_base" "text", "p_vaga" "uuid") TO "service_role";
 
@@ -4484,6 +4795,11 @@ GRANT ALL ON FUNCTION "public"."rs_fn_talento_no_alcance"("p_candidato" "uuid", 
 
 REVOKE ALL ON FUNCTION "public"."rs_fn_talentos_candidato"("p_candidatura" "uuid", "p_acao" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_talentos_candidato"("p_candidatura" "uuid", "p_acao" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_tipo_webhook"("p_tipo" "text") FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_tipo_webhook"("p_tipo" "text") TO "service_role";
 
 
 
@@ -4529,6 +4845,11 @@ GRANT ALL ON FUNCTION "public"."rs_tg_etapa_da_vaga"() TO "service_role";
 
 REVOKE ALL ON FUNCTION "public"."rs_tg_eventos_imutaveis"() FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_tg_eventos_imutaveis"() TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_tg_eventos_webhook"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_tg_eventos_webhook"() TO "service_role";
 
 
 
@@ -4588,10 +4909,6 @@ GRANT ALL ON TABLE "public"."rs_entregas_webhook" TO "service_role";
 
 
 GRANT ALL ON TABLE "public"."rs_etapas" TO "service_role";
-
-
-
-GRANT ALL ON TABLE "public"."rs_eventos" TO "service_role";
 
 
 

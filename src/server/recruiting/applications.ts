@@ -28,6 +28,7 @@ import { caminhoDoCurriculo, pastaDaCandidatura, storage } from "@/server/files/
 import { confereCurriculo, type TipoCurriculo } from "@/server/files/verifica";
 import { CamposInvalidos, DomainError } from "@/server/http";
 import { atorJson, type Ator } from "@/server/org/actor";
+import { deliverDueLater } from "@/server/webhooks/deliver";
 
 type Origem = Database["public"]["Enums"]["rs_origem_candidatura"];
 type Situacao = Database["public"]["Enums"]["rs_situacao_candidatura"];
@@ -264,6 +265,7 @@ async function conclui(empresa: EmpresaDaCandidatura, c: CandidaturaParaConcluir
   const r = data as { ja_recebida?: boolean; notificacao_id?: string; arquivo_id?: string | null };
   if (r.ja_recebida) return { recebida: true };
   if (r.notificacao_id) await deliverLater(r.notificacao_id, empresa.nome);
+  deliverDueLater(empresa.id); // candidatura.criada (8.8)
   if (r.arquivo_id && arquivo && bytes) {
     const arquivoId = r.arquivo_id;
     const tipo = arquivo.mime === CURRICULO_TIPOS.docx ? "docx" : "pdf";
@@ -361,6 +363,7 @@ export async function requestReview(token: string, texto: unknown): Promise<void
   if (t.length > REVISAO_TEXTO_MAX) throw new CamposInvalidos([{ campo: "texto", codigo: "revisao_texto_longo" }]);
   const { data: vagaId, error } = await db().rpc("rs_fn_pede_revisao", { p_candidatura: c.id, p_texto: t || (null as never) });
   if (error) throw error;
+  deliverDueLater(c.empresa.id); // revisao.pedida (8.8)
   // Quem recebe: o responsável da vaga; sem ele, os administradores ativos.
   const { data: resp } = await db().from("rs_vaga_equipe").select("membro_id, membro:membro_id(empresa_id, removido_em, usuario_id)")
     .eq("vaga_id", vagaId as string).eq("papel_na_vaga", "responsavel");
@@ -403,6 +406,7 @@ export async function withdraw(token: string): Promise<void> {
   if (error) throw error;
   const id = (data as { notificacao_id: string | null }).notificacao_id;
   if (id) await deliverLater(id, c.empresa.nome);
+  deliverDueLater(c.empresa.id); // candidatura.desistiu (8.8)
 }
 
 // Baixar meus dados (14.2): a pessoa nesta empresa e todas as candidaturas dela aqui, com o
@@ -498,6 +502,7 @@ export async function deleteData(token: string, codigo: unknown): Promise<{ empr
   const { data: paths, error: e2 } = await db().rpc("rs_fn_exclui_dados_candidato", { p_candidatura: c.id, p_empresa: c.empresa.id });
   if (e2) throw e2;
   const lista = (paths as string[] | null) ?? [];
+  deliverDueLater(c.empresa.id); // candidatura.anonimizada (8.8)
   await afterResponse(async () => {
     for (const path of lista) {
       try {

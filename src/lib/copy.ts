@@ -8,6 +8,14 @@ import type { Papel } from "./limits";
 // Nome exibido (pergunta 25.1): troca-se por variável, sem mexer no código.
 export const NOME_PRODUTO = process.env.NEXT_PUBLIC_NOME_PRODUTO || "Vaga Aberta";
 
+// Catálogo de webhooks (13.4): os tipos que um webhook pode assinar (o banco confere o mesmo).
+export const EVENTOS_WEBHOOK = [
+  "vaga.publicada", "vaga.pausada", "vaga.encerrada", "candidatura.criada", "candidatura.etapa_alterada",
+  "candidatura.reprovada", "candidatura.contratada", "candidatura.desistiu", "candidatura.encerrada_vaga",
+  "candidatura.reaberta", "candidatura.anonimizada", "decisao.proposta", "decisao.confirmada", "decisao.descartada",
+  "revisao.pedida",
+] as const;
+
 // Rótulo e explicação de cada papel (15.2, "Equipe — convidar").
 export const PAPEL: Record<Papel, { rotulo: string; explicacao: string }> = {
   administrador: { rotulo: "Administrador", explicacao: "tudo, inclusive equipe e integrações" },
@@ -57,6 +65,10 @@ export const ERROS: Record<string, string> = {
   escopo_insuficiente: "Esta conexão não tem permissão para isso. Conecte de novo marcando o escopo necessário.",
   papel_insuficiente: "Seu papel na empresa não permite isso.",
   limite_chaves: "A empresa já tem 10 chaves de API ativas. Revogue alguma antes de criar outra.",
+  // Webhooks (8.8)
+  url_recusada: "Use um endereço https público (sem usuário e senha, sem endereço interno da rede).",
+  eventos_invalidos: "Escolha pelo menos um evento da lista.",
+  limite_webhooks: "A empresa já tem 5 webhooks. Remova algum antes de criar outro.",
   termos_pendentes: "Aceite os Termos de uso e a Política de privacidade para continuar.",
   // Vagas (8.3; 11.1, 11.14, 11.22, 11.32, 12.1)
   fora_do_alcance: "Essa área está fora das áreas em que você recruta. Escolha outra.",
@@ -614,6 +626,49 @@ export const copy = {
         resumoRevogada: "Revogada.",
         conexao: (cliente: string, membro: string) => `Conector ${cliente} · ${membro}`,
         chave: (nome: string, prefixo: string) => `Chave ${nome} (${prefixo}…)`,
+      },
+      // Webhooks (8.8; 11.17, 13.4): só administrador. Criar, trocar a URL e gerar segredo só no formulário.
+      webhooks: {
+        titulo: "Webhooks",
+        descricao: "Abre o formulário de webhooks da empresa (só administrador): criar, editar (endereço, eventos, ligado), remover, gerar um novo segredo ou enviar um teste assinado. Os avisos levam ids e o resumo da vaga ou candidatura, sem nome, e-mail ou telefone. Não grava nada: a pessoa confere e confirma. O segredo aparece só no formulário, uma única vez.",
+        botao: "Confirmar",
+        operacao: "O que fazer",
+        criar: "Criar webhook",
+        editar: "Editar",
+        remover: "Remover",
+        gerar_segredo: "Gerar novo segredo",
+        enviar_teste: "Enviar teste",
+        webhook: "Webhook",
+        url: "Endereço (https)",
+        urlDica: "Ao editar, deixe como está para manter o endereço.",
+        eventos: "Eventos",
+        ativo: "Ligado",
+        rotulo: (host: string, ativo: boolean) => `${host}${ativo ? "" : " (desligado)"}`,
+        segredoRotulo: "Segredo do webhook",
+        segredoAviso: "Copie o segredo agora e use-o para conferir o cabeçalho X-Contrata-Assinatura. Por segurança, ele não aparece de novo.",
+        resumoCriado: (host: string) => `Webhook criado para ${host}.`,
+        resumoEditado: (host: string) => `Webhook de ${host} atualizado.`,
+        resumoRemovido: "Webhook removido.",
+        resumoSegredo: (host: string) => `Novo segredo gerado para ${host}. O anterior parou de valer.`,
+        resumoTeste: (host: string, status: number) =>
+          status ? `Teste enviado para ${host}: o endereço respondeu ${status}${status >= 200 && status < 300 ? " (ok)" : ""}.` : `Teste enviado para ${host}: o endereço não respondeu.`,
+        eventosRotulos: {
+          "vaga.publicada": "Vaga publicada",
+          "vaga.pausada": "Vaga pausada",
+          "vaga.encerrada": "Vaga encerrada",
+          "candidatura.criada": "Candidatura recebida",
+          "candidatura.etapa_alterada": "Candidatura mudou de etapa",
+          "candidatura.reprovada": "Candidatura reprovada",
+          "candidatura.contratada": "Candidatura contratada",
+          "candidatura.desistiu": "Candidato desistiu",
+          "candidatura.encerrada_vaga": "Candidatura encerrada com a vaga",
+          "candidatura.reaberta": "Candidatura reaberta",
+          "candidatura.anonimizada": "Dados anonimizados",
+          "decisao.proposta": "Proposta de decisão",
+          "decisao.confirmada": "Proposta confirmada",
+          "decisao.descartada": "Proposta descartada",
+          "revisao.pedida": "Candidato pediu revisão",
+        } as Record<string, string>,
       },
       // Formulários do 8.3 (seção 10.2): vaga, publicar, pausar, encerrar e página de carreiras.
       vaga: {

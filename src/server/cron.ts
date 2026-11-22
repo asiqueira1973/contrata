@@ -9,6 +9,7 @@ import { pauseExpiredJobs } from "@/server/recruiting/jobs";
 import { cleanOldExports } from "@/server/recruiting/pipeline";
 import { expireProposals, pendingProposalsDigest } from "@/server/recruiting/decisions";
 import { expiringTalentsDigest } from "@/server/recruiting/talents";
+import { retryWebhooks } from "@/server/webhooks/deliver";
 
 const ORCAMENTO_MS = 45_000;
 
@@ -46,8 +47,12 @@ export async function runDailyCleanup(agora = () => Date.now()) {
   }
   // CSVs exportados (14.1) dos dias anteriores: o link já venceu (5 min), o arquivo não serve mais.
   const exportacoes = await cleanOldExports();
+  // Webhooks (11.17; 8.8): desiste das velhas e retenta as vencidas (a pausa pelo prazo, acima, já
+  // gerou as dela).
+  const webhooks = agora() - inicio > ORCAMENTO_MS ? { entregues: 0, desistiu: 0 } : await retryWebhooks(FAXINA_LOTE);
   const r = { vagas_pausadas: vagasPausadas, candidaturas_abandonadas: abandonadas, propostas_expiradas: propostasExpiradas,
-    resumos_propostas: resumosPropostas, talentos_retirados: talentosRetirados, talentos_avisados: talentosAvisados, pastas_exportacao: exportacoes };
+    resumos_propostas: resumosPropostas, talentos_retirados: talentosRetirados, talentos_avisados: talentosAvisados, pastas_exportacao: exportacoes,
+    webhooks_entregues: webhooks.entregues, webhooks_desistidos: webhooks.desistiu };
   console.info("faxina_diaria", r);
   return r;
 }

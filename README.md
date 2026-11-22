@@ -7,7 +7,7 @@
 A especificação completa está em [`spec.md`](spec.md); os planos de cada épico, em [`plans/`](plans/); o que existe de fato, em [`DOCUMENTACAO-TECNICA.md`](DOCUMENTACAO-TECNICA.md).
 
 ## Estado
-Em implementação. Prontos: guardrails (8.0), fundação (8.1), o conector (8.2: OAuth, servidor MCP com consultas e formulários no chat, chaves de API, API v1) e **vagas e página de carreiras (8.3)**: pelo chat, criar, editar, publicar, pausar e encerrar vagas, com etapas, perguntas e equipe; a vaga publicada aparece em `/{empresa}` e `/{empresa}/vagas/{slug}` (com JSON-LD para o Google), no feed `/{empresa}/vagas.xml`, no `sitemap.xml` e na API pública; e **candidatura (8.4)**: a pessoa se candidata pela página da vaga, com o currículo subindo direto para o bucket, e acompanha pelo link `/c/{token}` que recebe por e-mail (retirar, baixar e excluir os dados); a empresa também inclui candidatos pelo chat ou pela API v1; e o **funil (8.5)**: listar, buscar, ler currículos, anotar, mover de etapa e exportar o CSV pelo chat ou pela API, com cada avaliador registrando a própria avaliação pelo formulário. **Decisões e mensagens (8.6):** reprovar, contratar, encerrar a vaga e reabrir pelo formulário de decisões (com a devolutiva que cada pessoa recebe); integrações e clientes sem formulário criam propostas que a equipe confirma; mensagens com modelos editáveis; o candidato pode pedir revisão pelo link. **Banco de talentos (8.7):** só quem consentiu e com prazo; a equipe busca e convida para vagas novas (o convite leva à candidatura), e a pessoa entra, renova ou sai pelo link de acompanhamento. Webhooks e trilha chegam no 8.8. O guia completo de auto-hospedagem entra no épico 8.12.
+Em implementação. Prontos: guardrails (8.0), fundação (8.1), o conector (8.2: OAuth, servidor MCP com consultas e formulários no chat, chaves de API, API v1) e **vagas e página de carreiras (8.3)**: pelo chat, criar, editar, publicar, pausar e encerrar vagas, com etapas, perguntas e equipe; a vaga publicada aparece em `/{empresa}` e `/{empresa}/vagas/{slug}` (com JSON-LD para o Google), no feed `/{empresa}/vagas.xml`, no `sitemap.xml` e na API pública; e **candidatura (8.4)**: a pessoa se candidata pela página da vaga, com o currículo subindo direto para o bucket, e acompanha pelo link `/c/{token}` que recebe por e-mail (retirar, baixar e excluir os dados); a empresa também inclui candidatos pelo chat ou pela API v1; e o **funil (8.5)**: listar, buscar, ler currículos, anotar, mover de etapa e exportar o CSV pelo chat ou pela API, com cada avaliador registrando a própria avaliação pelo formulário. **Decisões e mensagens (8.6):** reprovar, contratar, encerrar a vaga e reabrir pelo formulário de decisões (com a devolutiva que cada pessoa recebe); integrações e clientes sem formulário criam propostas que a equipe confirma; mensagens com modelos editáveis; o candidato pode pedir revisão pelo link. **Banco de talentos (8.7):** só quem consentiu e com prazo; a equipe busca e convida para vagas novas (o convite leva à candidatura), e a pessoa entra, renova ou sai pelo link de acompanhamento. **Webhooks e trilha (8.8):** avisos assinados para o n8n ou outro sistema (vaga publicada, candidatura recebida, mudou de etapa, contratada…), configurados pelo formulário `webhooks` no chat, e a trilha completa por `GET /api/v1/eventos?desde=`. O guia completo de auto-hospedagem entra no épico 8.12.
 
 ## Rodar localmente
 
@@ -71,6 +71,22 @@ Com a página publicada, abra uma vaga e clique em "Candidatar-me". O e-mail com
 
 ### Ver os formulários sem o Claude
 Com `npm run dev`, abra `http://localhost:3050/dev/formularios`. É um host de MCP Apps que só existe em desenvolvimento: cole um token `rsm_` local, escolha a ferramenta (`abrir_formulario_convite`, `abrir_formulario_avaliacao`…) e os argumentos, e o formulário abre como abriria no chat, em tema claro ou escuro.
+
+### Webhooks
+O administrador cria o webhook pelo chat ("crie um webhook para https://…/gancho com candidatura contratada"): o formulário abre, a pessoa confere e confirma, e o segredo `whsec_…` aparece **uma vez**. Cada aviso é um `POST` JSON `{id, tipo, criado_em, empresa_id, dados}` com ids e o resumo da vaga ou da candidatura (sem nome, e-mail ou telefone: busque a pessoa em `GET /api/v1/candidaturas/{id}`), e os cabeçalhos `X-Contrata-Evento`, `X-Contrata-Entrega` e `X-Contrata-Assinatura: t={unix},v1={hex}`. Responda 2xx; senão há nova tentativa em 1 min, 10 min, 1 h e depois uma por dia, por até 3 dias. Só endereços `https` públicos (sem IP interno, sem redirecionamento). Para conferir:
+
+```js
+import { createHmac, timingSafeEqual } from "node:crypto";
+// corpo: o texto cru da requisição; cabecalho: X-Contrata-Assinatura; segredo: whsec_…
+function confere(corpo, cabecalho, segredo) {
+  const { t, v1 } = Object.fromEntries(cabecalho.split(",").map((p) => p.split("=")));
+  if (Math.abs(Date.now() / 1000 - Number(t)) > 300) return false;
+  const esperado = createHmac("sha256", segredo).update(`${t}.${corpo}`).digest("hex");
+  return v1.length === esperado.length && timingSafeEqual(Buffer.from(v1), Buffer.from(esperado));
+}
+```
+
+`CHAVES_ENC_KEY` (32 bytes em base64) cifra os segredos no banco; sem ela, criar webhook falha.
 
 ## Testes
 

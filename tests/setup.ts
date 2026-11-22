@@ -25,6 +25,7 @@ process.env.MCP_PREVIEW_SECRET = randomBytes(32).toString("base64url");
 process.env.PREVIA_PAGINA_SECRET = randomBytes(32).toString("base64url");
 process.env.CRON_SECRET = randomBytes(32).toString("base64url");
 process.env.LINK_CANDIDATO_SECRET = randomBytes(32).toString("base64url");
+process.env.CHAVES_ENC_KEY = randomBytes(32).toString("base64");
 // Arquivos: sempre o driver local nos testes (o .env.local pode ter um bucket de verdade).
 for (const k of ["S3_ENDPOINT", "S3_REGION", "S3_ACCESS_KEY_ID", "S3_SECRET_ACCESS_KEY", "S3_BUCKET"]) delete process.env[k];
 // Regra 11.33: só o domínio dos testes cria empresa; os testes de permissão trocam e restauram.

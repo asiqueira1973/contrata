@@ -2,14 +2,14 @@
 
 Nome público: **Vaga Aberta** (vagaaberta.app.br, spec 25.1), sempre pela variável `NEXT_PUBLIC_NOME_PRODUTO` / `NOME_PRODUTO` do `copy.ts`, nunca escrito à mão. Repositório, pasta, bucket, banco (`rs_*`), prefixos das chaves, eventos `contrata_*` e cabeçalhos `X-Contrata-*` mantêm o nome de trabalho de propósito.
 
-Fonte única de verdade: `spec.md` (v0.4.8). Planos aprovados: `plans/`. Os princípios da seção 0 desempatam dúvidas. Itens da seção 25 → **pare e pergunte**. Referências: `~/assina` (login, R2, Resend, webhooks, OAuth) e `~/agenda-psi/mcp-server` (MCP Apps, formulários, fallback com prévia). Leia antes de reinventar. Mudou schema, rota, ferramenta ou tela → atualize `DOCUMENTACAO-TECNICA.md`, este arquivo e o README no mesmo commit.
+Fonte única de verdade: `spec.md` (v0.4.9). Planos aprovados: `plans/`. Os princípios da seção 0 desempatam dúvidas. Itens da seção 25 → **pare e pergunte**. Referências: `~/assina` (login, R2, Resend, webhooks, OAuth) e `~/agenda-psi/mcp-server` (MCP Apps, formulários, fallback com prévia). Leia antes de reinventar. Mudou schema, rota, ferramenta ou tela → atualize `DOCUMENTACAO-TECNICA.md`, este arquivo e o README no mesmo commit.
 
 ## Regra de ouro
 Se um teste falhar, corrija o código, não o teste; nunca pule nem apague teste que falha.
 Bug: teste que reproduz → ver falhar → commit → `touch .claude/fix-mode` → corrigir → `rm .claude/fix-mode`.
 
 ## Estado
-Spec **v0.4.8: um sistema para agentes, não para humanos**. Quem recruta opera pelo Claude ou pelo ChatGPT; não há painel. Clone e use: quem cria empresa é `CRIACAO_EMPRESA_EMAILS` (11.33). Épicos 8.0, 8.1, 8.2 (o conector), 8.3 (vagas e página de carreiras), 8.4 (candidatura e link `/c`), 8.5 (funil), 8.6 (decisões, devolutivas e mensagens) e 8.7 (banco de talentos) concluídos no local, com as migrations no remoto (21/11/2026). Pendentes, com o Alexandre: projeto e DNS de vagaaberta.app.br na Vercel, cliente OAuth do Google, bucket R2 e, com eles, o teste no Claude, no ChatGPT, no Teste de Pesquisa Aprimorada e o e-mail real pelo Resend. Próximo: 8.8 (webhooks e trilha), em plan mode.
+Spec **v0.4.9: um sistema para agentes, não para humanos**. Quem recruta opera pelo Claude ou pelo ChatGPT; não há painel. Clone e use: quem cria empresa é `CRIACAO_EMPRESA_EMAILS` (11.33). Épicos 8.0, 8.1, 8.2 (o conector), 8.3 (vagas e página de carreiras), 8.4 (candidatura e link `/c`), 8.5 (funil), 8.6 (decisões, devolutivas e mensagens), 8.7 (banco de talentos) e 8.8 (webhooks e trilha) concluídos no local, com as migrations no remoto (21/11/2026). Pendentes, com o Alexandre: projeto e DNS de vagaaberta.app.br na Vercel, cliente OAuth do Google, bucket R2 e, com eles, o teste no Claude, no ChatGPT, no Teste de Pesquisa Aprimorada e o e-mail real pelo Resend. Próximo: 8.9 (empresa, LGPD e configurações), em plan mode.
 
 ## Como uma ação nova entra (padrão do 8.2)
 1. Função de domínio em `src/server/<área>/` com `ator` e, se lê candidaturas, `alcance`.
@@ -91,3 +91,8 @@ Spec **v0.4.8: um sistema para agentes, não para humanos**. Quem recruta opera 
 - Relógio: o Postgres no Docker pode estar à frente do Node. Em teste que compara datas, tire o corte do próprio banco.
 - **Banco de talentos (8.7):** nunca liste pessoas do banco por `rs_candidatos` direto; use `recruiting/talents.searchTalents` (consentimento válido + alcance). E-mail e telefone não vão ao modelo.
 - O servidor de dev fica com módulo velho depois de reiniciar o banco ou de muitas edições (erro 500 com `TypeError` que os testes não reproduzem): reinicie o `npm run dev` antes de investigar.
+- **Webhooks (8.8):** a entrega nasce no banco (trigger `rs_tg_eventos_webhook` em `rs_eventos`): evento novo que deve avisar só precisa entrar no mapa `rs_fn_tipo_webhook` (e no catálogo 13.4). Corpo sem nome, e-mail ou telefone (`rs_fn_corpo_webhook`). Envio só por `webhooks/deliver` (fetch com SSRF de `files/fetch-remote.ts`); nada de URL, segredo ou corpo em log.
+- Escrita nova fora da API v1, do `/mcp` e das ações do candidato que gere evento com webhook: chame `deliverDueLater(empresaId)` depois, senão a 1ª tentativa espera a próxima atividade ou a faxina.
+- "Vencida" é pelo relógio do banco (`rs_fn_entregas_vencidas`): não filtre `proxima_tentativa_em` com `new Date()` do Node.
+- Teste de webhook: `setRemoteFetchTestMode(true)` + `startHttps` de `tests/https-server.ts` (TLS autoassinado). Fora do modo de teste, 127.0.0.1 e localhost são recusados, como devem.
+- `CHAVES_ENC_KEY` (32 bytes base64) é obrigatória para webhooks; `tests/setup.ts` gera uma.
