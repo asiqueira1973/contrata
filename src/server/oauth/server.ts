@@ -10,6 +10,7 @@ import { hashToken } from "@/server/auth/tokens";
 import { generateCredential } from "@/server/credentials/keys";
 import { db } from "@/server/db/client";
 import { track } from "@/server/analytics/client";
+import { ANALYTICS_CLIENTE_MAX } from "@/lib/limits";
 
 // Origem pública do site (emissor e recurso).
 export function siteOrigin(): string {
@@ -114,7 +115,8 @@ export async function exchangeCode(code: string, clientId: string, redirectUri: 
       propriedades: async () => {
         const { data: c } = await db().from("rs_credenciais").select("escopos, cliente:oauth_cliente_id(nome)").eq("id", credencial).maybeSingle();
         if (!c) return null;
-        return { cliente: ((c.cliente as { nome: string } | null)?.nome ?? "MCP").slice(0, 60), escopos: c.escopos ?? [] };
+        const nome = (c.cliente as { nome: string } | null)?.nome?.trim();
+        return { cliente: (nome || "MCP").slice(0, ANALYTICS_CLIENTE_MAX), escopos: c.escopos ?? [] };
       },
     });
   }

@@ -316,6 +316,7 @@ export async function addCandidateManually(p: {
     conferido = r;
   }
   const criada = await chamaCria(p.empresa, vaga.id, parsed.data, [], "manual", p.ator, "manual", false, generateToken().hash);
+  if (!criada.existente) track("contrata_candidatura_iniciada", { quem: { candidatura: criada.id }, chave: criada.id, propriedades: {} });
   if (criada.existente) throw new DomainError("candidato_ja_inscrito", 409);
   let arquivo = null;
   if (p.curriculo && conferido) {

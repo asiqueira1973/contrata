@@ -151,7 +151,7 @@ describe("achados do verifier (8.11)", () => {
   it("A1: dar acesso pelo formulário de pessoas manda membro_convidado", async () => {
     setAnalyticsSinkForTests((e) => events.push(e));
     const p = await callTool(token, "salvar_pessoa", { operacao: "cadastrar", nome: "Gil Pessoa", email: "gil@pessoa.exemplo" });
-    const pessoa = ((p as { structuredContent: { ids: string[] } }).structuredContent.ids)[0];
+    const pessoa = ((p as unknown as { structuredContent: { ids: string[] } }).structuredContent.ids)[0];
     events = [];
     await callTool(token, "salvar_pessoa", { operacao: "dar_acesso", pessoa, papel: "avaliador" });
     await flushAnalytics();
@@ -169,7 +169,7 @@ describe("achados do verifier (8.11)", () => {
   it("A6: candidatura incluída à mão também manda candidatura_iniciada", async () => {
     setAnalyticsSinkForTests((e) => events.push(e));
     const r = await callTool(token, "salvar_adicionar_candidato", { vaga: vaga.id, nome: "Ivo Manual", email: "ivo@manual.exemplo", telefone: "", linkedin_url: "" });
-    const id = ((r as { structuredContent: { ids: string[] } }).structuredContent.ids)[0];
+    const id = ((r as unknown as { structuredContent: { ids: string[] } }).structuredContent.ids)[0];
     await flushAnalytics();
     expect(byName("contrata_candidatura_iniciada").some((e) => e.distinct_id === `cand_${id}`)).toBe(true);
     expect(byName("contrata_candidatura_enviada").find((e) => e.distinct_id === `cand_${id}`)).toMatchObject({ propriedades: { origem: "manual" } });
