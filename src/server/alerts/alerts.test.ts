@@ -93,6 +93,11 @@ describe("faxina (18)", () => {
   it("faxina sem falha não gera alerta", async () => {
     process.env.ADMIN_EMAIL = ADMIN;
     expect(await alertaFaxina([], hoje)).toBe(false);
+    // Um dia em que ainda não houve alerta: a faxina inteira, sem falha, não manda nada.
+    const outroDia = new Date(hoje.getTime() + 3 * 86_400_000);
+    const r = (await runDailyCleanup(undefined, outroDia)) as unknown as Record<string, number> & { falharam: string[] };
+    expect(r.falharam).toEqual([]);
+    expect(r.alerta_faxina).toBe(0);
   });
 });
 
@@ -134,6 +139,7 @@ describe("empresa sem espaço (11.14)", () => {
     expect(avisos.map((m) => m.to)).toEqual([dono.email]);
     expect(avisos[0].text).toMatch(/5\.6 GB dos 5 GB/);
     expect(box.some((m) => m.to.includes("@cheia.exemplo"))).toBe(false);
+    expect(avisos[0].text + avisos[0].subject).not.toMatch(/Ana Cheia|@cheia\.exemplo/);
     await db().from("rs_arquivos").delete().eq("empresa_id", empresa.id).like("path", "%/cheio-%");
   });
 });

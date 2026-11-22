@@ -40,7 +40,7 @@ Todas as tabelas `rs_*` existem desde o 8.1 (migration `20261120180000_rs_schema
 | `rs_convites_talento` | (8.7) Convite do banco de talentos para uma vaga: pessoa, vaga, quem convidou, `expira_em` (30 dias), `usado_em`. O `id` vai no link (`?convite=`); o texto do e-mail não fica (20.3) |
 | `rs_mensagens` | Mensagens ao candidato. O corpo guarda `{{link_acompanhamento}}`, nunca o link resolvido (20.3) |
 | `rs_tentativas_publicas` | (8.4) Janela deslizante dos limites da 11.14: `chave_hash` (HMAC do IP ou do e-mail com `SESSION_SECRET`; o IP nunca é guardado), `tipo` (`candidatura`, `links`, `links_email`), `criado_em`. A faxina apaga as de mais de 24 h |
-| `rs_notificacoes` | Fila de e-mail idempotente: cada e-mail tem uma `chave_idempotencia` única; status `pendente` → `enviada` ou `falhou` |
+| `rs_notificacoes` | Fila de e-mail idempotente: cada e-mail tem uma `chave_idempotencia` única; status `pendente` → `enviada` ou `falhou`. `empresa_id` nulo nos alertas da instância ao `ADMIN_EMAIL` (v0.4.13) |
 
 Valores de enum em uso: `rs_papel_membro` (administrador, recrutador, avaliador), `rs_tipo_ator` (membro, agente, api, sistema), `rs_status_vaga`, `rs_modelo_trabalho`, `rs_regime`, `rs_tipo_etapa`, `rs_tipo_pergunta`, `rs_papel_na_vaga`, `rs_motivo_encerramento_vaga`, `rs_origem_evento` (`formulario`, `mcp`, `api`, `web`, `publico`, `cron`; o antigo `painel` virou `web` no 8.2), `rs_tipo_notificacao` (`convite_membro`), `rs_status_notificacao` (pendente, enviada, falhou). Os enums do convite da instância (`rs_status_pedido_convite`, `pedido_convite_*`) **não existem**: saíram no spec v0.3.
 
@@ -199,7 +199,7 @@ Do 8.10, migrations `20261122220000_rs_faxina.sql` e `20261122230000_rs_faxina_a
 | `rs_fn_anonimiza_candidatura(candidatura, empresa, manter_curriculo, origem)` | função (refeita) | expurgo, exclusão a pedido | Marca `expurgada_em`; com `manter_curriculo`, o currículo e o link `/c` ficam (banco de talentos, 11.12) |
 | `rs_fn_faxina_expurgos(lote)` | função | faxina | Candidatura com `expurgar_em` vencido → anonimiza (quem tem talentos válido guarda nome, contato e o currículo mais recente); pessoa sem nada vivo e sem consentimento → anonimiza o cadastro e o currículo guardado sai; devolve os caminhos |
 | `rs_fn_empresas_a_expurgar(lote)` / `rs_fn_expurga_empresa` (refeita) | funções | faxina | Excluídas há 7+ dias; o expurgo apaga em ordem explícita (a cascata conferia as chaves "no action" a cada passo e falhava com nota de integração, avaliação ou mensagem) |
-| `rs_fn_notificacoes_a_retentar(lote, max)` / `rs_fn_limpa_notificacoes(dias, lote)` | funções | faxina | Falhou (ou pendente perdida há 10+ min) abaixo de 5 tentativas; apaga enviadas e descartadas com mais de 30 dias |
+| `rs_fn_notificacoes_a_retentar(lote, max)` / `rs_fn_limpa_notificacoes(dias, lote)` | funções | faxina | Falhou (ou pendente perdida há 10+ min) abaixo de 5 tentativas, de empresa ativa ou sem empresa (v0.4.13); apaga enviadas e descartadas com mais de 30 dias |
 | `rs_fn_resumo_diario(empresa, parada_dias, revisao_dias)` | função | faxina | Por vaga: revisões sem resposta (e atrasadas), paradas, pausada pelo prazo, propostas, o responsável válido; e a equipe que pode receber. Sem nome de candidato |
 | `rs_fn_resumo_donos(lote, inicio)` | função | faxina (segunda), paginada | Vagas publicadas ou pausadas de dono sem acesso com `recebe_resumo`: contagens por tipo de etapa, encerradas na semana, contratada, quem conduz |
 | `rs_fn_pede_acesso(empresa, pessoa)` | função | `/api/publico/{empresa}/pedir-acesso` | `acesso_pedido`; devolve os administradores a avisar |
@@ -207,6 +207,15 @@ Do 8.10, migrations `20261122220000_rs_faxina.sql` e `20261122230000_rs_faxina_a
 ---
 
 ### Alertas da instância (v0.4.13)
+Migration `20261123090000_rs_alertas.sql`:
+
+| Nome | Tipo | Quando roda | O que faz |
+|---|---|---|---|
+| `rs_notificacoes.empresa_id` | coluna (agora anulável) | `alerts/instance` | Alerta da instância não é de empresa |
+| `rs_tipo_notificacao` | enum | — | + `alerta_instancia`, `armazenamento_cheio` |
+| `rs_fn_notificacoes_a_retentar(lote, max)` | função (refeita) | faxina | `left join` na empresa: entram as sem empresa |
+| `rs_fn_tamanho_banco()` | função (invoker; só `service_role`) | passo `alerta_banco` | `pg_database_size` do banco inteiro, em bytes |
+
 `src/server/alerts/instance.ts`, sempre pela fila (`outbox.enqueue`), com chave por dia (`alerta:{tipo}:…:{dia em FUSO}`), nunca lança e nada pessoal:
 - `alertaEmailEmUso` (callback do Google, 6.1): ids de `rs_usuarios` do dono do e-mail e de quem tentou.
 - `alertaFaxina` (fim de `runDailyCleanup`, 18): passo e código de cada falha.
