@@ -54,6 +54,14 @@ describe("API v1 — banco de talentos", () => {
     expect(await ja.json()).toEqual({ convidado: false, ja_candidato: true });
     expect((await convidar(req("/x", escrita, "POST", { vaga_id: nova.id }), params({ id: pessoa.zed }))).status).toBe(409);
   });
+  it("convidar pela API usa o modelo da empresa (sem texto livre) e não reenvia no mesmo dia (achado do verifier)", async () => {
+    const antes = emails.filter((e) => e.to === "ana@api-tal.exemplo").length;
+    const r = await convidar(req("/x", escrita, "POST", { vaga_id: nova.id, assunto: "Assunto livre", corpo: "corpo livre" }), params({ id: pessoa.ana }));
+    expect(r.status).toBe(201);
+    const depois = emails.filter((e) => e.to === "ana@api-tal.exemplo");
+    expect(depois.length).toBe(antes);
+    expect(depois.some((e) => e.subject === "Assunto livre" || e.text.includes("corpo livre"))).toBe(false);
+  });
   it("OpenAPI válido com as rotas de talentos", async () => {
     const doc = await (await openapiGet()).json();
     expect(Object.keys(doc.paths)).toEqual(expect.arrayContaining(["/talentos", "/talentos/{id}/convidar"]));

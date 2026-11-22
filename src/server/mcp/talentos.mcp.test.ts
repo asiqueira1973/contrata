@@ -85,6 +85,13 @@ describe("convidar_para_vaga (8.7)", () => {
     expect(r.ok).toBe(false);
     expect((await listTools(tokens.admin, SEM_UI)).map((t) => t.name)).toContain("registrar_convidar_para_vaga");
   });
+  it("lote com alguém que saiu do banco: convida os outros e diz quantos ficaram de fora (achado do verifier)", async () => {
+    const r = estrutura(await callTool(tokens.admin, "salvar_convidar_para_vaga", {
+      candidatos: [await candidatoDe(ids.davi), await candidatoDe(ids.bia)], vaga: vNova.id, assunto: "Oi", corpo: "Olá, {{nome}}. {{link_vaga}}",
+    }));
+    expect(r.ok).toBe(true);
+    expect(String(r.resumo)).toBe("1 pessoa convidada. 1 não está mais no banco de talentos.");
+  });
   it("candidatar-se pelo link do convite vira origem banco_talentos", async () => {
     const convite = emails.filter((x) => x.to === "caio@talentos.exemplo").at(-1)!.text.match(/convite=([0-9a-f-]{36})/)![1];
     const req = apiRequest(`/api/publico/${empresa.slug}/vagas/${vLoja.slug}/candidaturas`, { method: "POST", body: {

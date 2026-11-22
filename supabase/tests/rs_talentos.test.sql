@@ -98,5 +98,28 @@ select is((select talentos_consentido_em from public.rs_candidatos where id = pg
 select lives_ok(format('select public.rs_fn_talentos_candidato(%L, %L)', pg_temp.id('c_caio'), 'renovar'), 'renovar');
 select is((select talentos_avisado_em from public.rs_candidatos where id = pg_temp.candidato('caio')), null, 'renovar zera o aviso');
 
+-- Achados do verifier (8.7)
+-- 1 e 7: o texto só casa candidaturas recebidas no alcance; e-mail não é busca do banco de talentos.
+insert into fx select 'c_bia_fin', pg_temp.cand('bia', 'v2', false);
+update public.rs_candidaturas set texto_busca = to_tsvector('pg_catalog.portuguese', 'segredofinanceiro') where id = pg_temp.id('c_bia_fin');
+select is(pg_temp.busca(pg_temp.loja(), '{"q":"segredofinanceiro"}'), '', 'texto de candidatura fora do alcance não acha a pessoa');
+select is(pg_temp.busca(pg_temp.todas(), '{"q":"segredofinanceiro"}'), 'Pessoa bia', 'no alcance, acha');
+select is(pg_temp.busca(pg_temp.todas(), '{"q":"bia@ta.teste.dev"}'), '', 'e-mail não é busca do banco de talentos');
+-- 2: vaga anterior fora do alcance não filtra nada.
+select is(pg_temp.busca(pg_temp.loja(), jsonb_build_object('vaga_anterior', pg_temp.id('v2'))), '', 'vaga anterior fora do alcance não filtra');
+-- 6: candidatura não concluída apagada pela faxina devolve o convite.
+insert into fx select 'conv3', (public.rs_fn_convida_talento(pg_temp.id('e'), pg_temp.candidato('caio'), pg_temp.id('v3'), pg_temp.todas(), pg_temp.ator('m')) ->> 'convite_id')::uuid;
+insert into fx select 'c_meia', (public.rs_fn_cria_candidatura(pg_temp.id('e'), pg_temp.id('v3'), '{"nome":"Pessoa caio","email":"caio@ta.teste.dev"}',
+  '[]', 'pagina', pg_temp.publico(), '2026-11-20', false, 'tok-meia-' || gen_random_uuid(), 10000, pg_temp.id('conv3')) ->> 'id')::uuid;
+delete from public.rs_candidaturas where id = pg_temp.id('c_meia');
+insert into fx select 'c_caio3', pg_temp.cand('caio', 'v3', false, pg_temp.id('conv3'));
+select is((select origem::text from public.rs_candidaturas where id = pg_temp.id('c_caio3')), 'banco_talentos', 'convite volta a valer se a candidatura não concluída sumiu');
+-- 5: empresa suspensa não manda o aviso, e o aviso fica para depois.
+update public.rs_candidatos set talentos_expira_em = now() + interval '10 days', talentos_avisado_em = null where id = pg_temp.candidato('caio');
+update public.rs_empresas set suspensa_em = now() where id = pg_temp.id('e');
+select is((select count(*)::int from jsonb_array_elements(public.rs_fn_faxina_talentos(200) -> 'avisar') a where a ->> 'candidato_id' = pg_temp.candidato('caio')::text),
+  0, 'empresa suspensa não avisa');
+select is((select talentos_avisado_em from public.rs_candidatos where id = pg_temp.candidato('caio')), null, 'e o aviso fica para depois');
+
 select * from finish();
 rollback;
