@@ -8,6 +8,7 @@ import type { Papel } from "@/lib/limits";
 import type { ContextoMembro } from "@/server/auth/require-membro";
 import { db } from "@/server/db/client";
 import { atorJson } from "./actor";
+import { quemDoAtor, track } from "@/server/analytics/client";
 
 export type PessoaListada = {
   id: string;
@@ -65,6 +66,17 @@ export async function savePerson(ctx: ContextoMembro, id: string | null, input: 
     p_ator: atorJson(ctx.ator),
   });
   if (error) throw error;
+  if (!id) {
+    const pessoaId = data as string;
+    track("contrata_pessoa_cadastrada", {
+      quem: quemDoAtor(ctx.ator, ctx.empresa.id), chave: pessoaId,
+      // Com acesso: o cadastro ligou a pessoa a um membro de mesmo e-mail.
+      propriedades: async () => {
+        const { data: p } = await db().from("rs_pessoas").select("membro_id").eq("id", pessoaId).eq("empresa_id", ctx.empresa.id).maybeSingle();
+        return { com_acesso: !!p?.membro_id };
+      },
+    });
+  }
   return data as string;
 }
 

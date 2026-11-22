@@ -20,6 +20,7 @@ import { confereLogo, urlDoLogo, type Logo } from "@/server/files/logo";
 import { storage } from "@/server/files/storage";
 import { atorJson } from "@/server/org/actor";
 import { versaoDoAviso } from "@/server/recruiting/applications";
+import { track } from "@/server/analytics/client";
 
 const DATA = new Intl.DateTimeFormat("pt-BR", { timeZone: FUSO, day: "2-digit", month: "2-digit", year: "numeric" });
 
@@ -67,6 +68,7 @@ export async function createCompany(usuario: Usuario, input: z.infer<typeof cria
     if (error.code === "23505") throw new DomainError("slug_em_uso", 409);
     throw error;
   }
+  track("contrata_empresa_criada", { quem: { email: usuario.email }, chave: data as string, propriedades: {} });
   return { id: data as string, slug: input.slug };
 }
 

@@ -865,8 +865,10 @@ Todas as funções em `plpgsql`, `SECURITY INVOKER`, `search_path=''`, chamadas 
 **Concluído no local e com a migration no remoto em 22/11/2026** (v0.4.11, `plans/8.10-faxina.md`). O resumo das propostas pendentes segue em e-mail próprio (`decisoes_pendentes`, 8.6).
 
 ### 8.11 Analytics
-- [ ] Eventos da seção 21 enviados do servidor quando `VISAO_INGEST_URL` e `VISAO_API_KEY` existem; sem elas, nenhuma chamada e nenhum erro.
-- [ ] Teste de compilação do tipo fechado de propriedades.
+- [x] Eventos da seção 21 enviados do servidor quando `VISAO_INGEST_URL` e `VISAO_API_KEY` existem; sem elas, nenhuma chamada e nenhum erro.
+- [x] Teste de compilação do tipo fechado de propriedades.
+
+**Concluído no local em 22/11/2026** (`plans/8.11-analytics.md`; sem migration). `origem` nos eventos: `chat`, `mcp`, `api`, `web`, `pagina`, `sistema`.
 
 ### 8.12 Página inicial, documentação, auto-hospedagem e entrega
 - [ ] `/` com o que é ("o sistema de recrutamento para agentes"), para quem, o que não faz, **"Conecte no Claude ou no ChatGPT"** e "Como hospedar"; `/docs/mcp` (passo a passo de conexão no Claude, no ChatGPT e no Claude Code, com exemplos de pedidos), `/docs/api`, `/docs/auto-hospedagem`, `/privacidade` e `/termos` (modelos que quem hospeda ajusta).

@@ -233,3 +233,12 @@ export const PEDIR_ACESSO_DIAS = 30;
 // olhar (uma que falha sempre não segura as outras).
 export const EMPRESAS_POR_RODADA = 5;
 export const EMPRESAS_CANDIDATAS = 20;
+
+// Analytics (8.11; seção 21): POST ao ingest com 4 s; chamada de API amostrada 1 a cada 10 s por
+// credencial (lembrança em memória limitada); tetos dos números e textos das propriedades.
+export const ANALYTICS_TIMEOUT_MS = 4000;
+export const ANALYTICS_AMOSTRA_API_MS = 10_000;
+export const ANALYTICS_AMOSTRAS_EM_MEMORIA = 5000;
+export const ANALYTICS_NUMERO_MAX = 1_000_000_000;
+export const ANALYTICS_CLIENTE_MAX = 60;
+export const ANALYTICS_ROTA_MAX = 120;

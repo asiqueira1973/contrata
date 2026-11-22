@@ -6,6 +6,7 @@ import type { areaSchema } from "@/lib/schemas/org";
 import type { ContextoMembro } from "@/server/auth/require-membro";
 import { db } from "@/server/db/client";
 import { atorJson } from "./actor";
+import { quemDoAtor, track } from "@/server/analytics/client";
 
 export type AreaListada = {
   id: string;
@@ -44,6 +45,7 @@ export async function saveArea(ctx: ContextoMembro, id: string | null, input: z.
     p_ator: atorJson(ctx.ator),
   });
   if (error) throw error;
+  if (!id) track("contrata_area_criada", { quem: quemDoAtor(ctx.ator, ctx.empresa.id), chave: data as string, propriedades: {} });
   return data as string;
 }
 

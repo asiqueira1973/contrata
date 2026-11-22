@@ -16,6 +16,9 @@ import { atorJson } from "@/server/org/actor";
 import { alcanceJson, type ContextoVagas } from "./jobs";
 import { getTemplate } from "@/server/messages/templates";
 import { entregar, mensagensDaVaga, montarMensagem, type MensagemPronta, type TextoMensagem } from "./messages";
+import { quemDoAtor, track } from "@/server/analytics/client";
+import { origemDoAtor } from "@/server/analytics/events";
+import { diasDesde } from "@/server/recruiting/applications";
 
 type Enums = Database["public"]["Enums"];
 export type TipoDecisao = Enums["rs_tipo_decisao"];
@@ -95,6 +98,35 @@ function codigoDoErro(e: unknown): string {
 
 // Decide na hora, pelo formulário de decisões (11.7): cada item independente, até 50. Os e-mails
 // saem depois de cada item gravado. Recebe: contexto (o membro) e os itens.
+// ---------------------------------------------------------------- analytics (8.11; seção 21)
+// Depois de uma decisão executada: contrata_decisao_confirmada e, para cada candidatura que ela
+// encerrou, contrata_candidatura_encerrada (só enums e números; nada pessoal). Nunca lança.
+function rastreia(ctx: Ctx, item: ItemDecisao, extra: { editada: boolean; criadaEm: string | null; lote: number; decisaoId?: string }) {
+  const quem = quemDoAtor(ctx.ator, ctx.empresa.id);
+  const tipo = item.tipo;
+  track("contrata_decisao_confirmada", {
+    quem, chave: extra.decisaoId,
+    propriedades: { tipo, editada: extra.editada, horas_ate_confirmar: extra.criadaEm ? Math.round(((Date.now() - new Date(extra.criadaEm).getTime()) / 3_600_000) * 10) / 10 : 0, lote: extra.lote },
+  });
+  if (tipo === "reabrir" || tipo === "enviar_mensagem") return;
+  const situacao = tipo === "reprovar" ? "reprovada" : tipo === "contratar" ? "contratada" : "encerrada_vaga";
+  // As encerradas agora (as da vaga, no encerrar_vaga), com o tempo desde que chegaram.
+  const encerradas = async () => {
+    let q = db().from("rs_candidaturas").select("id, recebida_em").eq("empresa_id", ctx.empresa.id).eq("situacao", situacao)
+      .gte("encerrada_em", new Date(Date.now() - 10 * 60_000).toISOString());
+    q = item.tipo === "encerrar_vaga" ? q.eq("vaga_id", item.vaga) : q.eq("id", item.candidatura);
+    const { data } = await q;
+    return (data ?? []) as { id: string; recebida_em: string | null }[];
+  };
+  void encerradas().then((lista) => {
+    for (const c of lista) {
+      track("contrata_candidatura_encerrada", {
+        quem, chave: c.id, propriedades: { situacao, origem: origemDoAtor(ctx.ator), dias_ate_encerrar: c.recebida_em ? diasDesde(c.recebida_em) : 0 },
+      });
+    }
+  }).catch(() => undefined);
+}
+
 export async function decideNow(ctx: Ctx, itens: Exclude<ItemDecisao, { tipo: "enviar_mensagem" }>[]): Promise<ResultadoItem[]> {
   if (!itens.length || itens.length > DECISOES_LOTE_MAX) throw new CamposInvalidos([{ campo: "itens", codigo: "lote_decisoes" }]);
   if (ctx.ator.tipo !== "membro") throw new DomainError("decisao_so_por_pessoa", 403);
@@ -104,6 +136,7 @@ export async function decideNow(ctx: Ctx, itens: Exclude<ItemDecisao, { tipo: "e
       const r = await executar(ctx, item);
       await entregar(ctx.empresa, r.mensagens);
       out.push({ ok: true });
+      rastreia(ctx, item, { editada: false, criadaEm: null, lote: itens.length });
     } catch (e) {
       out.push({ ok: false, codigo: codigoDoErro(e) });
     }
@@ -139,6 +172,7 @@ export async function proposeDecision(ctx: Ctx, p: { tipo: TipoDecisao; candidat
     p_payload: s.data as never, p_justificativa: (p.justificativa ?? null) as never, p_ator: atorJson(ctx.ator), p_alcance: alcanceJson(ctx.alcance) as never,
   });
   if (error) throw error;
+  track("contrata_decisao_proposta", { quem: quemDoAtor(ctx.ator, ctx.empresa.id), chave: data as string, propriedades: { tipo: p.tipo, origem: origemDoAtor(ctx.ator) } });
   return { decisao_id: data as string, mensagem: copy.decisoes.propostaCriada };
 }
 
@@ -228,6 +262,12 @@ export async function confirmProposals(ctx: Ctx, acoes: AcaoProposta[]): Promise
       await entregar(ctx.empresa, r.mensagens);
       const st = r.resultado as { status: string; motivo?: string } | null;
       out.push(st && st.status !== "confirmada" ? { ok: false, codigo: "expirada", motivo: st.motivo ?? "" } : { ok: true });
+      if (!st || st.status === "confirmada") {
+        // Editada: o texto confirmado não é o que a proposta trazia.
+        const pl = p.payload as Record<string, string | undefined>;
+        const proposto = pl.devolutiva ?? pl.mensagem ?? pl.corpo ?? "";
+        rastreia(ctx, item, { editada: !!a.texto && a.texto.corpo.trim() !== proposto.trim(), criadaEm: p.criado_em, lote: acoes.filter((x) => x.acao !== "descartar").length, decisaoId: p.id });
+      }
     } catch (e) {
       out.push({ ok: false, codigo: codigoDoErro(e) });
     }

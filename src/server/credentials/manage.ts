@@ -8,6 +8,7 @@ import { db } from "@/server/db/client";
 import { DomainError } from "@/server/http";
 import { atorJson } from "@/server/org/actor";
 import { generateCredential } from "./keys";
+import { quemDoAtor, track } from "@/server/analytics/client";
 
 export type CredencialListada = {
   id: string;
@@ -65,5 +66,9 @@ export async function createApiKey(ctx: ContextoMembro, nome: string, escopos: E
     p_ator: atorJson(ctx.ator),
   });
   if (error) throw error;
+  track("contrata_chave_criada", {
+    quem: quemDoAtor(ctx.ator, ctx.empresa.id), chave: data as string,
+    propriedades: { escopos },
+  });
   return { id: data as string, valor: k.valor };
 }

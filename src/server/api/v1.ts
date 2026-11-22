@@ -8,6 +8,7 @@ import type { Escopo } from "@/lib/limits";
 import { requireCredencial, type ContextoCredencial } from "@/server/auth/credential";
 import { errorResponse } from "@/server/http";
 import { deliverDueLater } from "@/server/webhooks/deliver";
+import { trackApiCall } from "@/server/analytics/client";
 
 export const LIMITE_PADRAO = 50;
 export const LIMITE_MAX = 200;
@@ -16,14 +17,17 @@ export const LIMITE_MAX = 200;
 export async function apiRoute(req: NextRequest, escopo: Escopo, fn: (ctx: ContextoCredencial) => Promise<Response>): Promise<Response> {
   const ctx = await requireCredencial(req, ["api"], escopo);
   if (ctx instanceof Response) return ctx;
+  let res: Response;
   try {
-    return await fn(ctx);
+    res = await fn(ctx);
   } catch (e) {
-    return errorResponse(e);
-  } finally {
-    // Toda escrita pode ter gerado evento com webhook (8.8): entrega as vencidas da empresa.
-    if (escopo !== "leitura") deliverDueLater(ctx.empresa.id);
+    res = errorResponse(e);
   }
+  // Toda escrita pode ter gerado evento com webhook (8.8): entrega as vencidas da empresa.
+  if (escopo !== "leitura") deliverDueLater(ctx.empresa.id);
+  // Evento de produto (seção 21), amostrado por credencial; a chave é da empresa.
+  trackApiCall(ctx.credencial.id, { empresa: ctx.empresa.id }, new URL(req.url).pathname, res.status, "v1");
+  return res;
 }
 
 // Lê o cursor opaco (base64url de {o: deslocamento}); inválido volta ao começo. Serve à API e ao MCP.

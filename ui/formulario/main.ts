@@ -399,7 +399,10 @@ $<HTMLFormElement>("form").addEventListener("submit", async (ev) => {
   if ((estado.fase as string) !== "salvando") return;
   let resposta: RespostaSalvar;
   try {
-    const r = await app.callServerTool({ name: `salvar_${form.acao}`, arguments: valoresVisiveis(form.campos, estado.valores) });
+    // __editado: a pessoa mudou algo do que o agente preencheu (só para o evento de produto, seção 21).
+    const valores = valoresVisiveis(form.campos, estado.valores);
+    const editado = JSON.stringify(valores) !== JSON.stringify(valoresVisiveis(form.campos, form.valores));
+    const r = await app.callServerTool({ name: `salvar_${form.acao}`, arguments: { ...valores, __editado: editado } });
     resposta = (r.structuredContent as RespostaSalvar | undefined) ?? { ok: false, erros: [{ campo: null, mensagem: t.inesperado }] };
   } catch {
     resposta = { ok: false, erros: [{ campo: null, mensagem: t.inesperado }] };

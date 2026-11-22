@@ -12,6 +12,7 @@ import { conviteMembro } from "@/server/email/templates";
 import { enqueue } from "@/server/email/outbox";
 import { DomainError } from "@/server/http";
 import { atorJson } from "./actor";
+import { quemDoAtor, track } from "@/server/analytics/client";
 
 export type MembroDaEquipe = {
   id: string;
@@ -100,6 +101,10 @@ export async function inviteMember(ctx: ContextoMembro, input: z.infer<typeof co
   });
   if (error) throw error;
   await sendInviteEmail(ctx, data as string, input.email, input.papel, token);
+  track("contrata_membro_convidado", {
+    quem: quemDoAtor(ctx.ator, ctx.empresa.id), chave: data as string,
+    propriedades: { papel: input.papel as "administrador" | "recrutador" | "avaliador", limitado_por_area: !input.todas_areas },
+  });
   return data as string;
 }
 

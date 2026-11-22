@@ -18,6 +18,7 @@ import { atorDoFormulario } from "@/server/org/actor";
 import { bloqueio, comoResultado, erro, erroDoDominio, resposta, type ToolContext } from "../kit";
 import { conferirTokenDePrevia, emitirTokenDePrevia } from "../preview-token";
 import { FORMULARIO_URI } from "../ui";
+import { track } from "@/server/analytics/client";
 
 // Contexto de um formulário: o membro (8.1) mais os escopos efetivos da conexão (11.16). O papel
 // não basta: um administrador conectado só com leitura não pode o que exige escrita.
@@ -67,7 +68,9 @@ export function registrarFormulario<S extends z.ZodObject>(server: McpServer, ct
   const opcoesNome = `opcoes_${def.acao}`;
   // O SDK não infere o tipo de um schema genérico (como no Agenda Psi); a validação em tempo de
   // execução é a do zod, em validar().
-  const schemaSalvar = def.schema as unknown as z.ZodObject<z.ZodRawShape>;
+  // `__editado`: o formulário diz se a pessoa mudou algo do que o agente preencheu (só para o
+  // evento de produto, seção 21); sai antes da validação.
+  const schemaSalvar = (def.schema as unknown as z.ZodObject<z.ZodRawShape>).extend({ __editado: z.boolean().optional() });
 
   if (ctx.ui !== "nao") {
     registerAppTool(
@@ -103,10 +106,13 @@ export function registrarFormulario<S extends z.ZodObject>(server: McpServer, ct
       async (args: unknown) => {
         const b = guarda();
         if (b) return erro(b);
-        const v = validar(def.schema, args);
+        const { __editado, ...resto } = (args ?? {}) as Record<string, unknown>;
+        const v = validar(def.schema, resto);
         if (!v.ok) return comoResultado(v.r);
         // Quem clicou é a pessoa: o ator é o membro, com origem "formulario" (11.34).
-        return comoResultado(await gravarComTratamento(def, v.dados, { ...membro, ator: atorDoFormulario(membro.ator) }));
+        const r = await gravarComTratamento(def, v.dados, { ...membro, ator: atorDoFormulario(membro.ator) });
+        if (r.ok) track("contrata_formulario_salvo", { quem: { membro: membro.membro.id }, propriedades: { acao: def.acao, fallback: false, editado: __editado === true } });
+        return comoResultado(r);
       },
     );
   }
@@ -141,7 +147,9 @@ export function registrarFormulario<S extends z.ZodObject>(server: McpServer, ct
         if (conferencia === "divergente") return erro("previa_divergente");
         if (conferencia !== "ok") return erro("previa_invalida");
         // Sem formulário, quem grava é o agente, depois de a pessoa concordar na conversa.
-        return comoResultado(await gravarComTratamento(def, v.dados, membro));
+        const r = await gravarComTratamento(def, v.dados, membro);
+        if (r.ok) track("contrata_formulario_salvo", { quem: { membro: membro.membro.id }, propriedades: { acao: def.acao, fallback: true, editado: false } });
+        return comoResultado(r);
       },
     );
   }

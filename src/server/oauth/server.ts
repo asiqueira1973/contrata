@@ -9,6 +9,7 @@ import { OAUTH_CLIENTE_NOME_MAX, OAUTH_CODIGO_SEGUNDOS, OAUTH_REDIRECT_URIS_MAX,
 import { hashToken } from "@/server/auth/tokens";
 import { generateCredential } from "@/server/credentials/keys";
 import { db } from "@/server/db/client";
+import { track } from "@/server/analytics/client";
 
 // Origem pública do site (emissor e recurso).
 export function siteOrigin(): string {
@@ -105,5 +106,17 @@ export async function exchangeCode(code: string, clientId: string, redirectUri: 
     p_token_prefixo: token.prefixo,
   });
   if (error) throw error;
+  if (data) {
+    const credencial = data as string;
+    track("contrata_mcp_conectado", {
+      quem: { credencial }, chave: credencial,
+      // O nome do cliente OAuth (ex.: "Claude") e os escopos dados; nada da pessoa.
+      propriedades: async () => {
+        const { data: c } = await db().from("rs_credenciais").select("escopos, cliente:oauth_cliente_id(nome)").eq("id", credencial).maybeSingle();
+        if (!c) return null;
+        return { cliente: ((c.cliente as { nome: string } | null)?.nome ?? "MCP").slice(0, 60), escopos: c.escopos ?? [] };
+      },
+    });
+  }
   return data ? token.valor : null;
 }

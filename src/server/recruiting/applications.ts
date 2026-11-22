@@ -30,6 +30,7 @@ import { CamposInvalidos, DomainError } from "@/server/http";
 import { atorJson, type Ator } from "@/server/org/actor";
 import { deliverDueLater } from "@/server/webhooks/deliver";
 import { urlDoLogo } from "@/server/files/logo";
+import { track } from "@/server/analytics/client";
 
 type Origem = Database["public"]["Enums"]["rs_origem_candidatura"];
 type Situacao = Database["public"]["Enums"]["rs_situacao_candidatura"];
@@ -92,6 +93,9 @@ export function versaoDoAviso(extra: string | null): string {
 }
 
 const linkDoCandidato = (token: string) => urlDoToken(token);
+
+// Dias (com fração) desde uma data, para os eventos de produto (seção 21).
+export const diasDesde = (iso: string) => Math.max(0, Math.round(((Date.now() - new Date(iso).getTime()) / 86_400_000) * 10) / 10);
 
 // Versão atual do link de uma candidatura (0 até alguém girar).
 async function versaoDoLink(empresaId: string, candidaturaId: string): Promise<number> {
@@ -162,6 +166,7 @@ export async function applyToJob(p: {
       { onConflict: "empresa_id,versao", ignoreDuplicates: true });
   }
   const criada = await chamaCria(p.empresa, vaga.id, e, r.respostas, p.origem, p.ator, versao, e.talentos, generateToken().hash, e.convite);
+  if (!criada.existente) track("contrata_candidatura_iniciada", { quem: { candidatura: criada.id }, chave: criada.id, propriedades: {} });
   if (criada.existente && criada.recebida) {
     // 11.3: não muda nada; gira o link e manda de novo.
     const url = await giraLink(p.empresa.id, criada.id);
@@ -205,13 +210,13 @@ async function contaTentativa(chave: string, tipo: "candidatura" | "links" | "li
 
 // ---------------------------------------------------------------- concluir (9.2)
 type CandidaturaParaConcluir = {
-  id: string; origem: Origem; recebida_em: string | null; vaga: { titulo: string }; candidato: { nome: string; email: string | null };
+  id: string; origem: Origem; recebida_em: string | null; criado_em: string; talentos_pedido: boolean; vaga: { titulo: string }; candidato: { nome: string; email: string | null };
 };
 
 async function candidaturaDaEmpresa(empresaId: string, id: string): Promise<CandidaturaParaConcluir | null> {
   if (!z.uuid().safeParse(id).success) return null;
   const { data, error } = await db().from("rs_candidaturas")
-    .select("id, origem, recebida_em, vaga:vaga_id(titulo), candidato:candidato_id(nome, email)")
+    .select("id, origem, recebida_em, criado_em, talentos_pedido, vaga:vaga_id(titulo), candidato:candidato_id(nome, email)")
     .eq("empresa_id", empresaId).eq("id", id).maybeSingle();
   if (error) throw error;
   return data as unknown as CandidaturaParaConcluir | null;
@@ -273,6 +278,13 @@ async function conclui(empresa: EmpresaDaCandidatura, c: CandidaturaParaConcluir
   if (r.ja_recebida) return { recebida: true };
   if (r.notificacao_id) await deliverLater(r.notificacao_id, empresa.nome);
   deliverDueLater(empresa.id); // candidatura.criada (8.8)
+  track("contrata_candidatura_enviada", {
+    quem: { candidatura: c.id }, chave: c.id,
+    propriedades: {
+      origem: c.origem, com_curriculo: !!arquivo, talentos: c.talentos_pedido,
+      segundos_no_formulario: Math.max(0, Math.round((Date.now() - new Date(c.criado_em).getTime()) / 1000)),
+    },
+  });
   if (r.arquivo_id && arquivo && bytes) {
     const arquivoId = r.arquivo_id;
     const tipo = arquivo.mime === CURRICULO_TIPOS.docx ? "docx" : "pdf";
@@ -371,6 +383,7 @@ export async function requestReview(token: string, texto: unknown): Promise<void
   const { data: vagaId, error } = await db().rpc("rs_fn_pede_revisao", { p_candidatura: c.id, p_texto: t || (null as never) });
   if (error) throw error;
   deliverDueLater(c.empresa.id); // revisao.pedida (8.8)
+  track("contrata_revisao_pedida", { quem: { candidatura: c.id }, chave: c.id, propriedades: {} });
   // Quem recebe: o responsável da vaga; sem ele, os administradores ativos.
   const { data: resp } = await db().from("rs_vaga_equipe").select("membro_id, membro:membro_id(empresa_id, removido_em, usuario_id)")
     .eq("vaga_id", vagaId as string).eq("papel_na_vaga", "responsavel");
@@ -414,6 +427,10 @@ export async function withdraw(token: string): Promise<void> {
   const id = (data as { notificacao_id: string | null }).notificacao_id;
   if (id) await deliverLater(id, c.empresa.nome);
   deliverDueLater(c.empresa.id); // candidatura.desistiu (8.8)
+  track("contrata_candidatura_encerrada", {
+    quem: { candidatura: c.id }, chave: c.id,
+    propriedades: { situacao: "desistiu", origem: "pagina", dias_ate_encerrar: diasDesde(c.recebida_em) },
+  });
 }
 
 // Baixar meus dados (14.2): a pessoa nesta empresa e todas as candidaturas dela aqui, com o
@@ -517,6 +534,7 @@ export async function deleteData(token: string, codigo: unknown): Promise<{ empr
   if (e2) throw e2;
   const lista = (paths as string[] | null) ?? [];
   deliverDueLater(c.empresa.id); // candidatura.anonimizada (8.8)
+  track("contrata_dados_excluidos", { quem: { candidatura: c.id }, chave: c.id, propriedades: {} });
   await afterResponse(async () => {
     for (const path of lista) {
       try {

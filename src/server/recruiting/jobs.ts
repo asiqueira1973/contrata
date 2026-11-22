@@ -12,6 +12,8 @@ import type { Database } from "@/server/db/types";
 import { CamposInvalidos, DomainError } from "@/server/http";
 import { atorJson, type Ator } from "@/server/org/actor";
 import type { Alcance } from "@/server/org/scope";
+import { quemDoAtor, track } from "@/server/analytics/client";
+import { origemDoAtor } from "@/server/analytics/events";
 
 type Enums = Database["public"]["Enums"];
 export type StatusVaga = Enums["rs_status_vaga"];
@@ -226,7 +228,9 @@ export async function createJob(ctx: ContextoVagas, dados: VagaEntrada, chave: s
     erroDoBanco(error);
   }
   invalidarPaginas(ctx.empresa.slug);
-  return data as { id: string; criada: boolean };
+  const r = data as { id: string; criada: boolean };
+  if (r.criada) track("contrata_vaga_criada", { quem: quemDoAtor(ctx.ator, ctx.empresa.id), chave: r.id, propriedades: { origem: origemDoAtor(ctx.ator) } });
+  return r;
 }
 
 // Grava a vaga inteira (salvar_vaga, PATCH e PUT da API). `partes` diz o que regravar além dos
@@ -251,10 +255,12 @@ export async function saveJob(ctx: ContextoVagas, id: string, dados: VagaEntrada
 // Muda o status (12.1). Publicar confere antes o que falta pela 11.1, campo por campo; o banco
 // confere de novo. Encerrar exige motivo; com candidatura ativa, o banco recusa (vaga_com_ativas).
 export async function transitionJob(ctx: ContextoVagas, id: string, para: StatusVaga, motivo: MotivoEncerramento | null = null) {
+  let publicada: VagaDetalhe | null = null;
   if (para === "publicada") {
     const v = await getJob(ctx, id);
     const faltas = faltasParaPublicar(v);
     if (faltas.length) throw new CamposInvalidos(faltas);
+    if (v.status !== "publicada") publicada = v;
   }
   const { error } = await db().rpc("rs_fn_transicao_vaga", {
     p_vaga: id,
@@ -267,6 +273,18 @@ export async function transitionJob(ctx: ContextoVagas, id: string, para: Status
   });
   if (error) erroDoBanco(error);
   invalidarPaginas(ctx.empresa.slug);
+  if (publicada) {
+    const v = publicada;
+    // Chave com a data: republicar depois de pausar é outro evento (o ingest deduplica pelo id).
+    track("contrata_vaga_publicada", {
+      quem: quemDoAtor(ctx.ator, ctx.empresa.id), chave: `${v.id}:${new Date().toISOString()}`,
+      propriedades: {
+        origem: origemDoAtor(ctx.ator), modelo_trabalho: v.modelo_trabalho as "presencial" | "hibrido" | "remoto", regime: v.regime,
+        perguntas: v.perguntas.length, etapas: v.etapas.length, mostra_salario: v.mostrar_salario, tem_area: !!v.area,
+        dono_sem_acesso: !!v.dono && !v.dono.com_acesso,
+      },
+    });
+  }
 }
 
 // Resumo do funil (resumo_da_vaga, GET /vagas/{id}/resumo): candidaturas ativas por etapa,
