@@ -3,7 +3,7 @@
 Descreve o que está **de fato** implementado, na ordem da seção 19 do `spec.md` (v0.4). Toda mudança de schema, trigger, rota, ferramenta ou lógica de tela atualiza este documento no mesmo commit.
 
 ## Estado (21/11/2026)
-Épicos 8.0 (guardrails), 8.1 (fundação), 8.2 (o conector), 8.3 (vagas e página de carreiras), 8.4 (candidatura e link de acompanhamento), 8.5 (funil: etapas, avaliações, notas e busca) e **8.6 (decisões, devolutivas e mensagens)** concluídos no local, com as migrations no remoto (pelo `apply_migration`, mesmo SQL dos arquivos; nenhuma função `rs_` exposta a `anon`/`authenticated`). **Spec v0.4.7: sistema para agentes, sem painel.** Quem recruta conecta o Contrata no Claude ou no ChatGPT (`{site}/mcp`) e, pelo chat, administra a equipe e cria, edita, publica, pausa e encerra vagas; a vaga publicada aparece na página de carreiras, no feed, no sitemap e na API pública. A pessoa se candidata pela página da vaga (upload direto do currículo), acompanha pelo link `/c/{token}` que recebe por e-mail, retira a candidatura, baixa e exclui os dados; a empresa inclui candidatos pelo chat (`adicionar_candidato`) ou pela API v1, e conduz o funil conversando: lista, busca, lê currículos, anota, move de etapa em lote, exporta o CSV, e cada avaliador registra a própria avaliação pelo formulário sem ver a dos outros antes. Pendentes, com o Alexandre: projeto e DNS de vagaaberta.app.br na Vercel, cliente OAuth do Google, bucket R2 e, com eles, o teste no Claude, no ChatGPT, no Teste de Pesquisa Aprimorada do Google e o e-mail real pelo Resend. Reprovar, contratar, encerrar a vaga com pessoas em andamento e reabrir só acontecem com o clique de alguém da equipe no formulário de decisões; integrações e clientes sem formulário criam propostas, que a equipe confirma ou descarta. Toda reprovação leva devolutiva; mensagens saem de modelos editáveis; o candidato pode pedir revisão pelo link. Banco de talentos chega no 8.7.
+Épicos 8.0 (guardrails), 8.1 (fundação), 8.2 (o conector), 8.3 (vagas e página de carreiras), 8.4 (candidatura e link de acompanhamento), 8.5 (funil: etapas, avaliações, notas e busca), 8.6 (decisões, devolutivas e mensagens) e **8.7 (banco de talentos)** concluídos no local, com as migrations no remoto (pelo `apply_migration`, mesmo SQL dos arquivos; nenhuma função `rs_` exposta a `anon`/`authenticated`). **Spec v0.4.8: sistema para agentes, sem painel.** Quem recruta conecta o Contrata no Claude ou no ChatGPT (`{site}/mcp`) e, pelo chat, administra a equipe e cria, edita, publica, pausa e encerra vagas; a vaga publicada aparece na página de carreiras, no feed, no sitemap e na API pública. A pessoa se candidata pela página da vaga (upload direto do currículo), acompanha pelo link `/c/{token}` que recebe por e-mail, retira a candidatura, baixa e exclui os dados; a empresa inclui candidatos pelo chat (`adicionar_candidato`) ou pela API v1, e conduz o funil conversando: lista, busca, lê currículos, anota, move de etapa em lote, exporta o CSV, e cada avaliador registra a própria avaliação pelo formulário sem ver a dos outros antes. Pendentes, com o Alexandre: projeto e DNS de vagaaberta.app.br na Vercel, cliente OAuth do Google, bucket R2 e, com eles, o teste no Claude, no ChatGPT, no Teste de Pesquisa Aprimorada do Google e o e-mail real pelo Resend. Reprovar, contratar, encerrar a vaga com pessoas em andamento e reabrir só acontecem com o clique de alguém da equipe no formulário de decisões; integrações e clientes sem formulário criam propostas, que a equipe confirma ou descarta. Toda reprovação leva devolutiva; mensagens saem de modelos editáveis; o candidato pode pedir revisão pelo link. O banco de talentos guarda só quem consentiu, com prazo: a equipe busca e convida para vagas novas, e a pessoa entra, renova ou sai pelo link. Webhooks e trilha chegam no 8.8.
 
 ---
 
@@ -37,6 +37,7 @@ Todas as tabelas `rs_*` existem desde o 8.1 (migration `20261120180000_rs_schema
 | `rs_notas` | (8.5) Notas internas: texto, `ator_tipo` (`membro`, `agente` em nome do membro ou `api`), membro e credencial |
 | `rs_decisoes` | (8.6) Propostas de decisão (reprovar, contratar, encerrar vaga, enviar mensagem) feitas pela API v1 ou pelo `propor_decisao`: `payload`, `justificativa`, quem propôs (tipo, membro, credencial), `status` (pendente, confirmada, descartada, expirada), quem decidiu, `expira_em` (7 dias). Uma pendente por alvo |
 | `rs_modelos_mensagem` | (8.6) Modelos personalizados pela empresa (os padrão ficam em `copy.modelos`); sem linha = padrão |
+| `rs_convites_talento` | (8.7) Convite do banco de talentos para uma vaga: pessoa, vaga, quem convidou, `expira_em` (30 dias), `usado_em`. O `id` vai no link (`?convite=`); o texto do e-mail não fica (20.3) |
 | `rs_mensagens` | Mensagens ao candidato. O corpo guarda `{{link_acompanhamento}}`, nunca o link resolvido (20.3) |
 | `rs_tentativas_publicas` | (8.4) Janela deslizante dos limites da 11.14: `chave_hash` (HMAC do IP ou do e-mail com `SESSION_SECRET`; o IP nunca é guardado), `tipo` (`candidatura`, `links`, `links_email`), `criado_em`. A faxina apaga as de mais de 24 h |
 | `rs_notificacoes` | Fila de e-mail idempotente: cada e-mail tem uma `chave_idempotencia` única; status `pendente` → `enviada` ou `falhou` |
@@ -144,6 +145,18 @@ Do 8.6, migration `20261122140000_rs_decisoes.sql`:
 | `rs_fn_pede_revisao` / `rs_fn_responde_revisao` | funções | `/c`, `salvar_resposta_revisao` | 11.13: uma vez, reprovada ou encerrada com a vaga, antes do expurgo; a resposta manda `resposta_revisao` e pode reabrir (só com membro) |
 | `rs_fn_faxina_decisoes(lote)` | função | `/api/cron/diario` | Pendentes vencidas viram expiradas (`decisao_expirada`, ator sistema) |
 
+Do 8.7, migration `20261122160000_rs_talentos.sql`:
+
+| Nome | Tipo | Quando roda | O que faz |
+|---|---|---|---|
+| `rs_convites_talento`, `rs_candidatos.talentos_avisado_em` | tabela e coluna | — | Convites (decisão 1 do 8.7); aviso de 30 dias uma vez por período |
+| `rs_fn_cria_candidatura` (refeita, com `p_convite` opcional) | função | candidatar | Convite desta empresa, desta vaga, desta pessoa e no prazo → origem `banco_talentos` e convite usado; convite que não vale não é erro |
+| `rs_fn_talento_no_alcance` | auxiliar | busca e convite | Alguma candidatura recebida da pessoa numa vaga do alcance; avaliador (equipe) nunca |
+| `rs_fn_busca_talentos(empresa, alcance, filtros, início, limite)` | função | `buscar_talentos`, `GET /talentos` | Consentimento válido, não anonimizado, no alcance; `q` no texto das candidaturas dela; `vaga_anterior` |
+| `rs_fn_convida_talento(empresa, candidato, vaga, alcance, ator)` | função | convidar | Vaga publicada do alcance, pessoa no banco e no alcance (`talento_indisponivel`); quem já é candidato volta `ja_candidato`; cria ou reaproveita o convite; `talentos_convidado` |
+| `rs_fn_talentos_candidato(candidatura, ação)` | função | `/c` | Entrar, renovar (por `talentos_meses`, zera o aviso) ou sair; eventos do titular |
+| `rs_fn_faxina_talentos(lote)` | função | `/api/cron/diario` | Tira quem venceu (`talentos_retirado`, sistema) e devolve quem vence em até 30 dias, marcando o aviso |
+
 ---
 
 ## 4. Mapas
@@ -190,6 +203,7 @@ Formulários: cada um registra `abrir_formulario_<acao>` (modelo), `opcoes_<acao
 | `mensagem` | modelo ou texto livre, com as variáveis da 11.29 | recrutador, `escrita` | sim |
 | `modelos_mensagem` | editar, criar, voltar ao padrão; prévia com dados fictícios | recrutador, `escrita` | sim |
 | `resposta_revisao` | responder o pedido de revisão e, opcionalmente, reabrir (reabrir exige também o escopo `decisao`) | recrutador, `escrita` | sim, **sem reabrir** (`soNoFormulario`) |
+| `convidar_para_vaga` | pessoas do banco de talentos (só as válidas, no alcance), vaga publicada e o texto do modelo `convite_vaga`; não cria candidatura | recrutador, `escrita` | sim |
 | `conexoes` | revogar a própria conexão (basta `leitura`); revogar credencial de outro e criar chave de API (administrador **com conexão de `escrita`**; a chave nova tem no máximo os escopos da conexão) | qualquer membro, `leitura` | **não**: a chave só aparece no `structuredContent.segredo` do `salvar_conexoes`, nunca no texto |
 
 ### Ação → domínio → portas
@@ -225,6 +239,7 @@ Formulários: cada um registra `abrir_formulario_<acao>` (modelo), `opcoes_<acao
 | Mensagem ao candidato (11.8) | `recruiting/messages.sendMessage`, `sendMessageFromApi` | — | `POST /candidaturas/{id}/mensagens` (201 direto ou 202 proposta) | `salvar_mensagem`, `registrar_mensagem` |
 | Modelos de mensagem | `messages/templates.listTemplates`; `recruiting/messages.saveTemplate`, `resetTemplate`, `previewTemplate` | — | `GET /modelos-mensagem` | `listar_modelos_mensagem`, `salvar_modelos_mensagem` |
 | Pedir e responder revisão (11.13) | `recruiting/applications.requestReview`; `recruiting/messages.respondReview` | `POST /api/c/{token}/revisao` | — | `salvar_resposta_revisao` |
+| Banco de talentos (8.7) | `recruiting/talents.searchTalents`, `inviteTalents`, `talentAction`, `expiringTalentsDigest` | `/c/{token}` (`POST /api/c/{token}/talentos`), candidatura com `?convite=` | `GET /talentos`, `POST /talentos/{id}/convidar` | `buscar_talentos`, `salvar_convidar_para_vaga` |
 | Avaliar (11.9) | `recruiting/pipeline.registerEvaluation` | — | — (a API não avalia) | `salvar_avaliacao` |
 | Exportar CSV (14.1) | `recruiting/pipeline.exportApplications` | — | — | `exportar_candidaturas` |
 | Pausar vencidas (faxina) | `recruiting/jobs.pauseExpiredJobs` via `server/cron.runDailyCleanup` | `GET /api/cron/diario` (`CRON_SECRET`) | — | — |
@@ -247,6 +262,7 @@ Guardiões: `requireUsuario` (páginas web com sessão) e `requireCredencial(req
 - **Armazenamento:** `src/server/files/storage.ts` (`ArquivoStorage`, do Assina). Com `S3_*`, o driver S3 (R2 por padrão); sem, o local em `.armazenamento-local/`, servido pela rota de desenvolvimento com HMAC do `SESSION_SECRET` (404 em produção ou com S3). A origem do `S3_ENDPOINT` entra na CSP (`connect-src`, `img-src`, `frame-src`).
 - **Decisões (8.6):** decidir só acontece por `rs_fn_decide` ou `rs_fn_confirma_decisao`, e as duas recusam ator que não seja membro: o clique no formulário. A API v1 e o `propor_decisao` (registrado só quando o cliente não mostra formulários) criam proposta e respondem com a copy da 15.2. Cada item do lote roda à parte (até 50): o que falha volta marcado no item e não desfaz os outros. O texto ao candidato é montado no servidor (`recruiting/messages.montarMensagem`): variáveis da 11.29 (`{{recrutador}}` = quem envia, ou o responsável da vaga quando age agente ou integração), a versão guardada mantém `{{link_acompanhamento}}` e o e-mail leva o link. Os e-mails saem depois do commit, pela chave da notificação. Mensagens pela API seguem `rs_empresas.mensagens_agente` (`confirmar`, padrão, vira proposta; `direto` manda, até 200 por dia vindas de chaves). Faxina: expira as vencidas e manda `decisoes_pendentes` a cada recrutador ou administrador que enxerga alguma pendente há mais de 24 h (uma vez por dia).
 - **Link do candidato (8.6):** `messages/link.ts`. O token é `HMAC(LINK_CANDIDATO_SECRET, "{candidatura}:{versão}")`; no banco, só o hash. Todo e-mail recalcula o link. "Perdi o link" e a duplicada giram a versão (`rs_fn_troca_link`). Candidatura com hash que não é o derivado (de antes do 8.6) gira para o derivado antes do e-mail, para o link enviado funcionar.
+- **Banco de talentos (8.7):** só aparece quem consentiu e está no prazo, não anonimizado e com alguma candidatura numa vaga do alcance (o avaliador não usa). `buscar_talentos` traz as candidaturas anteriores (para o `ler_curriculo`) e nunca e-mail ou telefone. O convite sai pela fila com o link `/{empresa}/vagas/{slug}/candidatar?convite={id}` e, embaixo, por que a pessoa recebe e o link de acompanhamento para sair do banco. O formulário de candidatura manda o `convite` lido da URL; o banco decide se vale. Faxina: tira quem venceu e manda `talentos_expirando` (link do `/c` para renovar) uma vez, a quem vence em até 30 dias.
 - **Funil (8.5):** toda leitura passa por `rs_fn_lista_candidaturas` ou pela vaga (`getJob`, que some com o que está fora do alcance). A visão do avaliador (alcance `equipe`) segue a 11.9: as avaliações dos outros numa etapa só aparecem depois que ele registra a dele nessa etapa, e as notas só depois que ele avalia a etapa atual; no lugar, `avaliacoes_ocultas` e o aviso da 15.2. Recrutador, administrador e a API veem tudo. O texto escrito pelo candidato (respostas e currículo) vai ao modelo dentro de `conteudo_do_candidato`, com o aviso de que é dado, não instrução (20.3). O CSV (14.1) sai com BOM, `;` e datas de Brasília; célula que começa com `=`, `+`, `-` ou `@` ganha um apóstrofo (para a planilha não executar texto do candidato); o arquivo fica em `exportacoes/{dia}/{empresa}/` e a faxina apaga as pastas dos 7 dias anteriores.
 - **Faxina** (`/api/cron/diario`, `vercel.json` às 9h UTC = 6h em Brasília): `Bearer CRON_SECRET` comparado em tempo constante; lotes de 200 até ~45 s; log só com contagens.
 - **E-mails do candidato (8.4):** `candidatura_recebida` (e a versão manual "{empresa} incluiu você…"), desistência, links reenviados e código de exclusão; mesmo remetente e `reply-to` da empresa, com o rodapé da 15.4. O link `/c` só existe no envio: o corpo guardado tem o placeholder (20.3).
@@ -260,7 +276,7 @@ Resumo do README (o guia completo entra no 8.12): Supabase com as migrations de 
 
 ## 7. Divergências em relação ao spec
 
-Todas já refletidas no `spec.md` (v0.4.7).
+Todas já refletidas no `spec.md` (v0.4.8).
 
 1. **Clone e use (decisão do Alexandre, 20/11/2026):** saiu o pedido de convite da instância e os limites de SaaS; quem cria empresa é a lista `CRIACAO_EMPRESA_EMAILS` (11.33 reescrita).
 2. **Funções do banco por épico:** cada épico cria as funções que usa, com o pgTAP delas.
@@ -334,3 +350,8 @@ Todas já refletidas no `spec.md` (v0.4.7).
    - filtro por empresa em todas as consultas novas;
    - o aviso de revisão cai para os administradores quando o responsável foi removido.
 65. **Cota de mensagens diretas da API** conta só as de chaves (`ator_tipo = 'api'`), como diz a 11.8; tokens do conector não mandam mensagem pela API v1 (a API só aceita chaves).
+66. **Convite do banco de talentos numa tabela própria** (`rs_convites_talento`, 30 dias, uso único; convidar de novo reaproveita): o spec só dizia `?convite={id}`. A candidatura pelo link vira `banco_talentos` só com o mesmo e-mail; convite de outra pessoa ou vencido não é erro, a candidatura segue como `pagina`.
+67. **O link do convite vai direto para o formulário** (`/candidatar?convite=`), para o parâmetro não se perder na página da vaga.
+68. **Alcance do banco de talentos:** como todo consentimento nasce de uma candidatura, vale "se candidatou a alguma vaga do alcance"; o caso "consentiu sem vaga" da 11.32 não existe aqui.
+69. **No `/c`, quem não está no banco pode entrar** ("Entrar no banco de talentos", com o texto da caixa do formulário), além de renovar e sair (15.1).
+70. **Pendente:** modelo com `{{link_agenda}}` vazio (recrutador sem link de agenda) deixa "por aqui: ." no texto. O formulário de mensagem mostra o texto antes; o ajuste da copy fica para o 8.9 (configurações).
