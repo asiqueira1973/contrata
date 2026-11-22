@@ -5,7 +5,7 @@ O código cumpre os critérios de 8.0 a 8.12 no local, com `npm run verify` verd
 ## 1. Publicar a instância oficial
 - [ ] Repositório público no GitHub (`asiqueira1973/contrata`, ou o nome definitivo; se mudar, troque `URL_CODIGO` em `src/lib/copy.ts` e o `git clone` do README).
 - [ ] Projeto na Vercel ligado ao repositório, com o domínio `vagaaberta.app.br` (DNS apontado e HTTPS emitido).
-- [ ] Variáveis de Production, todas as da tabela do README. Na instância oficial: `NEXT_PUBLIC_SITE_URL=https://vagaaberta.app.br`, `EMAIL_REMETENTE=naoresponda@vagaaberta.app.br`, `OPERADOR_NOME` (DabLab, razão social do `LICENSE`), `OPERADOR_CONTATO`, `CRIACAO_EMPRESA_EMAILS` com o seu e-mail e `CHAVES_ENC_KEY` gerada na hora.
+- [ ] Variáveis de Production, todas as da tabela do README. Na instância oficial: `NEXT_PUBLIC_SITE_URL=https://vagaaberta.app.br`, `EMAIL_REMETENTE=naoresponda@vagaaberta.app.br`, `OPERADOR_NOME` (DabLab, razão social do `LICENSE`), `OPERADOR_CONTATO`, `CRIACAO_EMPRESA_EMAILS` com o seu e-mail, `CHAVES_ENC_KEY` gerada na hora, `ADMIN_EMAIL` (recebe os alertas da instância) e, se o plano do Supabase não for o gratuito, `ALERTA_BANCO_LIMITE_MB` com o tamanho do plano (no projeto compartilhado, o banco inteiro conta).
 - [ ] Cliente OAuth do Google com o redirect `https://vagaaberta.app.br/api/auth/google/callback`.
 - [ ] Bucket R2 privado, token restrito ao bucket e CORS de `PUT` para `https://vagaaberta.app.br`.
 - [ ] Domínio verificado no Resend (SPF, DKIM, DMARC).

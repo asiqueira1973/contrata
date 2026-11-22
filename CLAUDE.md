@@ -2,14 +2,14 @@
 
 Nome público: **Vaga Aberta** (vagaaberta.app.br, spec 25.1), sempre pela variável `NEXT_PUBLIC_NOME_PRODUTO` / `NOME_PRODUTO` do `copy.ts`, nunca escrito à mão. Repositório, pasta, bucket, banco (`rs_*`), prefixos das chaves, eventos `contrata_*` e cabeçalhos `X-Contrata-*` mantêm o nome de trabalho de propósito.
 
-Fonte única de verdade: `spec.md` (v0.4.11). Planos aprovados: `plans/`. Os princípios da seção 0 desempatam dúvidas. Itens da seção 25 → **pare e pergunte**. Referências: `~/assina` (login, R2, Resend, webhooks, OAuth) e `~/agenda-psi/mcp-server` (MCP Apps, formulários, fallback com prévia). Leia antes de reinventar. Mudou schema, rota, ferramenta ou tela → atualize `DOCUMENTACAO-TECNICA.md`, este arquivo e o README no mesmo commit.
+Fonte única de verdade: `spec.md` (v0.4.13). Planos aprovados: `plans/`. Os princípios da seção 0 desempatam dúvidas. Itens da seção 25 → **pare e pergunte**. Referências: `~/assina` (login, R2, Resend, webhooks, OAuth) e `~/agenda-psi/mcp-server` (MCP Apps, formulários, fallback com prévia). Leia antes de reinventar. Mudou schema, rota, ferramenta ou tela → atualize `DOCUMENTACAO-TECNICA.md`, este arquivo e o README no mesmo commit.
 
 ## Regra de ouro
 Se um teste falhar, corrija o código, não o teste; nunca pule nem apague teste que falha.
 Bug: teste que reproduz → ver falhar → commit → `touch .claude/fix-mode` → corrigir → `rm .claude/fix-mode`.
 
 ## Estado
-Spec **v0.4.12: um sistema para agentes, não para humanos**. Quem recruta opera pelo Claude ou pelo ChatGPT; não há painel. Clone e use: quem cria empresa é `CRIACAO_EMPRESA_EMAILS` (11.33). Épicos 8.0 a 8.12 concluídos no local, com as migrations no remoto (22/11/2026). Pendentes, com o Alexandre, em `docs/entrega.md`: Vercel e DNS de vagaaberta.app.br, cliente OAuth do Google, bucket R2, Resend e, com eles, os fluxos 9.1–9.3 no Claude e no ChatGPT, o Teste de Pesquisa Aprimorada e a auto-hospedagem de teste.
+Spec **v0.4.13: um sistema para agentes, não para humanos**. Quem recruta opera pelo Claude ou pelo ChatGPT; não há painel. Clone e use: quem cria empresa é `CRIACAO_EMPRESA_EMAILS` (11.33). Épicos 8.0 a 8.12 concluídos no local, com as migrations no remoto (22/11/2026). Pendentes, com o Alexandre, em `docs/entrega.md`: Vercel e DNS de vagaaberta.app.br, cliente OAuth do Google, bucket R2, Resend e, com eles, os fluxos 9.1–9.3 no Claude e no ChatGPT, o Teste de Pesquisa Aprimorada e a auto-hospedagem de teste.
 
 ## Como uma ação nova entra (padrão do 8.2)
 1. Função de domínio em `src/server/<área>/` com `ator` e, se lê candidaturas, `alcance`.
@@ -107,3 +107,4 @@ Spec **v0.4.12: um sistema para agentes, não para humanos**. Quem recruta opera
 - Apagar arquivo do bucket depois que o banco esqueceu: em falha, anote em `rs_arquivos_a_apagar` (como `purgeExpired`).
 - Resumo que vai por e-mail: só contagens por vaga, nunca nome de candidato.
 - **Analytics (8.11):** evento novo = entrada em `EVENT_SCHEMAS` (esquema `.strict()`, só enums, números e booleanos) e em `EVENT_SCREENS`, e um `track()` no domínio depois do sucesso, com `quem` (`quemDoAtor`) e `chave` (id do registro). Nunca nome, e-mail, título, texto ou slug em propriedade; os nomes `contrata_*` não mudam. Teste com `setAnalyticsSinkForTests` + `flushAnalytics`.
+- **Alertas (v0.4.13):** alerta a quem hospeda só por `alerts/instance.ts` (fila com chave por dia, `empresa_id` nulo, nunca lança, nada pessoal: ids, passos, códigos, tamanhos). Sem `ADMIN_EMAIL`, nada sai. Passo novo da faxina que falha já entra no alerta (`falhas` em `runDailyCleanup`).

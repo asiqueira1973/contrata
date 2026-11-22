@@ -180,6 +180,10 @@ export const TEXTO_EXTRAIDO_MAX = 100_000;
 export const CANDIDATURAS_POR_IP_HORA = 10;
 export const CANDIDATURAS_POR_VAGA_MAX = 10_000;
 export const USO_EMPRESA_MAX_BYTES = 5 * 1024 ** 3;
+// Alerta de banco (23.1): ao ADMIN_EMAIL acima de 70% do plano. O plano vem de ALERTA_BANCO_LIMITE_MB;
+// sem ela, 500 MB (o plano gratuito do Supabase).
+export const ALERTA_BANCO_LIMITE_MB_PADRAO = 500;
+export const ALERTA_BANCO_FRACAO = 0.7;
 export const LINKS_POR_IP_HORA = 5;
 export const LINKS_POR_EMAIL_HORA = 3;
 // Código de exclusão (11.13): 6 dígitos, 10 min, 5 tentativas; 1 por minuto e 5 por hora.

@@ -15,7 +15,8 @@ import { mailer } from "./mailer";
 
 type Tipo = Database["public"]["Enums"]["rs_tipo_notificacao"];
 export type NovaNotificacao = {
-  empresaId: string;
+  // Sem empresa: alerta da instância ao ADMIN_EMAIL (v0.4.13).
+  empresaId?: string;
   candidaturaId?: string;
   tipo: Tipo;
   destinatario: string;
@@ -86,7 +87,7 @@ export async function enqueue(n: NovaNotificacao): Promise<string | null> {
     .from("rs_notificacoes")
     .upsert(
       {
-        empresa_id: n.empresaId,
+        empresa_id: n.empresaId ?? null,
         candidatura_id: n.candidaturaId ?? null,
         tipo: n.tipo,
         destinatario: n.destinatario,

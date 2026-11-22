@@ -1,12 +1,14 @@
 // Faxina diária (8.10; regra 11.11), chamada 1×/dia pelo cron da Vercel, na ordem da 8.10:
 // convites vencidos → propostas → vagas vencidas → expurgo de candidaturas → expurgo de empresas →
 // uploads não concluídos → banco de talentos → resumo diário → às segundas, resumo semanal aos
-// donos sem acesso → retentativa de e-mails e webhooks → notificações antigas → CSVs velhos.
+// donos sem acesso → retentativa de e-mails e webhooks → notificações antigas → CSVs velhos →
+// alerta de banco acima de 70% do plano (23.1) → alerta dos passos que falharam (18), ao ADMIN_EMAIL.
 // Lotes de 200 até ~45 s; o que sobrar fica para o dia seguinte e vai no log (`sobrou`); um passo que
 // falha não derruba os outros (`falharam`). Idempotente
 // (e-mails com chave por dia/semana). O log leva só contagens (20.2).
 import "server-only";
 import { EMPRESAS_POR_RODADA, FAXINA_LOTE, FAXINA_ORCAMENTO_MS } from "@/lib/limits";
+import { alertaBanco, alertaFaxina } from "@/server/alerts/instance";
 import { errorCode } from "@/server/error-code";
 import { cleanOldNotifications, retryNotifications } from "@/server/email/outbox";
 import { expireInvites, purgeCompanies, purgeExpired } from "@/server/org/cleanup";
@@ -23,14 +25,17 @@ export async function runDailyCleanup(agora = () => Date.now(), hoje = new Date(
   const resta = () => Math.max(0, FAXINA_ORCAMENTO_MS - (agora() - inicio));
   const sobrou: string[] = [];
   const falharam: string[] = [];
+  const falhas: { passo: string; codigo: string }[] = [];
   const r: Record<string, number> = {};
   // Um passo que falha não derruba os outros: vai ao log (só o código) e à lista `falharam`.
   async function seguro(nome: string, f: () => Promise<void>) {
     try {
       await f();
     } catch (e) {
-      console.error("faxina_passo_falhou", nome, errorCode(e));
+      const codigo = errorCode(e);
+      console.error("faxina_passo_falhou", nome, codigo);
       falharam.push(nome);
+      falhas.push({ passo: nome, codigo });
     }
   }
   // Roda um passo em lotes até vir um lote incompleto; sem tempo, anota que sobrou.
@@ -98,6 +103,9 @@ export async function runDailyCleanup(agora = () => Date.now(), hoje = new Date(
   await emLotes("notificacoes_apagadas", () => cleanOldNotifications(FAXINA_LOTE));
   // CSVs exportados (14.1) dos dias anteriores: o link já venceu (5 min), o arquivo não serve mais.
   await umaVez("pastas_exportacao", () => cleanOldExports());
+  // Alertas ao ADMIN_EMAIL (v0.4.13): banco acima de 70% do plano e, por último, os passos que falharam.
+  await umaVez("alerta_banco", () => alertaBanco(hoje));
+  r.alerta_faxina = (await alertaFaxina(falhas, hoje)) ? 1 : 0;
   const resultado = { ...r, sobrou, falharam, duracao_ms: agora() - inicio };
   console.info("faxina_diaria", resultado);
   return resultado;

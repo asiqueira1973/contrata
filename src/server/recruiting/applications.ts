@@ -22,6 +22,7 @@ import { giraLink, hashDoLink, urlDoLink, urlDoToken } from "@/server/messages/l
 import { db } from "@/server/db/client";
 import type { Database } from "@/server/db/types";
 import { afterResponse, deliverLater, enqueue } from "@/server/email/outbox";
+import { avisaArmazenamentoCheio } from "@/server/alerts/instance";
 import { candidaturaRecebida, candidaturaRetirada, codigoExclusao, linksReenviados, revisaoPedida } from "@/server/email/templates";
 import { extrairTexto } from "@/server/files/extract";
 import { caminhoDoCurriculo, pastaDaCandidatura, storage } from "@/server/files/storage";
@@ -131,6 +132,16 @@ async function usoDaEmpresa(empresaId: string): Promise<number> {
   return (data ?? []).reduce((s, a) => s + a.bytes, 0);
 }
 
+// Regra 11.14: acima de 5 GB a empresa não recebe arquivo novo, e os administradores dela recebem o
+// aviso (um por dia, depois da resposta). Recebe: a empresa e os bytes do arquivo. Lança
+// armazenamento_cheio (409).
+async function confereEspaco(empresa: { id: string; nome: string }, bytes: number): Promise<void> {
+  const uso = await usoDaEmpresa(empresa.id);
+  if (uso + bytes <= USO_EMPRESA_MAX_BYTES) return;
+  await afterResponse(() => avisaArmazenamentoCheio(empresa, uso));
+  throw new DomainError("armazenamento_cheio", 409);
+}
+
 export type ResultadoCriacao =
   | { duplicada: true; id: string }
   | { duplicada: false; id: string; upload_url: string | null; concluir_token: string };
@@ -157,7 +168,7 @@ export async function applyToJob(p: {
   const r = validarRespostas(vaga.perguntas, e.respostas);
   if (vaga.curriculo_obrigatorio && !e.curriculo) r.campos.push({ campo: "curriculo", codigo: "curriculo_obrigatorio" });
   if (r.campos.length) throw new CamposInvalidos(r.campos);
-  if (e.curriculo && (await usoDaEmpresa(p.empresa.id)) + e.curriculo.bytes > USO_EMPRESA_MAX_BYTES) throw new DomainError("armazenamento_cheio", 409);
+  if (e.curriculo) await confereEspaco(p.empresa, e.curriculo.bytes);
   // Hash provisório (não é link de ninguém): o link de verdade nasce na conclusão (link.ts).
   const versao = versaoDoAviso(p.empresa.aviso_privacidade_extra);
   // O texto que esta versão representa fica guardado (8.9; 15.5), também para o texto anterior ao 8.9.
@@ -312,7 +323,7 @@ export async function addCandidateManually(p: {
   if (p.curriculo) {
     const r = confereCurriculo(p.curriculo.bytes);
     if (r === "curriculo_invalido") throw new CamposInvalidos([{ campo: "curriculo", codigo: "curriculo_invalido" }]);
-    if ((await usoDaEmpresa(p.empresa.id)) + r.bytes > USO_EMPRESA_MAX_BYTES) throw new DomainError("armazenamento_cheio", 409);
+    await confereEspaco(p.empresa, r.bytes);
     conferido = r;
   }
   const criada = await chamaCria(p.empresa, vaga.id, parsed.data, [], "manual", p.ator, "manual", false, generateToken().hash);

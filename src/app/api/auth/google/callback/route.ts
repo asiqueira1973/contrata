@@ -1,7 +1,7 @@
 // GET /api/auth/google/callback — retorno do Google (seção 6.1).
 // 1) confere o state; 2) troca o código (PKCE) e valida o id_token com email_verified = true;
 // 3) proteções: e-mail bloqueado não grava nada; 4) rs_fn_entra_usuario cria ou atualiza o usuário,
-// recusa suspenso e e-mail de outro usuário, e aceita os convites pendentes do e-mail (11.24);
+// recusa suspenso e e-mail de outro usuário (com alerta ao ADMIN_EMAIL, 6.1, só com ids), e aceita os convites pendentes do e-mail (11.24);
 // 5) abre a sessão e volta para a rota pedida. Erros voltam para /entrar?erro=…
 // Nunca registra e-mail nem token em log (seção 20.2).
 import { NextResponse, type NextRequest } from "next/server";
@@ -12,6 +12,8 @@ import { OAUTH_COOKIE, OAUTH_COOKIE_PATH, decodeOAuthCookie } from "@/server/aut
 import { SESSION_COOKIE, sessionCookieOptions, signSession } from "@/server/auth/session";
 import { enterUser } from "@/server/db/users";
 import { getInviteByToken } from "@/server/org/members";
+import { alertaEmailEmUso } from "@/server/alerts/instance";
+import { afterResponse } from "@/server/email/outbox";
 import { errorCode } from "@/server/error-code";
 
 // Redireciona para /entrar com o código de erro e apaga o cookie do OAuth.
@@ -37,7 +39,10 @@ export async function GET(req: NextRequest) {
     } catch (e) {
       const c = errorCode(e);
       if (c === "usuario_suspenso") return fail(req, "suspenso");
-      if (c === "email_em_uso") return fail(req, "email_em_uso");
+      if (c === "email_em_uso") {
+        await afterResponse(async () => void (await alertaEmailEmUso(identity.sub, identity.email)));
+        return fail(req, "email_em_uso");
+      }
       throw e;
     }
     // Volta do convite (6.1): se o login já aceitou esse convite, o token deixou de existir e a

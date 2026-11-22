@@ -89,7 +89,8 @@ As páginas `/privacidade` e `/termos` e o aviso de privacidade da candidatura s
 | `CRON_SECRET` | sim | Protege `/api/cron/diario`. `openssl rand -base64 32` |
 | `CRIACAO_EMPRESA_EMAILS` | sim | E-mails ou `@dominio` que podem criar empresa, separados por vírgula. Vazia, ninguém cria |
 | `EMAILS_BLOQUEADOS` | não | E-mails que não entram |
-| `ADMIN_EMAIL` | não | Contato padrão das páginas legais (sem `OPERADOR_CONTATO`) |
+| `ADMIN_EMAIL` | não | Recebe os alertas da instância (login recusado por e-mail em uso, passo da faxina que falhou, banco acima de 70% do plano; um de cada por dia) e é o contato padrão das páginas legais. Vazia, nenhum alerta sai |
+| `ALERTA_BANCO_LIMITE_MB` | não | Tamanho do plano do banco em MB, para o alerta de 70% (padrão 500, o plano gratuito do Supabase) |
 | `OPERADOR_NOME` | não | Quem opera a instância, no aviso de privacidade e nas páginas legais |
 | `OPERADOR_CONTATO` | não | Canal de privacidade (sem ela, o `ADMIN_EMAIL`) |
 | `RESEND_API_KEY` | sim | Envio de e-mail. Sem ela, só em desenvolvimento, os e-mails vão para `.caixa-de-saida-local/` |

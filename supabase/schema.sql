@@ -294,7 +294,9 @@ CREATE TYPE "public"."rs_tipo_notificacao" AS ENUM (
     'talentos_expirando',
     'resumo_dono_vaga',
     'empresa_excluida',
-    'acesso_pedido'
+    'acesso_pedido',
+    'alerta_instancia',
+    'armazenamento_cheio'
 );
 
 
@@ -2069,8 +2071,9 @@ CREATE OR REPLACE FUNCTION "public"."rs_fn_notificacoes_a_retentar"("p_lote" int
     LANGUAGE "sql" STABLE
     SET "search_path" TO ''
     AS $$
-  select n.id from public.rs_notificacoes n join public.rs_empresas e on e.id = n.empresa_id
-   where e.excluida_em is null and e.suspensa_em is null and n.tentativas < p_max and n.enviar_apos <= pg_catalog.now()
+  select n.id from public.rs_notificacoes n left join public.rs_empresas e on e.id = n.empresa_id
+   where (n.empresa_id is null or (e.excluida_em is null and e.suspensa_em is null))
+     and n.tentativas < p_max and n.enviar_apos <= pg_catalog.now()
      and (n.status = 'falhou' or (n.status = 'pendente' and n.criado_em < pg_catalog.now() - interval '10 minutes'))
    order by n.criado_em limit greatest(p_lote, 0) $$;
 
@@ -2863,6 +2866,16 @@ end $$;
 ALTER FUNCTION "public"."rs_fn_talentos_candidato"("p_candidatura" "uuid", "p_acao" "text") OWNER TO "postgres";
 
 
+CREATE OR REPLACE FUNCTION "public"."rs_fn_tamanho_banco"() RETURNS bigint
+    LANGUAGE "sql" STABLE
+    SET "search_path" TO ''
+    AS $$
+  select pg_catalog.pg_database_size(pg_catalog.current_database()) $$;
+
+
+ALTER FUNCTION "public"."rs_fn_tamanho_banco"() OWNER TO "postgres";
+
+
 CREATE OR REPLACE FUNCTION "public"."rs_fn_tipo_webhook"("p_tipo" "text") RETURNS "text"
     LANGUAGE "sql" IMMUTABLE
     SET "search_path" TO ''
@@ -3651,7 +3664,7 @@ ALTER TABLE "public"."rs_notas" OWNER TO "postgres";
 
 CREATE TABLE IF NOT EXISTS "public"."rs_notificacoes" (
     "id" "uuid" DEFAULT "gen_random_uuid"() NOT NULL,
-    "empresa_id" "uuid" NOT NULL,
+    "empresa_id" "uuid",
     "candidatura_id" "uuid",
     "tipo" "public"."rs_tipo_notificacao" NOT NULL,
     "destinatario" "extensions"."citext" NOT NULL,
@@ -5295,6 +5308,11 @@ GRANT ALL ON FUNCTION "public"."rs_fn_talento_no_alcance"("p_candidato" "uuid", 
 
 REVOKE ALL ON FUNCTION "public"."rs_fn_talentos_candidato"("p_candidatura" "uuid", "p_acao" "text") FROM PUBLIC;
 GRANT ALL ON FUNCTION "public"."rs_fn_talentos_candidato"("p_candidatura" "uuid", "p_acao" "text") TO "service_role";
+
+
+
+REVOKE ALL ON FUNCTION "public"."rs_fn_tamanho_banco"() FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_tamanho_banco"() TO "service_role";
 
 
 

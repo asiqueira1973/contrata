@@ -191,3 +191,21 @@ export function acessoPedido(p: { empresa: string; nome: string }) {
   const assunto = c.assunto(p.nome, p.empresa);
   return { assunto, html: layout(assunto, [c.corpo(p.nome)], null, "#0071e3", [c.depois]), texto: `${c.corpo(p.nome)}\n\n${c.depois}` };
 }
+
+// Alerta da instância ao ADMIN_EMAIL (6.1, 18, 23.1). Recebe: assunto, parágrafos e o "depois".
+// Sem botão; rodapé de alerta. Nada pessoal entra aqui (20.2).
+export function alertaInstancia(p: { assunto: string; paragrafos: string[]; depois: string }) {
+  const rodape = copy.emailAlertas.rodape;
+  return {
+    assunto: p.assunto,
+    html: layout(p.assunto, p.paragrafos, null, "#0071e3", [p.depois], rodape),
+    texto: [...p.paragrafos, p.depois, rodape].join("\n\n"),
+  };
+}
+
+// armazenamento_cheio (11.14), aos administradores da empresa. Recebe: empresa, uso e limite.
+export function armazenamentoCheio(p: { empresa: string; usadoGb: string; limiteGb: number }) {
+  const c = copy.emailArmazenamentoCheio;
+  const assunto = c.assunto(p.empresa);
+  return { assunto, html: layout(assunto, [c.corpo(p.usadoGb, p.limiteGb)], null, "#0071e3", [c.depois]), texto: `${c.corpo(p.usadoGb, p.limiteGb)}\n\n${c.depois}` };
+}

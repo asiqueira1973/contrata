@@ -1292,6 +1292,34 @@ export const copy = {
     },
   },
 
+  // Alertas da instância ao ADMIN_EMAIL (6.1, 18, 23.1) e aviso de empresa sem espaço (11.14).
+  // Sem dado pessoal: só ids internos, nomes de passos, códigos e tamanhos (20.2).
+  emailAlertas: {
+    rodape: `Alerta da instância do ${NOME_PRODUTO}, enviado ao ADMIN_EMAIL. No máximo um de cada tipo por dia.`,
+    emailEmUso: {
+      assunto: `${NOME_PRODUTO}: login recusado por e-mail em uso`,
+      corpo: "Uma conta Google tentou entrar com um e-mail que já pertence a outro usuário desta instância, e o login foi recusado (spec 6.1).",
+      ids: (dono: string, tentou: string | null) => `Usuário que tem o e-mail: ${dono}. Usuário que tentou entrar: ${tentou ?? "ainda não cadastrado"}. (ids de rs_usuarios)`,
+      depois: "Costuma ser alguém que trocou o e-mail da conta Google para um endereço que já é de outra conta. Para liberar, confirme com as duas pessoas qual conta fica com o e-mail e ajuste o cadastro antigo no banco.",
+    },
+    faxina: {
+      assunto: (n: number) => `${NOME_PRODUTO}: ${n === 1 ? "1 passo da faxina falhou" : `${n} passos da faxina falharam`}`,
+      corpo: "A faxina diária rodou, mas estes passos falharam (os outros seguiram normalmente):",
+      linha: (passo: string, codigo: string) => `${passo}: ${codigo}`,
+      depois: "A faxina tenta de novo amanhã. Se o mesmo passo falhar mais de um dia, veja os logs da função /api/cron/diario na Vercel.",
+    },
+    banco: {
+      assunto: (pct: number) => `${NOME_PRODUTO}: o banco está em ${pct}% do plano`,
+      corpo: (usadoMb: number, limiteMb: number) => `O banco de dados usa ${usadoMb} MB de ${limiteMb} MB do plano (spec 23.1).`,
+      depois: "Para liberar espaço, reduza a retenção das empresas ou mude de plano no Supabase. Se o plano já é maior, ajuste ALERTA_BANCO_LIMITE_MB.",
+    },
+  },
+  emailArmazenamentoCheio: {
+    assunto: (empresa: string) => `${empresa}: sem espaço para currículos novos`,
+    corpo: (usadoGb: string, limiteGb: number) => `O ${NOME_PRODUTO} recusou um currículo porque a empresa já usa ${usadoGb} GB dos ${limiteGb} GB de arquivos permitidos (spec 11.14). Quem tentou se candidatar viu uma mensagem para tentar mais tarde.`,
+    depois: "Para liberar espaço, reduza a retenção dos dados no formulário da empresa (as candidaturas encerradas há mais tempo são anonimizadas na faxina seguinte) ou fale com quem hospeda esta instância.",
+  },
+
   // Faxina diária (8.10; 11.11, 11.31, 15.4).
   resumoDiario: {
     assunto: (empresa: string, n: number) => (n === 1 ? `${empresa}: 1 item precisa de você` : `${empresa}: ${n} itens precisam de você`),

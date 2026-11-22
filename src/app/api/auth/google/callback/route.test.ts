@@ -84,6 +84,24 @@ describe("GET /api/auth/google/callback", () => {
     expect(res.headers.get("location")).toContain("erro=email_em_uso");
   });
 
+  it("e-mail em uso gera um alerta ao ADMIN_EMAIL só com ids (6.1, v0.4.13)", async () => {
+    const antes = process.env.ADMIN_EMAIL;
+    process.env.ADMIN_EMAIL = "admin@instancia.exemplo";
+    try {
+      const outro = await createTestUser();
+      mockGoogle({ sub: `sub-${randomUUID()}`, email: outro.email });
+      await GET(callback());
+      const { data } = await db().from("rs_notificacoes").select("destinatario, texto, assunto").like("chave_idempotencia", `alerta:email_em_uso:${outro.id}:%`);
+      expect(data).toHaveLength(1);
+      expect(data![0].destinatario).toBe("admin@instancia.exemplo");
+      expect(data![0].assunto + data![0].texto).not.toContain(outro.email);
+      await db().from("rs_notificacoes").delete().like("chave_idempotencia", `alerta:email_em_uso:${outro.id}:%`);
+    } finally {
+      if (antes === undefined) delete process.env.ADMIN_EMAIL;
+      else process.env.ADMIN_EMAIL = antes;
+    }
+  });
+
   it("aceita no login os convites pendentes do e-mail e volta para a tela de convite aceito em vez do convite usado (11.24)", async () => {
     const dono = await createTestUser();
     const empresa = await createTestCompany(dono);
