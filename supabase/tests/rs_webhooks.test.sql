@@ -51,7 +51,7 @@ select is(pg_temp.entregas('w_cand', 'vaga.publicada'), 0, 'quem não assina o t
 select is(pg_temp.entregas('w_off', 'vaga.publicada'), 0, 'webhook desligado não recebe');
 select is(public.rs_fn_tipo_webhook('vaga_pausada_prazo'), 'vaga.pausada', 'pausa pelo prazo vira vaga.pausada');
 select is(public.rs_fn_tipo_webhook('nota_adicionada'), null, 'nota não vira webhook');
-select is(public.rs_fn_tipo_webhook('dados_excluidos'), 'candidatura.anonimizada', 'exclusão a pedido vira candidatura.anonimizada');
+select is(public.rs_fn_tipo_webhook('dados_excluidos'), null, 'exclusão a pedido não duplica: cada candidatura já gera candidatura_anonimizada (achado A3)');
 
 insert into fx select 'c', (public.rs_fn_cria_candidatura(pg_temp.id('e'), pg_temp.id('v'), '{"nome":"Bia Souza","email":"bia@wh.teste.dev","telefone":"11999990000"}',
   '[]', 'pagina', pg_temp.publico(), '2026-11-20', false, 'tok-wh-' || gen_random_uuid(), 10000) ->> 'id')::uuid;
@@ -127,6 +127,21 @@ select is(pg_temp.lista(jsonb_build_object('tipo', 'areas', 'area_ids', jsonb_bu
 select is((select min(id) > (select min(id) from public.rs_eventos where empresa_id = pg_temp.id('e'))
              from public.rs_fn_lista_eventos(pg_temp.id('e'), pg_temp.todas(), true, (select min(id) from public.rs_eventos where empresa_id = pg_temp.id('e')), 10)),
   true, 'desde exclui o próprio id');
+
+-- Achado A1 do verifier: webhook desligado, empresa suspensa e entrega no máximo de tentativas não
+-- entram nas vencidas (senão travam a fila das outras).
+update public.rs_webhooks set ativo = false where id = pg_temp.id('w_v');
+select is((select count(*)::int from public.rs_fn_entregas_vencidas(pg_temp.id('e'), 50, 8) x
+            join public.rs_entregas_webhook w on w.id = x where w.webhook_id = pg_temp.id('w_v')), 0, 'webhook desligado fora das vencidas');
+update public.rs_webhooks set ativo = true where id = pg_temp.id('w_v');
+update public.rs_empresas set suspensa_em = now() where id = pg_temp.id('e');
+select is((select count(*)::int from public.rs_fn_entregas_vencidas(pg_temp.id('e'), 50, 8)), 0, 'empresa suspensa fora das vencidas');
+update public.rs_empresas set suspensa_em = null where id = pg_temp.id('e');
+update public.rs_entregas_webhook set tentativas = 8 where webhook_id = pg_temp.id('w_v');
+select is((select count(*)::int from public.rs_fn_entregas_vencidas(pg_temp.id('e'), 50, 8) x
+            join public.rs_entregas_webhook w on w.id = x where w.webhook_id = pg_temp.id('w_v')), 0, 'no máximo de tentativas fora das vencidas');
+update public.rs_entregas_webhook set reservada_em = now() - interval '5 minutes' where webhook_id = pg_temp.id('w_v');
+select is(public.rs_fn_desiste_entregas(interval '3 days', 8) >= 1, true, 'a que morreu no meio com 8 tentativas desiste');
 
 select * from finish();
 rollback;

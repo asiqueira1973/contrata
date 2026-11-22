@@ -161,6 +161,54 @@ describe("entrega (11.17, 13.4)", () => {
   });
 });
 
+describe("achados do verifier (8.8)", () => {
+  it("A2: o envio respeita o prazo dado (não passa do tempo da função)", async () => {
+    resposta = 200;
+    await createReceivedApplication(empresa.id, vaga.id, { nome: "Fábio Prazo", email: "fabio@prazo.exemplo" });
+    const antes = await db().from("rs_entregas_webhook").select("id").eq("webhook_id", webhookId).eq("status", "pendente");
+    expect(antes.data!.length).toBeGreaterThan(0);
+    expect(await deliverDue(empresa.id, 20, 0)).toBe(0);
+    const { data } = await db().from("rs_entregas_webhook").select("tentativas").in("id", antes.data!.map((d) => d.id));
+    expect(data!.every((d) => d.tentativas === 0)).toBe(true);
+    await deliverDue(empresa.id);
+  });
+  it("A6: sem CHAVES_ENC_KEY nada é reservado (as tentativas não se gastam)", async () => {
+    const chave = process.env.CHAVES_ENC_KEY;
+    delete process.env.CHAVES_ENC_KEY;
+    try {
+      await createReceivedApplication(empresa.id, vaga.id, { nome: "Gil Chave", email: "gil@chave.exemplo" });
+      expect(await deliverDue(empresa.id)).toBe(0);
+      const { data } = await db().from("rs_entregas_webhook").select("tentativas").eq("webhook_id", webhookId).eq("status", "pendente");
+      expect(data!.length).toBeGreaterThan(0);
+      expect(data!.every((d) => d.tentativas === 0)).toBe(true);
+    } finally {
+      process.env.CHAVES_ENC_KEY = chave;
+    }
+    await deliverDue(empresa.id);
+  });
+  it("A4: abrir o formulário não manda ao modelo o endereço completo (o caminho pode ter segredo)", async () => {
+    const r = await callTool(tokens.admin, "abrir_formulario_webhooks", { operacao: "editar" });
+    expect(JSON.stringify(r)).not.toContain("/ganchos");
+  });
+  it("A5: endereço que não resolve para IP público é recusado ao salvar", async () => {
+    const s = estrutura(await callTool(tokens.admin, "salvar_webhooks", { operacao: "criar", url: "https://nao-existe.invalid/x", eventos: ["vaga.publicada"] }));
+    expect(s.ok).toBe(false);
+    expect(JSON.stringify(s.erros)).toContain("url");
+  });
+  it("decisão proposta pela API chega como decisao.proposta", async () => {
+    await callTool(tokens.admin, "salvar_webhooks", { operacao: "editar", webhook: webhookId, eventos: ["candidatura.criada", "candidatura.etapa_alterada", "candidatura.desistiu", "decisao.proposta"] });
+    const c = await createReceivedApplication(empresa.id, vaga.id, { nome: "Hugo Proposta", email: "hugo@proposta.exemplo" });
+    const chave = await createTestApiKey(empresa.id, empresa.adminMembroId, ["leitura", "escrita", "decisao"]);
+    const { POST } = await import("@/app/api/v1/candidaturas/[id]/reprovar/route");
+    const req = apiRequest(`/api/v1/candidaturas/${c}/reprovar`, { method: "POST", body: { motivo: "requisitos", devolutiva: "Olá. Obrigado pelo interesse; seguimos com outras pessoas nesta etapa.", justificativa: "Não tem a experiência pedida." }, origin: null });
+    req.headers.set("authorization", `Bearer ${chave}`);
+    const antes = servidor.received.length;
+    expect((await POST(req, params({ id: c }))).status).toBe(202);
+    const p = await chegou("decisao.proposta", antes);
+    expect(JSON.parse(p.body).dados.decisao).toMatchObject({ tipo: "reprovar", status: "pendente", candidatura_id: c });
+  });
+});
+
 describe("trilha (8.8; 15.3)", () => {
   it("histórico com os cinco atores: candidato, formulário, agente, integração e sistema", async () => {
     const c = await createReceivedApplication(empresa.id, vaga.id, { nome: "Eva Trilha", email: "eva@trilha.exemplo" });
