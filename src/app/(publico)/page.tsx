@@ -55,7 +55,7 @@ export default function InicioPage() {
         </div>
       </section>
 
-      <section className={`${s.secao} ${s.secaoAlt}`}>
+      <section className={`${s.secao} ${s.secaoAlt}`} id="acreditamos">
         <div className={`${s.wrap} ${s.manifesto}`}>
           <p className={s.rotulo}>{c.acreditamos.rotulo}</p>
           <h2 className={`${s.display} ${s.titulo}`}>{c.acreditamos.titulo}</h2>
@@ -79,7 +79,7 @@ export default function InicioPage() {
         </div>
       </section>
 
-      <section className={`${s.secao} ${s.secaoAlt}`}>
+      <section className={`${s.secao} ${s.secaoAlt}`} id="fluxo">
         <div className={s.wrap}>
           <p className={s.rotulo}>{c.fluxo.rotulo}</p>
           <h2 className={`${s.display} ${s.titulo}`}>{c.fluxo.titulo}</h2>

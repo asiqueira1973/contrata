@@ -1,17 +1,51 @@
 # Vaga Aberta
 
-**O sistema de recrutamento e seleção para agentes.** É um ATS de código aberto e gratuito, sem painel: quem recruta opera pelo Claude ou pelo ChatGPT com o conector do Vaga Aberta. Consultas são em linguagem natural; cadastro e decisões abrem um formulário dentro do chat, que a pessoa confere e confirma. Candidatos usam páginas web simples (carreiras, candidatura e o link de acompanhamento). Para automação, há API REST e webhooks.
+**Recrutamento e seleção dentro da sua IA.** O Vaga Aberta é um sistema de recrutamento de código aberto e gratuito, sem painel: você abre vagas, lê currículos, avalia e decide conversando com o Claude, o ChatGPT ou o Grok. Quando algo precisa ser gravado, a IA abre um formulário na conversa, já preenchido, e nada acontece sem o seu clique. Candidatos usam páginas web simples (carreiras, candidatura e um link para acompanhar). Para automação, há API REST e webhooks.
 
-**Clone e use:** cada instância serve uma ou mais empresas, e quem pode criar empresa é a lista `CRIACAO_EMPRESA_EMAILS`; não há cadastro aberto. O nome é **Vaga Aberta** (vagaaberta.app.br, spec 25.1); "contrata" segue só nos nomes internos (repositório, pasta, prefixo `rs_` do banco, eventos e cabeçalhos de webhook). Licença [MIT](LICENSE); dependências em [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
+**Use agora em [vagaaberta.app.br](https://vagaaberta.app.br)**, sem instalar nada, ou hospede a sua cópia seguindo o passo a passo abaixo.
+
+![Página inicial do Vaga Aberta: "Contrate conversando. Dentro da sua IA.", com uma conversa em que a IA consulta as candidaturas e abre o formulário de decisões](docs/imagens/site-inicio.png)
+
+## Como aparece na conversa com a IA
+Você pede em português; a IA consulta o Vaga Aberta e, quando é preciso gravar ou decidir, abre um formulário dentro do chat. Reprovar, contratar e encerrar a vaga só acontecem com o clique de alguém da equipe, e cada pessoa recebe a devolutiva por e-mail. As telas abaixo usam dados de exemplo.
+
+![Três conversas: abrir uma vaga, comparar a candidata com os requisitos (sem nota nem ordem de preferência) e contratar e encerrar a vaga num formulário só](docs/imagens/site-conversas.png)
+
+![Como funciona: você pede, a IA prepara, você decide](docs/imagens/site-como-funciona.png)
+
+## No que acreditamos
+![Os sistemas vão ser usados de dentro das IAs](docs/imagens/site-acreditamos.png)
+
+## Para quem se candidata
+Sem criar conta, com um link só seu para acompanhar, devolutiva sempre, pedido de revisão e os próprios dados para baixar ou excluir.
+
+![Seção do candidato: a página de acompanhamento e o e-mail da devolutiva](docs/imagens/site-candidato.png)
+
+A página de carreiras de cada empresa e a página da vaga, com os dados estruturados para a busca de vagas do Google:
+
+![Página de carreiras de uma empresa de exemplo, com as vagas abertas e filtros](docs/imagens/carreiras.png)
+
+![Página de uma vaga de exemplo, com local, regime, salário e o botão Candidatar-me](docs/imagens/vaga.png)
+
+## O que dá para pedir
+![Exemplos de pedidos para quem recruta, para o gestor que avalia e para o RH de uma pessoa só](docs/imagens/site-pedidos.png)
+
+## Conectar
+O endereço do conector é `https://vagaaberta.app.br/mcp` (ou `{NEXT_PUBLIC_SITE_URL}/mcp` na sua instância). O passo a passo de cada IA está em [vagaaberta.app.br/docs/mcp](https://vagaaberta.app.br/docs/mcp).
+
+![Como conectar: o endereço do conector e três passos](docs/imagens/site-conectar.png)
+
+## Sobre o projeto
+**Clone e use:** cada instância serve uma ou mais empresas, e quem pode criar empresa é a lista `CRIACAO_EMPRESA_EMAILS`; não há cadastro aberto. O nome é **Vaga Aberta** (vagaaberta.app.br, spec 25.1); "contrata" segue só nos nomes internos (repositório, pasta, prefixo `rs_` do banco e cabeçalhos de webhook). Licença [MIT](LICENSE); dependências em [`THIRD_PARTY_NOTICES.md`](THIRD_PARTY_NOTICES.md).
 
 A especificação completa está em [`spec.md`](spec.md); os planos de cada épico, em [`plans/`](plans/); o que existe de fato, em [`DOCUMENTACAO-TECNICA.md`](DOCUMENTACAO-TECNICA.md). O que falta para a entrega (e depende de contas reais) está em [`docs/entrega.md`](docs/entrega.md).
 
 ## O que tem
-- **Pelo chat:** vagas (com etapas, perguntas e equipe), página de carreiras com JSON-LD para o Google, funil (listar, buscar, ler currículo, anotar, mover de etapa, exportar CSV), avaliações da equipe, decisões com devolutiva (reprovar, contratar, encerrar a vaga, reabrir), mensagens com modelos, banco de talentos com consentimento, equipe e áreas, chaves de API, webhooks e os dados da empresa.
+- **Pela conversa (Claude, ChatGPT ou Grok):** vagas (com etapas, perguntas e equipe), página de carreiras com JSON-LD para o Google, funil (listar, buscar, ler currículo, anotar, mover de etapa, exportar CSV), avaliações da equipe, decisões com devolutiva (reprovar, contratar, encerrar a vaga, reabrir), mensagens com modelos, banco de talentos com consentimento, equipe e áreas, chaves de API, webhooks e os dados da empresa.
 - **O modelo propõe, a pessoa grava:** cadastros, mensagens e decisões abrem um formulário no chat, já preenchido, que só grava com o clique; mover de etapa e anotar são operações diretas e reversíveis. Decisão sobre uma pessoa só com o clique de alguém da equipe: pela API ou num cliente sem formulários, vira proposta.
 - **Para quem se candidata:** candidatura sem conta, link `/c/{token}` para acompanhar, retirar, pedir revisão, baixar e excluir os dados; devolutiva sempre.
 - **LGPD:** retenção por empresa com anonimização automática, banco de talentos só com consentimento e prazo, trilha de quem fez o quê, nenhum dado pessoal em log, evento ou webhook.
-- **Faxina diária** (`/api/cron/diario`), **analytics opcional** sem dado pessoal, e as páginas públicas `/`, `/docs/mcp`, `/docs/api`, `/docs/auto-hospedagem`, `/privacidade` e `/termos`.
+- **Faxina diária** (`/api/cron/diario`) com alertas ao `ADMIN_EMAIL`, **analytics opcional** sem dado pessoal (eventos `vaga_aberta_*` no Visão do Produto), e as páginas públicas `/`, `/docs/mcp`, `/docs/api`, `/docs/auto-hospedagem`, `/privacidade` e `/termos`.
 
 ## Hospedar a sua instância (passo a passo)
 
@@ -99,13 +133,14 @@ As páginas `/privacidade` e `/termos` e o aviso de privacidade da candidatura s
 | `VISAO_INGEST_URL` | não | Analytics de produto (Visão do Produto). Sem as duas, nada é enviado |
 | `VISAO_API_KEY` | não | Chave do analytics |
 
-## Conectar no Claude ou no ChatGPT
-O endereço do conector é `{NEXT_PUBLIC_SITE_URL}/mcp` — na instância oficial, `https://vagaaberta.app.br/mcp`. O Claude e o ChatGPT só alcançam HTTPS público, então a instância precisa estar publicada (ou atrás de um túnel).
+## Conectar no Claude, no ChatGPT ou no Grok (detalhes)
+O endereço do conector é `{NEXT_PUBLIC_SITE_URL}/mcp` — na instância oficial, `https://vagaaberta.app.br/mcp`. As IAs só alcançam HTTPS público, então a instância precisa estar publicada (ou atrás de um túnel).
 - **Claude:** Configurações → Conectores → Adicionar conector personalizado.
 - **ChatGPT:** Configurações → Apps e conectores → modo desenvolvedor → criar conector com OAuth.
+- **Grok:** nas configurações de conectores, adicione um conector MCP remoto com o endereço. Lá os formulários com botão não aparecem: cadastros saem por prévia na conversa e decisões viram propostas.
 - **Claude Code:** `claude mcp add --transport http vaga-aberta https://SEU_DOMINIO/mcp` e, dentro dele, `/mcp` para autenticar.
 
-Ao conectar, você entra com o Google, aceita os Termos, escolhe (ou cria) a empresa e os escopos. Depois é conversar: "quem sou eu?", "convide a Ana como recrutadora da Loja". Cadastros, mensagens e decisões abrem um formulário no chat, já preenchido, que só grava quando você clica; mover de etapa e anotar são diretos. Num cliente sem formulários (como o Claude Code), o agente mostra uma prévia para você confirmar, e decisões viram proposta. Mais exemplos em `/docs/mcp`.
+Ao conectar, você entra com o Google, aceita os Termos, escolhe (ou cria) a empresa e os escopos. Depois é conversar: "quem sou eu?", "convide a Ana como recrutadora da Loja". Cadastros, mensagens e decisões abrem um formulário no chat, já preenchido, que só grava quando você clica; mover de etapa e anotar são diretos. Num cliente sem formulários (como o Claude Code ou o Grok), o agente mostra uma prévia para você confirmar, e decisões viram proposta. Mais exemplos em `/docs/mcp`.
 
 Para automação, crie uma chave de API pelo conector ("crie uma chave de API para o n8n") e use `Authorization: Bearer rsk_…` na API v1 (guia em `/docs/api`, documento em `/api/v1/openapi.json`).
 
