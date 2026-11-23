@@ -1,4 +1,6 @@
-# Fotos do site institucional (23/11/2026)
+# Fotos do site institucional (23/11/2026) — não usadas
+
+**Decisão do Alexandre, no mesmo dia:** o site fica sem fotos. As do estilo filme (Kodak Portra) pareciam dos anos 90 e mostravam lugares fora do público (padaria, oficina, loja: quem usa IA no trabalho não é esse perfil); as contemporâneas ficaram com cara de banco de imagens. O visual são as telas do produto dentro de uma conversa com a IA. Os prompts ficam como registro, se um dia voltarmos às fotos.
 
 Geradas no Higgsfield com `flux_2`, variante `pro`, 2K, cerca de 1,5 crédito cada. Convertidas com
 `cwebp -q 76 -resize 1800 0` (a cadeira com `-resize 1200 0`) para `public/site/*.webp`.

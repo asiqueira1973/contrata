@@ -2,10 +2,9 @@
 // seção 10.1 e 16): o recrutamento inteiro dentro da IA (Claude, ChatGPT, Grok), sem painel. Abertura
 // com a conversa recriada, o problema, no que acreditamos, como funciona, uma vaga do começo ao
 // fim, o candidato, pedidos para copiar, para quem e o que não faz, como conectar, integrações e
-// perguntas frequentes. Fotos documentais em public/site (prompts em docs/referencias/fotos-site.md).
-// Indexável (seção 17).
+// perguntas frequentes. Sem fotos (decisão de 23/11/2026): o visual são as telas recriadas dentro
+// da conversa. Indexável (seção 17).
 import type { Metadata } from "next";
-import Image from "next/image";
 import Link from "next/link";
 import { copy } from "@/lib/copy";
 import { Copiar } from "@/features/public/copiar";
@@ -18,16 +17,13 @@ export const metadata: Metadata = {
   description: copy.inicio.metaDescricao,
   alternates: { canonical: "/" },
   robots: { index: true, follow: true },
-  openGraph: { title: copy.inicio.metaTitulo, description: copy.inicio.metaDescricao, type: "website", images: ["/site/padaria.webp"] },
+  openGraph: { title: copy.inicio.metaTitulo, description: copy.inicio.metaDescricao, type: "website" },
 };
-
-const LARGA = "(max-width: 1120px) 100vw, 1120px";
-const MEIA = "(max-width: 860px) 100vw, 540px";
 
 export default function InicioPage() {
   const c = copy.inicio;
   const url = mcpResource();
-  const telas = [<TelaVaga key="v" />, <TelaResumo key="r" />, <TelaDecisoes key="d" />, <EmailDevolutiva key="e" />];
+  const telas = [<TelaVaga key="v" />, <TelaResumo key="r" />, <TelaDecisoes key="d" />];
   return (
     <main>
       <section className={s.hero}>
@@ -44,11 +40,6 @@ export default function InicioPage() {
             <ul className={s.numeros}>{c.numeros.map((n) => <li key={n} className={s.num}>{n}</li>)}</ul>
           </div>
           <Conversa />
-        </div>
-        <div className={s.wrap}>
-          <figure className={s.foto}>
-            <Image src="/site/padaria.webp" alt={c.fotoAbertura} width={1800} height={1020} sizes={LARGA} priority />
-          </figure>
         </div>
       </section>
 
@@ -101,21 +92,17 @@ export default function InicioPage() {
               </div>
             ))}
           </div>
-          <figure className={s.fotoLarga}>
-            <Image src="/site/escritorio.webp" alt={c.fluxo.fotoAlt} width={1800} height={1020} sizes={LARGA} />
-          </figure>
         </div>
       </section>
 
       <section className={s.secao} id="candidato">
         <div className={`${s.wrap} ${s.duas}`}>
-          <Image src="/site/cadeira.webp" alt={c.candidato.fotoAlt} width={1200} height={1600} sizes={MEIA} />
           <div>
             <p className={s.rotulo}>{c.candidato.rotulo}</p>
             <h2 className={`${s.display} ${s.titulo}`}>{c.candidato.titulo}</h2>
             <ul className={s.lista}>{c.candidato.itens.map((x) => <li key={x}>{x}</li>)}</ul>
-            <div className={s.blocoTela}><TelaAcompanhamento /></div>
           </div>
+          <div className={s.pilha}><TelaAcompanhamento /><EmailDevolutiva /></div>
         </div>
       </section>
 
@@ -157,9 +144,6 @@ export default function InicioPage() {
           </div>
           <ol className={s.passos}>{c.conectar2.passos.map((p) => <li key={p}><span>{p}</span></li>)}</ol>
           <Link className={s.linkSeta} href="/docs/mcp">{c.conectar2.link} →</Link>
-          <figure className={s.fotoLarga}>
-            <Image src="/site/loja.webp" alt={c.conectar2.fotoAlt} width={1800} height={1020} sizes={LARGA} />
-          </figure>
         </div>
       </section>
 
@@ -176,9 +160,6 @@ export default function InicioPage() {
             <Link className={s.linkSeta} href="/docs/api">{c.integracoes.links.api} →</Link>
             <Link className={s.linkSeta} href="/docs/auto-hospedagem">{c.integracoes.links.hospedar} →</Link>
           </div>
-          <figure className={s.fotoLarga}>
-            <Image src="/site/oficina.webp" alt={c.integracoes.fotoAlt} width={1800} height={1020} sizes={LARGA} />
-          </figure>
         </div>
       </section>
 

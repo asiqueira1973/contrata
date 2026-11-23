@@ -95,3 +95,9 @@ Decisões já tomadas por ele:
 - **Testes:** as páginas públicas são renderizadas dentro do layout, com `next/font` simulado; as fotos existem e têm texto alternativo; as telas não levam e-mail nem nome reais; a inicial cita as três IAs e o "no que acreditamos".
 - **Navegador:** conferido no desktop no tema claro e a 375 px no escuro, sem rolagem horizontal.
 - **Cores (pedido do Alexandre ao ver):** o bege do Fechou ficou "morto". Agora o fundo é branco, as seções alternadas usam um azul bem claro (`#f2f7fd`) e o azul `#0071e3` marca etiquetas, números dos passos, o botão principal, o pedido na conversa e os botões das telas.
+- **Ajustes ao ver o site (23/11/2026, pedidos do Alexandre):**
+  - **Fotos tiradas.** As do estilo filme pareciam dos anos 90 e eram de lugares fora do público; as contemporâneas pareciam banco de imagens. Gastos cerca de 24 créditos no Higgsfield no total.
+  - **Telas dentro de uma moldura de chat de IA:** balão do pedido, "Usou o Vaga Aberta", o formulário com o nome da ferramenta, a resposta e a caixa "Responder…", sem a marca de nenhuma IA.
+  - **Empresa de exemplo:** "Agência Norte", no lugar da padaria.
+  - **Para quem:** o texto cita agências, consultorias, escritórios, startups e times de tecnologia.
+  - **Uma vaga do começo ao fim:** três telas em vez de quatro, porque o e-mail foi para a seção do candidato, ao lado da página de acompanhamento.

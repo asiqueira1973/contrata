@@ -63,15 +63,15 @@ describe("páginas públicas (8.12)", () => {
     for (const ia of ["Claude", "ChatGPT", "Grok"]) expect(h).toContain(ia);
   });
 
-  it("as fotos da inicial existem em public/site e têm texto alternativo", () => {
+  it("as telas do produto aparecem dentro de uma conversa (pedido, ferramenta e caixa de digitar)", () => {
     const h = html(inicio);
-    for (const f of ["padaria", "escritorio", "cadeira", "loja", "oficina"]) {
-      expect(readFileSync(`public/site/${f}.webp`).length).toBeGreaterThan(10_000);
-      expect(h).toMatch(new RegExp(`<img[^>]*alt="[^"]{20,}"[^>]*${f}|${f}[^>]*alt="[^"]{20,}"`));
-    }
+    expect(h).toContain(copy.telas.chat.usou);
+    expect(h).toContain(copy.telas.chat.responder);
+    for (const f of ["abrir_formulario_vaga", "abrir_formulario_decisoes"]) expect(h).toContain(f);
+    expect(h).toContain(copy.telas.chat.decisoes.pedido);
   });
 
-  it("as telas recriadas não levam dado real (só o exemplo da Padaria Pão de Cada Dia)", () => {
+  it("as telas recriadas não levam dado real (só o exemplo da Agência Norte)", () => {
     const h = html(inicio);
     expect(h).not.toMatch(/@gmail|@outlook|siqueira/i);
     expect(h).toContain(copy.telas.email.de);

@@ -858,7 +858,7 @@ export const copy = {
 
   // Site institucional (8.12, refeito em 23/11/2026 no jeito editorial do Fechou Por Quanto, sem
   // cara de IA; estrutura da referência docs/referencias/landing-breakcold.md). As telas são
-  // recriadas em HTML com dados fictícios (Padaria Pão de Cada Dia); nenhum dado real.
+  // recriadas em HTML com dados fictícios (Agência Norte); nenhum dado real.
   inicio: {
     metaTitulo: `${NOME_PRODUTO} — recrutamento e seleção dentro da sua IA`,
     metaDescricao: "Abra vagas, leia currículos, avalie e decida conversando com o Claude, o ChatGPT ou o Grok. Sem painel, com devolutiva para todo candidato e LGPD de fábrica. Grátis e de código aberto.",
@@ -869,7 +869,6 @@ export const copy = {
     hospedar: "Como hospedar o seu",
     assistentes: "Funciona no Claude, no ChatGPT e no Grok. Grátis, sem instalar nada.",
     numeros: ["18 consultas e operações", "22 formulários na conversa", "Claude, ChatGPT e Grok", "LGPD de fábrica"],
-    fotoAbertura: "Padaria de bairro abrindo de manhã cedo, com o balcão de pães e a porta de aço meio levantada",
     conversa: {
       rotulo: "Exemplo de conversa com o conector",
       topoEsquerda: "Conversa",
@@ -920,9 +919,8 @@ export const copy = {
     fluxo: {
       rotulo: "Uma vaga do começo ao fim",
       titulo: "Da vaga aberta à contratação, sem sair da conversa.",
-      lead: "As telas abaixo são as mesmas que aparecem no chat, com dados de exemplo.",
-      fotoAlt: "Escritório pequeno de contabilidade à tarde, com mesas, pastas e uma pessoa trabalhando de costas",
-      etapas: ["Abrir a vaga", "Comparar com os requisitos", "Contratar e encerrar", "A devolutiva que chega"],
+      lead: "É assim que aparece na conversa com a sua IA (dados de exemplo).",
+      etapas: ["Abrir a vaga", "Comparar com os requisitos", "Contratar e encerrar"],
     },
     candidato: {
       rotulo: "Para quem se candidata",
@@ -934,7 +932,6 @@ export const copy = {
         "Pedido de revisão de uma decisão.",
         "Baixar ou excluir os próprios dados, a qualquer momento.",
       ],
-      fotoAlt: "Cadeira de madeira vazia diante de uma mesa com um copo d'água, perto da janela, antes de uma entrevista",
     },
     pecaAssim: {
       rotulo: "Peça assim",
@@ -965,7 +962,7 @@ export const copy = {
     paraQuem: {
       titulo: "Para quem",
       itens: [
-        "Empresas pequenas e médias que contratam algumas vezes por ano.",
+        "Empresas pequenas e médias que já usam IA no trabalho: agências, consultorias, escritórios, startups e times de tecnologia.",
         "O RH de uma pessoa só, que precisa de ajuda e não de mais uma tela.",
         "Recrutadores e gestores que já usam o Claude, o ChatGPT ou o Grok no dia a dia.",
         "Quem quer hospedar o próprio sistema: o código é aberto, licença MIT.",
@@ -991,7 +988,6 @@ export const copy = {
         "Peça a primeira vaga.",
       ],
       link: "Passo a passo de cada IA",
-      fotoAlt: "Loja de roupas numa rua comercial, com a porta de vidro aberta e uma funcionária dobrando camisas no balcão",
     },
     integracoes: {
       rotulo: "Integrações e código aberto",
@@ -1002,7 +998,6 @@ export const copy = {
         { titulo: "Código aberto", texto: "Licença MIT. Hospede o seu, com o seu banco, o seu armazenamento e o seu e-mail." },
       ],
       links: { api: "Guia da API", hospedar: "Como hospedar" },
-      fotoAlt: "Oficina mecânica de bairro com a porta aberta para a rua e um mecânico trabalhando de costas sob um carro no elevador",
     },
     faq: {
       rotulo: "Perguntas frequentes",
@@ -1019,7 +1014,26 @@ export const copy = {
   },
   // Telas recriadas no site (dados fictícios; mesmas telas do chat e do e-mail).
   telas: {
-    empresa: "Padaria Pão de Cada Dia",
+    empresa: "Agência Norte",
+    chat: {
+      usou: `Usou o ${NOME_PRODUTO}`,
+      widget: NOME_PRODUTO,
+      responder: "Responder…",
+      vaga: {
+        pedido: "Abra uma vaga de assistente administrativo no Financeiro, CLT, presencial em Campinas, de R$ 2.800 a R$ 3.200, com inscrições até 31/12.",
+        ferramenta: "abrir_formulario_vaga",
+        resposta: "Abri o formulário da vaga já preenchido, com as etapas padrão. Ainda não foi gravado: confira e clique em Salvar.",
+      },
+      resumo: {
+        pedido: "Resuma as candidaturas da vaga frente aos requisitos.",
+        resposta: "A Mariana atende a todos os requisitos, inclusive o desejável:",
+      },
+      decisoes: {
+        pedido: "A Mariana foi contratada. Encerre a vaga como preenchida.",
+        ferramenta: "abrir_formulario_decisoes",
+        resposta: "Abri um formulário com a contratação e o encerramento. Nada acontece até você clicar em Confirmar.",
+      },
+    },
     vaga: {
       titulo: "Vaga",
       campos: [
@@ -1046,13 +1060,13 @@ export const copy = {
     decisoes: {
       titulo: "Decisões",
       contratar: "Contratar Mariana C. · Assistente administrativo",
-      mensagem: "Olá, Mariana. A Padaria Pão de Cada Dia quer seguir com você na vaga de Assistente administrativo. Em breve a Carla entra em contato.",
+      mensagem: "Olá, Mariana. A Agência Norte quer seguir com você na vaga de Assistente administrativo. Em breve a Carla entra em contato.",
       encerrar: "Encerrar Assistente administrativo",
       aviso: "1 pessoa em andamento vai receber a devolutiva de vaga preenchida.",
       botao: "Confirmar 2",
     },
     email: {
-      de: "Padaria Pão de Cada Dia via Vaga Aberta",
+      de: "Agência Norte via Vaga Aberta",
       assunto: "Sobre sua candidatura para Assistente administrativo",
       corpo: [
         "Olá, Juliana. Obrigado pelo interesse na vaga de Assistente administrativo e pelo tempo dedicado à candidatura.",
