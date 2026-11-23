@@ -7,7 +7,7 @@ Em 23/11/2026: repositório `asiqueira1973/contrata` público, projeto `vaga-abe
 
 - [x] Repositório público no GitHub (`asiqueira1973/contrata`, ou o nome definitivo; se mudar, troque `URL_CODIGO` em `src/lib/copy.ts` e o `git clone` do README).
 - [x] Projeto na Vercel ligado ao repositório, com o domínio `vagaaberta.app.br` (DNS apontado e HTTPS emitido).
-- [ ] Variáveis de Production, todas as da tabela do README. Na instância oficial: `NEXT_PUBLIC_SITE_URL=https://vagaaberta.app.br`, `EMAIL_REMETENTE=naoresponda@vagaaberta.app.br`, `OPERADOR_NOME` (DabLab, razão social do `LICENSE`), `OPERADOR_CONTATO`, `CRIACAO_EMPRESA_EMAILS` com o seu e-mail, `CHAVES_ENC_KEY` gerada na hora, `ADMIN_EMAIL` (recebe os alertas da instância) e, se o plano do Supabase não for o gratuito, `ALERTA_BANCO_LIMITE_MB` com o tamanho do plano (no projeto compartilhado, o banco inteiro conta).
+- [ ] Variáveis de Production, todas as da tabela do README. Na instância oficial: `NEXT_PUBLIC_SITE_URL=https://vagaaberta.app.br`, `EMAIL_REMETENTE=naoresponda@vagaaberta.app.br`, `OPERADOR_NOME` (DabLab, razão social do `LICENSE`), `OPERADOR_CONTATO`, `CRIACAO_EMPRESA_EMAILS` com o seu e-mail e `*` (instância aberta desde 23/11/2026), `CHAVES_ENC_KEY` gerada na hora, `ADMIN_EMAIL` (recebe os alertas da instância) e, se o plano do Supabase não for o gratuito, `ALERTA_BANCO_LIMITE_MB` com o tamanho do plano (no projeto compartilhado, o banco inteiro conta).
 - [x] Cliente OAuth do Google com o redirect `https://vagaaberta.app.br/api/auth/google/callback`.
 - [x] Bucket R2 privado, token restrito ao bucket e CORS de `PUT` para `https://vagaaberta.app.br`.
 - [x] Domínio verificado no Resend (SPF, DKIM, DMARC).

@@ -49,6 +49,12 @@ describe("CRIACAO_EMPRESA_EMAILS (11.33)", () => {
     expect(canCreateCompany("bruno@outraempresa.com.br", "@empresa.com.br")).toBe(false);
     expect(canCreateCompany("bruno@sub.empresa.com.br", "@empresa.com.br")).toBe(false);
   });
+  it("* libera qualquer conta Google (instância aberta, v0.4.18), mas não vale na lista de bloqueados", () => {
+    expect(canCreateCompany("qualquer@gmail.com", "*")).toBe(true);
+    expect(canCreateCompany("ana@empresa.com.br", "alguem@x.com, *")).toBe(true);
+    expect(canCreateCompany("sem-arroba", "*")).toBe(false);
+    expect(isEmailBlocked("qualquer@gmail.com", "*")).toBe(false);
+  });
   it("bloqueados usam a mesma lógica", () => {
     expect(isEmailBlocked("x@spam.test", "@spam.test")).toBe(true);
     expect(isEmailBlocked("x@ok.test", "@spam.test")).toBe(false);
