@@ -18,6 +18,7 @@ import { atorJson } from "@/server/org/actor";
 import { siteOrigin } from "@/server/oauth/server";
 import { alcanceJson, type ContextoVagas } from "./jobs";
 import { urlDoLogo } from "@/server/files/logo";
+import { nomeLegivel } from "@/lib/nome";
 
 type TipoMensagem = Database["public"]["Enums"]["rs_tipo_mensagem"];
 export type TextoMensagem = { assunto: string; corpo: string };
@@ -28,19 +29,25 @@ export type MensagemPronta = {
 };
 
 type DadosCandidatura = {
-  id: string; vaga_id: string; nome: string; email: string | null; vaga: { titulo: string; slug: string };
+  id: string; vaga_id: string; nome: string; email: string | null; talentos: boolean; vaga: { titulo: string; slug: string };
   empresa: { nome: string; slug: string; email_contato: string; cor_destaque: string | null; logo_path: string | null };
 };
+
+type Candidato = { nome: string; email: string | null; talentos_consentido_em: string | null; talentos_expira_em: string | null };
+// Está no banco de talentos agora (11.12): consentiu e o prazo não venceu.
+const noBanco = (c: Candidato) => !!c.talentos_consentido_em && (!c.talentos_expira_em || new Date(c.talentos_expira_em) > new Date());
+// Texto que fala do banco de talentos (uso real, 23/11/2026): só vai a quem autorizou.
+const FALA_DE_TALENTOS = /banco\s+de\s+talentos/i;
 
 // Dados de uma candidatura recebida da empresa, para montar a mensagem.
 async function dados(empresaId: string, id: string): Promise<DadosCandidatura> {
   const { data, error } = await db().from("rs_candidaturas")
-    .select("id, vaga_id, candidato:candidato_id(nome, email), vaga:vaga_id(titulo, slug), empresa:empresa_id(nome, slug, email_contato, cor_destaque, logo_path)")
+    .select("id, vaga_id, candidato:candidato_id(nome, email, talentos_consentido_em, talentos_expira_em), vaga:vaga_id(titulo, slug), empresa:empresa_id(nome, slug, email_contato, cor_destaque, logo_path)")
     .eq("empresa_id", empresaId).eq("id", id).not("recebida_em", "is", null).maybeSingle();
   if (error) throw error;
   if (!data) throw new DomainError("candidatura_nao_encontrada", 404);
-  const d = data as unknown as { id: string; vaga_id: string; candidato: { nome: string; email: string | null }; vaga: DadosCandidatura["vaga"]; empresa: DadosCandidatura["empresa"] };
-  return { id: d.id, vaga_id: d.vaga_id, nome: d.candidato.nome, email: d.candidato.email, vaga: d.vaga, empresa: d.empresa };
+  const d = data as unknown as { id: string; vaga_id: string; candidato: Candidato; vaga: DadosCandidatura["vaga"]; empresa: DadosCandidatura["empresa"] };
+  return { id: d.id, vaga_id: d.vaga_id, nome: d.candidato.nome, email: d.candidato.email, talentos: noBanco(d.candidato), vaga: d.vaga, empresa: d.empresa };
 }
 
 // {{recrutador}} e {{link_agenda}} (11.29): quem envia, ou o responsável da vaga quando quem age é
@@ -54,7 +61,7 @@ export async function remetente(ctx: ContextoVagas, vagaId: string): Promise<{ n
   if (!membroId) return { nome: "", link_agenda: "" };
   const { data: m } = await db().from("rs_membros").select("link_agenda").eq("empresa_id", ctx.empresa.id).eq("id", membroId).maybeSingle();
   const { data: p } = await db().from("rs_pessoas").select("nome").eq("empresa_id", ctx.empresa.id).eq("membro_id", membroId).maybeSingle();
-  return { nome: p?.nome ?? "", link_agenda: m?.link_agenda ?? "" };
+  return { nome: nomeLegivel(p?.nome ?? ""), link_agenda: m?.link_agenda ?? "" };
 }
 
 // Valores das variáveis de uma candidatura (sem o link de acompanhamento, que entra só no e-mail).
@@ -75,8 +82,10 @@ export async function montarMensagem(ctx: ContextoVagas, id: string, tipo: TipoM
 }
 
 // Monta a mensagem com os dados já carregados (uma pessoa, ou cada pessoa de uma vaga em lote).
+// Regra 11.12 e 20 (uso real): a mensagem não promete o banco de talentos a quem não autorizou.
 function montarCom(d: DadosCandidatura, v: Valores, url: string | null, tipo: TipoMensagem, texto: TextoMensagem): MensagemPronta {
   if (!d.email) throw new DomainError("candidatura_anonimizada", 409);
+  if (!d.talentos && FALA_DE_TALENTOS.test(`${texto.assunto}\n${texto.corpo}`)) throw new CamposInvalidos([{ campo: "texto", codigo: "talentos_sem_consentimento" }]);
   const id = d.id;
   const assunto = renderizar(texto.assunto, v);
   const guardado = renderizar(texto.corpo, v, { manterLink: true });
@@ -102,17 +111,17 @@ export async function textoFinal(ctx: ContextoVagas, id: string, texto: TextoMen
 export async function mensagensDaVaga(ctx: ContextoVagas, vagaId: string, texto: TextoMensagem): Promise<Record<string, MensagemPronta>> {
   conferirVariaveis({ assunto: texto.assunto, corpo: texto.corpo });
   const { data, error } = await db().from("rs_candidaturas")
-    .select("id, vaga_id, link_versao, token_hash, candidato:candidato_id(nome, email), vaga:vaga_id(titulo, slug), empresa:empresa_id(nome, slug, email_contato, cor_destaque, logo_path)")
+    .select("id, vaga_id, link_versao, token_hash, candidato:candidato_id(nome, email, talentos_consentido_em, talentos_expira_em), vaga:vaga_id(titulo, slug), empresa:empresa_id(nome, slug, email_contato, cor_destaque, logo_path)")
     .eq("empresa_id", ctx.empresa.id).eq("vaga_id", vagaId).eq("situacao", "ativa").not("recebida_em", "is", null).limit(ENCERRAR_VAGA_ATIVAS_MAX + 1);
   if (error) throw error;
-  type Linha = { id: string; vaga_id: string; link_versao: number; token_hash: string; candidato: { nome: string; email: string | null }; vaga: DadosCandidatura["vaga"]; empresa: DadosCandidatura["empresa"] };
+  type Linha = { id: string; vaga_id: string; link_versao: number; token_hash: string; candidato: Candidato; vaga: DadosCandidatura["vaga"]; empresa: DadosCandidatura["empresa"] };
   const linhas = (data ?? []) as unknown as Linha[];
   if (linhas.length > ENCERRAR_VAGA_ATIVAS_MAX) throw new DomainError("lote_grande_demais", 409);
   const out: Record<string, MensagemPronta> = {};
   if (!linhas.length) return out;
   const r = await remetente(ctx, vagaId);
   for (const l of linhas) {
-    const d: DadosCandidatura = { id: l.id, vaga_id: l.vaga_id, nome: l.candidato.nome, email: l.candidato.email, vaga: l.vaga, empresa: l.empresa };
+    const d: DadosCandidatura = { id: l.id, vaga_id: l.vaga_id, nome: l.candidato.nome, email: l.candidato.email, talentos: noBanco(l.candidato), vaga: l.vaga, empresa: l.empresa };
     if (!d.email) continue;
     const v: Valores = { nome: primeiroNome(d.nome), nome_completo: d.nome, vaga: d.vaga.titulo, empresa: d.empresa.nome,
       link_vaga: `${siteOrigin()}/${d.empresa.slug}/vagas/${d.vaga.slug}`, recrutador: r.nome, link_agenda: r.link_agenda };

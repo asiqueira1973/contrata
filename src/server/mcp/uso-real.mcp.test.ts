@@ -4,6 +4,7 @@
 // chegava assim ao e-mail ({{recrutador}}); (3) o formulário de propostas era confundido com
 // proposta de emprego; (4) a devolutiva prometia banco de talentos a quem não autorizou.
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { ERROS } from "@/lib/copy";
 import { db } from "@/server/db/client";
 import { nomeLegivel } from "@/lib/nome";
 import { tokenDoLink } from "@/server/messages/link";
@@ -99,7 +100,7 @@ describe("devolutiva e banco de talentos (11.12, 20)", () => {
       { tipo: "reprovar", candidatura: sem, motivo: "experiencia", assunto: "Sobre", texto: "Obrigado pelo interesse. Seu cadastro fica no nosso banco de talentos para outras vagas." },
     ] }));
     expect(r.ok).toBe(false);
-    expect((r.erros as { codigo: string }[])[0].codigo).toBe("talentos_sem_consentimento");
+    expect((r.erros as { mensagem: string }[])[0].mensagem).toBe(ERROS.talentos_sem_consentimento);
     expect(await situacao(sem)).toBe("ativa");
   });
 

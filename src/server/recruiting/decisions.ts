@@ -125,15 +125,25 @@ function rastreia(ctx: Ctx, item: ItemDecisao, alvos: string[], extra: { editada
 export async function decideNow(ctx: Ctx, itens: Exclude<ItemDecisao, { tipo: "enviar_mensagem" }>[]): Promise<ResultadoItem[]> {
   if (!itens.length || itens.length > DECISOES_LOTE_MAX) throw new CamposInvalidos([{ campo: "itens", codigo: "lote_decisoes" }]);
   if (ctx.ator.tipo !== "membro") throw new DomainError("decisao_so_por_pessoa", 403);
-  const out: ResultadoItem[] = [];
-  for (const item of itens) {
+  // Uso real (23/11/2026): encerrar a vaga vem por último, para quem é contratado no mesmo clique
+  // não receber a devolutiva de vaga preenchida; se uma contratação falhou, o encerramento não
+  // acontece. O resultado volta na ordem em que os itens vieram.
+  const ordem = itens.map((item, n) => ({ item, n })).sort((a, b) => Number(a.item.tipo === "encerrar_vaga") - Number(b.item.tipo === "encerrar_vaga"));
+  const out: ResultadoItem[] = new Array(itens.length);
+  let contratacaoFalhou = false;
+  for (const { item, n } of ordem) {
+    if (item.tipo === "encerrar_vaga" && contratacaoFalhou) {
+      out[n] = { ok: false, codigo: "contratacao_falhou" };
+      continue;
+    }
     try {
       const r = await executar(ctx, item);
       await entregar(ctx.empresa, r.mensagens);
-      out.push({ ok: true });
+      out[n] = { ok: true };
       rastreia(ctx, item, r.alvos, { editada: false, criadaEm: null, lote: itens.length });
     } catch (e) {
-      out.push({ ok: false, codigo: codigoDoErro(e) });
+      if (item.tipo === "contratar") contratacaoFalhou = true;
+      out[n] = { ok: false, codigo: codigoDoErro(e) };
     }
   }
   return out;

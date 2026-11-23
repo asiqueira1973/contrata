@@ -48,6 +48,7 @@ export const formularioDecisoes: DefinicaoFormulario<typeof schemaDecisoes> = {
     motivo_encerramento: z.enum(MOTIVOS_ENCERRAMENTO).optional(),
     devolutiva: z.string().optional().describe("texto sugerido ao candidato; a pessoa da equipe revisa e edita"),
     justificativa: z.string().optional().describe("por que você propõe isso (aparece para a pessoa que confirma)"),
+    encerrar_vaga: z.boolean().optional().describe("com acao contratar: também encerra a vaga como preenchida no mesmo formulário; quem está sendo contratado não recebe a devolutiva"),
   }),
   async montar(args, ctx) {
     const acao = (args.acao as (typeof ACOES)[number] | undefined) ?? "reprovar";
@@ -55,16 +56,20 @@ export const formularioDecisoes: DefinicaoFormulario<typeof schemaDecisoes> = {
     const itens: ItemLista[] = [];
     const avisos: string[] = [];
     if (typeof args.justificativa === "string" && args.justificativa.trim()) avisos.push(c.justificativa(args.justificativa.trim()));
+    // Item de encerrar a vaga. O aviso conta as pessoas em andamento que vão receber a devolutiva,
+    // sem quem está sendo contratado no mesmo formulário (uso real, 23/11/2026).
+    const encerrar = async (vagaId: string, contratados: string[], texto: string | null) => {
+      const vaga = await getJob(ctx, vagaId);
+      const { data: ativas } = await db().from("rs_candidaturas").select("id").eq("empresa_id", ctx.empresa.id).eq("vaga_id", vagaId).eq("situacao", "ativa").not("recebida_em", "is", null);
+      const n = (ativas ?? []).filter((a) => !contratados.includes(a.id)).length;
+      const motivo = (args.motivo_encerramento as string) || "preenchida";
+      const modelo = await getTemplate(ctx.empresa.id, motivo === "cancelada" ? "devolutiva_vaga_cancelada" : "devolutiva_vaga_preenchida");
+      itens.push({ _titulo: c.encerrar(vaga.titulo), _aviso: c.encerrarAviso(n), tipo: "encerrar_vaga", vaga: vagaId,
+        motivo_encerramento: motivo, assunto: modelo?.assunto ?? "", texto: texto ?? modelo?.corpo ?? "" });
+    };
     if (acao === "encerrar_vaga") {
       const v = await acharVaga(ctx, args.vaga);
-      if (v) {
-        const vaga = await getJob(ctx, v.id);
-        const { count } = await db().from("rs_candidaturas").select("id", { count: "exact", head: true }).eq("empresa_id", ctx.empresa.id).eq("vaga_id", v.id).eq("situacao", "ativa").not("recebida_em", "is", null);
-        const motivo = (args.motivo_encerramento as string) || "preenchida";
-        const modelo = await getTemplate(ctx.empresa.id, motivo === "cancelada" ? "devolutiva_vaga_cancelada" : "devolutiva_vaga_preenchida");
-        itens.push({ _titulo: c.encerrar(vaga.titulo), _aviso: c.encerrarAviso(count ?? 0), tipo: "encerrar_vaga", vaga: v.id,
-          motivo_encerramento: motivo, assunto: modelo?.assunto ?? "", texto: sugestao ?? modelo?.corpo ?? "" });
-      }
+      if (v) await encerrar(v.id, [], sugestao);
     } else {
       const textos = Array.isArray(args.candidaturas) ? (args.candidaturas as unknown[]).filter((x): x is string => typeof x === "string") : [];
       const modelo = await getTemplate(ctx.empresa.id, acao === "contratar" ? "contratacao" : "devolutiva_padrao");
@@ -79,6 +84,12 @@ export const formularioDecisoes: DefinicaoFormulario<typeof schemaDecisoes> = {
         } catch {
           // não achou (ou ambíguo): fica de fora; a pessoa vê só o que dá para decidir
         }
+      }
+      // Contratar e encerrar a vaga juntos: o encerramento vem depois, da vaga de quem é contratado.
+      const contratados = itens.filter((i) => i.tipo === "contratar").map((i) => String(i.candidatura));
+      if (acao === "contratar" && args.encerrar_vaga === true && contratados.length) {
+        const { data: cand } = await db().from("rs_candidaturas").select("vaga_id").eq("empresa_id", ctx.empresa.id).eq("id", contratados[0]).single();
+        if (cand) await encerrar(cand.vaga_id, contratados, null);
       }
     }
     if (!itens.length) avisos.push(c.nenhuma);

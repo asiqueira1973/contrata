@@ -154,6 +154,8 @@ export const ERROS: Record<string, string> = {
   decisao_so_por_pessoa: "Decisões só acontecem com o clique de alguém da equipe no formulário. Sem formulário, use propor_decisao: a proposta espera a confirmação.",
   proposta_existente: "Já existe uma proposta igual esperando confirmação para esta candidatura ou vaga.",
   proposta_invalida: "Esta proposta já foi confirmada, descartada ou venceu.",
+  talentos_sem_consentimento: "Esta pessoa não autorizou ficar no banco de talentos. Tire do texto a parte que fala do banco de talentos.",
+  contratacao_falhou: "A vaga não foi encerrada porque a contratação no mesmo pedido não deu certo. Confira a contratação e encerre de novo.",
   lote_grande_demais: "A vaga tem mais de 1.000 candidaturas em andamento. Encerre em partes: reprove em lotes antes de encerrar a vaga.",
   lote_decisoes: "Confirme de 1 a 50 decisões por vez.",
   limite_mensagens: "A empresa já mandou 200 mensagens por integração hoje. Tente amanhã ou mande pelo chat.",
@@ -388,7 +390,7 @@ export const copy = {
       exportar_candidaturas: "Exportar candidaturas (CSV)",
       mover_etapa: "Mover de etapa",
       adicionar_nota: "Adicionar nota",
-      listar_propostas: "Propostas para confirmar",
+      listar_propostas: "Propostas de decisão para confirmar",
       listar_modelos_mensagem: "Modelos de mensagem",
       propor_decisao: "Propor uma decisão",
       buscar_talentos: "Banco de talentos",
@@ -417,7 +419,7 @@ export const copy = {
       adicionar_nota:
         "Adiciona uma nota interna a uma candidatura (a equipe vê; a pessoa candidata não). Fica assinada como feita por você em nome da pessoa. Escreva só fatos do processo: nada sobre idade, gênero, raça, religião, deficiência, estado civil ou outra característica pessoal. Só recrutador ou administrador.",
       listar_propostas:
-        "Lista as propostas de decisão (reprovar, contratar, encerrar vaga, mensagem) que esperam confirmação de alguém da equipe, com quem propôs, a justificativa e se ainda valem. Para confirmar ou descartar, abra o formulário de propostas.",
+        "Não é proposta de emprego: lista as propostas de decisão (reprovar, contratar, encerrar vaga, mensagem) que esperam confirmação de alguém da equipe, com quem propôs, a justificativa e se ainda valem. Para confirmar ou descartar, abra o formulário de propostas.",
       listar_modelos_mensagem: "Lista os modelos de mensagem da empresa (os padrão e os personalizados), com assunto e texto. Use a chave no formulário de mensagem ou de decisões.",
       buscar_talentos:
         "Busca no banco de talentos: só pessoas que autorizaram a empresa a guardar os dados e cujo prazo ainda vale, entre as que se candidataram a vagas que você enxerga. Filtra por texto (nome, cidade, respostas e currículo) e por vaga anterior. Traz as candidaturas anteriores de cada pessoa (use ler_curriculo para ler o currículo). Para convidar para uma vaga, abra o formulário convidar_para_vaga.",
@@ -456,7 +458,7 @@ export const copy = {
         titulo: "Decisões",
         // Texto literal da 13.3 / 20.4.
         descricao:
-          "Abre o formulário em que uma pessoa da equipe confere e confirma reprovações, contratações e encerramentos. Nada acontece até ela clicar em Confirmar. Escreva a devolutiva em tom respeitoso, sem citar idade, gênero, raça, religião, deficiência, estado civil ou qualquer característica pessoal, e explique na justificativa o motivo.",
+          "Abre o formulário em que uma pessoa da equipe confere e confirma reprovações, contratações e encerramentos. Nada acontece até ela clicar em Confirmar. Escreva a devolutiva em tom respeitoso, sem citar idade, gênero, raça, religião, deficiência, estado civil ou qualquer característica pessoal, e explique na justificativa o motivo. Para contratar e encerrar a vaga no mesmo pedido, use acao contratar com encerrar_vaga: true (um formulário só, com os dois itens). Só diga que a pessoa fica no banco de talentos se ela autorizou (ver_candidatura mostra); senão, o envio é recusado.",
         itens: "Decisões",
         item: "Decisão",
         motivo: "Motivo (só para a equipe)",
@@ -479,9 +481,9 @@ export const copy = {
           `${ok === 1 ? "1 decisão confirmada" : `${ok} decisões confirmadas`}.${falhas.length ? ` Não foram: ${falhas.join("; ")}.` : ""}`,
       },
       propostas: {
-        titulo: "Propostas",
+        titulo: "Propostas de decisão",
         descricao:
-          "Abre o formulário em que uma pessoa da equipe confere as propostas de decisão feitas por integrações ou pelo agente sem formulário, ajusta o texto ao candidato e confirma ou descarta cada uma. Nada acontece até ela clicar.",
+          "Não é proposta de emprego (o sistema não tem formulário de oferta; a etapa Proposta do funil é só uma etapa, e para contratar use o formulário de decisões). Abre o formulário em que uma pessoa da equipe confere as propostas de decisão feitas por integrações ou pelo agente sem formulário, ajusta o texto ao candidato e confirma ou descarta cada uma. Nada acontece até ela clicar.",
         itens: "Propostas",
         item: "Proposta",
         acao: "O que fazer",

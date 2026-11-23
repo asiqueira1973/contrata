@@ -1,6 +1,7 @@
 // Usuários (rs_usuarios) — seção 6.1. Fronteira com o banco: nomes em português nos
 // campos, como nos tipos gerados (seção 18).
 import "server-only";
+import { nomeLegivel } from "@/lib/nome";
 import { db } from "./client";
 
 export type Usuario = {
@@ -30,7 +31,7 @@ export async function enterUser(identity: { sub: string; email: string; name: st
   const { data, error } = await db().rpc("rs_fn_entra_usuario", {
     p_google_sub: identity.sub,
     p_email: identity.email,
-    p_nome: identity.name,
+    p_nome: nomeLegivel(identity.name),
     p_foto: identity.picture as string,
   });
   if (error) throw error;
