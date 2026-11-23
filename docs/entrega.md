@@ -18,7 +18,7 @@ Em 23/11/2026: repositório `asiqueira1973/contrata` público, projeto `vaga-abe
 - [ ] **9.1 no claude.ai:** conectar `https://vagaaberta.app.br/mcp`, criar a empresa fictícia, áreas, pessoas, convite, vaga, publicação, candidaturas pelo celular (com currículo), resumo, notas, mover, reprovar com devolutiva (e-mails reais), avaliação, contratar e encerrar.
 - [ ] **9.1 no ChatGPT:** o mesmo, com o Bruno avaliando pelo ChatGPT do celular.
 - [ ] **9.2 por `curl`:** `GET /api/publico/{empresa}/vagas`, `POST …/candidaturas`, `PUT` no `upload_url`, `POST …/concluir`; o e-mail com o link chega.
-- [ ] **9.3:** webhook recebido num endpoint real (n8n ou webhook.site), com a assinatura conferida pelo trecho do README.
+- [ ] **9.3 (adiado em 23/11/2026, a pedido do Alexandre):** webhook recebido num endpoint real (n8n ou webhook.site), com a assinatura conferida pelo trecho do README.
 
 ## 3. Conferências
 - [x] JSON-LD de uma vaga publicada aprovado no [Teste de Pesquisa Aprimorada](https://search.google.com/test/rich-results). (23/11/2026: 1 item válido de Job Postings, com avisos não críticos: salário oculto, sem endereço completo e sem logo.)
