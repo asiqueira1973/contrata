@@ -28,7 +28,7 @@ Outros sistemas de recrutamento citados no `spec.md` (OpenCATS e semelhantes) fo
 | lucide-react | 1.77.0 | ISC | Ícones |
 | server-only | 0.0.1 | MIT | Barreira entre servidor e navegador |
 
-Só no desenvolvimento e nos testes (não vão no que é entregue): node-forge (BSD-3-Clause, certificado dos testes de webhook), Vitest, Vite, TypeScript, ESLint e a Supabase CLI.
+Só no desenvolvimento e nos testes (não vão no que é entregue): node-forge (BSD-3-Clause, certificado dos testes de webhook), happy-dom (MIT, DOM dos testes de componente), Vitest, Vite, TypeScript, ESLint e a Supabase CLI.
 
 Os textos completos das licenças estão em cada pacote, em `node_modules/<pacote>/LICENSE`. A versão exata de cada um está em `package-lock.json`.
 

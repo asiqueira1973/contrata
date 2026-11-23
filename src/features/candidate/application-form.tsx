@@ -4,7 +4,7 @@
 // 5 MB; o servidor confere de novo pelos bytes); upload direto ao armazenamento com progresso;
 // "O envio não terminou" com "Tentar de novo" (a mesma candidatura). O campo-armadilha `website`
 // fica fora da vista. Fala só com a API pública da própria empresa (sem segredo nenhum aqui).
-import { useId, useRef, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { ERROS, copy } from "@/lib/copy";
 import { CURRICULO_MAX_BYTES, CURRICULO_TIPOS } from "@/lib/limits";
 import s from "./candidate.module.css";
@@ -53,6 +53,24 @@ export function ApplicationForm(p: Props) {
   const [progresso, setProgresso] = useState<number | null>(null);
   const [falhouEnvio, setFalhouEnvio] = useState(false);
   const formRef = useRef<HTMLFormElement>(null);
+
+  // O Next 16 guarda a página escondida (<Activity>) ao navegar: depois de enviar, sair e voltar
+  // para "Candidatar-me" mostraria a tela de enviada da candidatura anterior. Ao esconder a página
+  // com a candidatura enviada, o formulário volta vazio (o que estava sendo digitado fica).
+  useEffect(() => {
+    if (fase !== "enviado" && fase !== "duplicada") return;
+    return () => {
+      setValores({ nome: "", email: "", telefone: "", linkedin_url: "", website: "" });
+      setRespostas({});
+      setAceite(false);
+      setTalentos(false);
+      setArquivo(null);
+      setErros({});
+      setGeral(null);
+      setFalhouEnvio(false);
+      setFase("editando");
+    };
+  }, [fase]);
 
   const id = (campo: string) => `${base}-${campo}`;
   const erroDe = (campo: string) => erros[campo] ?? null;

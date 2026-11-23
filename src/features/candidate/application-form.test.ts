@@ -35,7 +35,7 @@ describe("formulário de candidatura ao voltar para a página", () => {
     const div = document.createElement("div");
     document.body.appendChild(div);
     const root = createRoot(div);
-    const render = (mode: "visible" | "hidden") => act(async () => root.render(createElement(Activity, { mode }, createElement(ApplicationForm, props))));
+    const render = (mode: "visible" | "hidden") => act(async () => root.render(createElement(Activity, { mode } as React.ComponentProps<typeof Activity>, createElement(ApplicationForm, props))));
     await render("visible");
     const nome = div.querySelector<HTMLInputElement>("input[autocomplete=name]")!;
     const email = div.querySelector<HTMLInputElement>("input[type=email]")!;
