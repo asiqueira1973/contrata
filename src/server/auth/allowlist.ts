@@ -5,6 +5,7 @@
 //   (instância aberta, como a oficial desde a v0.4.18). O "*" vale só aqui, nunca nos bloqueados.
 // Cada item é um endereço exato ou "@dominio", separados por vírgula, sem diferenciar maiúsculas.
 import "server-only";
+import { EMPRESAS_POR_CONTA_ABERTA } from "@/lib/limits";
 
 // Diz se o e-mail casa com algum item da lista. Recebe: e-mail e o texto da variável.
 function inList(email: string, raw: string | undefined, curinga = false): boolean {
@@ -22,6 +23,12 @@ function inList(email: string, raw: string | undefined, curinga = false): boolea
 // Regra 11.33: pode criar empresa? Recebe: e-mail da conta Google; a lista vem do ambiente.
 export function canCreateCompany(email: string, raw = process.env.CRIACAO_EMPRESA_EMAILS): boolean {
   return inList(email, raw, true);
+}
+
+// Limite de empresas por conta (v0.4.19): quem está nominalmente na lista (e-mail ou @dominio)
+// não tem limite (null); quem só entra pelo "*" cria até EMPRESAS_POR_CONTA_ABERTA.
+export function limiteDeEmpresas(email: string, raw = process.env.CRIACAO_EMPRESA_EMAILS): number | null {
+  return inList(email, raw) ? null : EMPRESAS_POR_CONTA_ABERTA;
 }
 
 // E-mail bloqueado pela instância? (6.1, proteções do retorno do login)

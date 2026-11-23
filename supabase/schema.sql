@@ -1042,7 +1042,7 @@ end $_$;
 ALTER FUNCTION "public"."rs_fn_cria_codigo_oauth"("p_codigo_hash" "text", "p_cliente" "uuid", "p_empresa" "uuid", "p_membro" "uuid", "p_escopos" "public"."rs_escopo"[], "p_redirect_uri" "text", "p_code_challenge" "text", "p_validade_s" integer) OWNER TO "postgres";
 
 
-CREATE OR REPLACE FUNCTION "public"."rs_fn_cria_empresa"("p_usuario" "uuid", "p_slug" "text", "p_nome" "text", "p_email_contato" "text") RETURNS "uuid"
+CREATE OR REPLACE FUNCTION "public"."rs_fn_cria_empresa"("p_usuario" "uuid", "p_slug" "text", "p_nome" "text", "p_email_contato" "text", "p_max_criadas" integer DEFAULT NULL::integer) RETURNS "uuid"
     LANGUAGE "plpgsql"
     SET "search_path" TO ''
     AS $$
@@ -1054,6 +1054,12 @@ begin
   select * into v_u from public.rs_usuarios where id = p_usuario and suspenso_em is null;
   if v_u.id is null then
     raise exception 'usuario_invalido' using errcode = 'P0001';
+  end if;
+  if p_max_criadas is not null then
+    perform pg_catalog.pg_advisory_xact_lock(pg_catalog.hashtextextended('rs_cria_empresa:' || p_usuario::text, 0));
+    if (select count(*) from public.rs_empresas where criada_por_usuario_id = p_usuario and excluida_em is null) >= p_max_criadas then
+      raise exception 'limite_empresas' using errcode = 'P0001';
+    end if;
   end if;
   if exists (select 1 from public.rs_empresas where slug = p_slug) then
     raise exception 'slug_em_uso' using errcode = 'P0001';
@@ -1069,7 +1075,7 @@ begin
 end $$;
 
 
-ALTER FUNCTION "public"."rs_fn_cria_empresa"("p_usuario" "uuid", "p_slug" "text", "p_nome" "text", "p_email_contato" "text") OWNER TO "postgres";
+ALTER FUNCTION "public"."rs_fn_cria_empresa"("p_usuario" "uuid", "p_slug" "text", "p_nome" "text", "p_email_contato" "text", "p_max_criadas" integer) OWNER TO "postgres";
 
 
 CREATE OR REPLACE FUNCTION "public"."rs_fn_cria_vaga"("p_empresa" "uuid", "p_dados" "jsonb", "p_alcance" "jsonb", "p_ator" "jsonb", "p_chave" "text" DEFAULT NULL::"text") RETURNS "jsonb"
@@ -5021,8 +5027,8 @@ GRANT ALL ON FUNCTION "public"."rs_fn_cria_codigo_oauth"("p_codigo_hash" "text",
 
 
 
-REVOKE ALL ON FUNCTION "public"."rs_fn_cria_empresa"("p_usuario" "uuid", "p_slug" "text", "p_nome" "text", "p_email_contato" "text") FROM PUBLIC;
-GRANT ALL ON FUNCTION "public"."rs_fn_cria_empresa"("p_usuario" "uuid", "p_slug" "text", "p_nome" "text", "p_email_contato" "text") TO "service_role";
+REVOKE ALL ON FUNCTION "public"."rs_fn_cria_empresa"("p_usuario" "uuid", "p_slug" "text", "p_nome" "text", "p_email_contato" "text", "p_max_criadas" integer) FROM PUBLIC;
+GRANT ALL ON FUNCTION "public"."rs_fn_cria_empresa"("p_usuario" "uuid", "p_slug" "text", "p_nome" "text", "p_email_contato" "text", "p_max_criadas" integer) TO "service_role";
 
 
 

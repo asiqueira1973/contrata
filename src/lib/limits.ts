@@ -249,3 +249,7 @@ export const ANALYTICS_ROTA_MAX = 120;
 
 // Site institucional: o botão "Copiar" mostra "Copiado" por 2 s.
 export const COPIADO_MS = 2000;
+
+// Instância aberta (CRIACAO_EMPRESA_EMAILS com "*", v0.4.19): cada conta Google cria 1 empresa;
+// quem está nominalmente na lista não tem limite.
+export const EMPRESAS_POR_CONTA_ABERTA = 1;

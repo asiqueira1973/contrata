@@ -36,6 +36,7 @@ export const ERROS: Record<string, string> = {
   dados_invalidos: "Confira os campos destacados.",
   // 15.2
   slug_em_uso: "Esse endereço já está em uso. Tente outro.",
+  limite_empresas: "Cada conta pode criar uma empresa. Para trabalhar em outra, peça um convite a quem a administra.",
   slug_invalido: "Use de 3 a 40 letras minúsculas, números e hífens.",
   sem_permissao_criar_empresa:
     "Esta instância só permite criar empresas para os e-mails definidos por quem a hospeda. Para entrar numa empresa que já existe, peça um convite ao administrador dela.",

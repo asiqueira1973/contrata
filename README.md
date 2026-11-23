@@ -119,7 +119,7 @@ As páginas `/privacidade` e `/termos` e o aviso de privacidade da candidatura s
 | `S3_SECRET_ACCESS_KEY` | sim | Segredo da chave do bucket |
 | `S3_BUCKET` | sim | Nome do bucket privado |
 | `CRON_SECRET` | sim | Protege `/api/cron/diario`. `openssl rand -base64 32` |
-| `CRIACAO_EMPRESA_EMAILS` | sim | E-mails ou `@dominio` que podem criar empresa, separados por vírgula; `*` libera qualquer conta Google. Vazia, ninguém cria |
+| `CRIACAO_EMPRESA_EMAILS` | sim | E-mails ou `@dominio` que podem criar empresa, separados por vírgula; `*` libera qualquer conta Google, com 1 empresa por conta (quem está nominalmente na lista não tem limite). Vazia, ninguém cria |
 | `EMAILS_BLOQUEADOS` | não | E-mails que não entram |
 | `ADMIN_EMAIL` | não | Recebe os alertas da instância (login recusado por e-mail em uso, passo da faxina que falhou, banco acima de 70% do plano; um de cada por dia) e é o contato padrão das páginas legais. Vazia, nenhum alerta sai |
 | `ALERTA_BANCO_LIMITE_MB` | não | Tamanho do plano do banco em MB, para o alerta de 70% (padrão 500, o plano gratuito do Supabase) |

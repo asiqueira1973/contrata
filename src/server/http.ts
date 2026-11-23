@@ -27,6 +27,7 @@ const STATUS: Record<string, number> = {
   origem_invalida: 403,
   sem_permissao: 403,
   sem_permissao_criar_empresa: 403,
+  limite_empresas: 409,
   nao_encontrado: 404,
   convite_invalido: 404,
   slug_em_uso: 409,

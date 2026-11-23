@@ -905,7 +905,7 @@ isOneToOne: false
 { Args: { "p_cliente": string,"p_code_challenge": string,"p_codigo_hash": string,"p_empresa": string,"p_escopos": (Database["public"]['Enums']["rs_escopo"])[],"p_membro": string,"p_redirect_uri": string,"p_validade_s": number }; Returns: undefined
                            },
 "rs_fn_cria_empresa":
-{ Args: { "p_email_contato": string,"p_nome": string,"p_slug": string,"p_usuario": string }; Returns: string
+{ Args: { "p_email_contato": string,"p_max_criadas"?: number,"p_nome": string,"p_slug": string,"p_usuario": string }; Returns: string
                            },
 "rs_fn_cria_vaga":
 { Args: { "p_alcance": Json,"p_ator": Json,"p_chave"?: string,"p_dados": Json,"p_empresa": string }; Returns: Json

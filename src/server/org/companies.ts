@@ -7,7 +7,7 @@ import { invalidarPaginas } from "@/server/recruiting/jobs";
 import type { z } from "zod";
 import { slugProblem, type criarEmpresaSchema } from "@/lib/schemas/org";
 import type { Papel } from "@/lib/limits";
-import { canCreateCompany } from "@/server/auth/allowlist";
+import { canCreateCompany, limiteDeEmpresas } from "@/server/auth/allowlist";
 import { db } from "@/server/db/client";
 import type { Usuario } from "@/server/db/users";
 import { CamposInvalidos, DomainError } from "@/server/http";
@@ -57,15 +57,19 @@ export async function createCompany(usuario: Usuario, input: z.infer<typeof cria
   if (!canCreateCompany(usuario.email)) throw new DomainError("sem_permissao_criar_empresa", 403);
   const problem = slugProblem(input.slug);
   if (problem) throw new DomainError(problem, problem === "slug_em_uso" ? 409 : 422);
+  const limite = limiteDeEmpresas(usuario.email);
   const { data, error } = await db().rpc("rs_fn_cria_empresa", {
     p_usuario: usuario.id,
     p_slug: input.slug,
     p_nome: input.nome,
     p_email_contato: input.email_contato,
+    ...(limite === null ? {} : { p_max_criadas: limite }),
   });
   if (error) {
     // Corrida entre duas criações com o mesmo slug: o índice único decide.
     if (error.code === "23505") throw new DomainError("slug_em_uso", 409);
+    // Instância aberta: uma empresa por conta (v0.4.19), conferido no banco com lock.
+    if (error.message === "limite_empresas") throw new DomainError("limite_empresas", 409);
     throw error;
   }
   track("vaga_aberta_empresa_criada", { quem: { email: usuario.email }, chave: data as string, propriedades: {} });
