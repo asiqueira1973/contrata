@@ -4,8 +4,6 @@
 
 **Use agora em [vagaaberta.app.br](https://vagaaberta.app.br)**, sem instalar nada, ou hospede a sua cópia seguindo o passo a passo abaixo.
 
-![Página inicial do Vaga Aberta: "Contrate conversando. Dentro da sua IA.", com uma conversa em que a IA consulta as candidaturas e abre o formulário de decisões](docs/imagens/site-inicio.png)
-
 ## Como aparece na conversa com a IA
 Você pede em português; a IA consulta o Vaga Aberta e, quando é preciso gravar ou decidir, abre um formulário dentro do chat. Reprovar, contratar e encerrar a vaga só acontecem com o clique de alguém da equipe, e cada pessoa recebe a devolutiva por e-mail. As telas abaixo usam dados de exemplo.
 
