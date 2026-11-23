@@ -3,10 +3,12 @@
 O código cumpre os critérios de 8.0 a 8.12 no local, com `npm run verify` verde e as migrations aplicadas no remoto. O que falta depende de contas reais e fica com o Alexandre. Cada item tem o roteiro para fechar.
 
 ## 1. Publicar a instância oficial
-- [ ] Repositório público no GitHub (`asiqueira1973/contrata`, ou o nome definitivo; se mudar, troque `URL_CODIGO` em `src/lib/copy.ts` e o `git clone` do README).
-- [ ] Projeto na Vercel ligado ao repositório, com o domínio `vagaaberta.app.br` (DNS apontado e HTTPS emitido).
+Em 23/11/2026: repositório `asiqueira1973/contrata` público, projeto `vaga-aberta` na Vercel com deploy de produção no ar em https://vagaaberta.app.br (páginas, `/mcp` com OAuth, `/api/v1/openapi.json` e login pelo Google respondendo). Variáveis de produção já postas: segredos gerados, Supabase, Google, `CRIACAO_EMPRESA_EMAILS`, `ADMIN_EMAIL`, `OPERADOR_NOME`, `EMAIL_REMETENTE`, `S3_REGION` e `S3_BUCKET`. **Faltam:** `S3_ENDPOINT`, `S3_ACCESS_KEY_ID`, `S3_SECRET_ACCESS_KEY` (sem elas, candidatura com currículo falha) e `RESEND_API_KEY` com o domínio verificado (sem ela, nenhum e-mail sai: convites, confirmações, devolutivas).
+
+- [x] Repositório público no GitHub (`asiqueira1973/contrata`, ou o nome definitivo; se mudar, troque `URL_CODIGO` em `src/lib/copy.ts` e o `git clone` do README).
+- [x] Projeto na Vercel ligado ao repositório, com o domínio `vagaaberta.app.br` (DNS apontado e HTTPS emitido).
 - [ ] Variáveis de Production, todas as da tabela do README. Na instância oficial: `NEXT_PUBLIC_SITE_URL=https://vagaaberta.app.br`, `EMAIL_REMETENTE=naoresponda@vagaaberta.app.br`, `OPERADOR_NOME` (DabLab, razão social do `LICENSE`), `OPERADOR_CONTATO`, `CRIACAO_EMPRESA_EMAILS` com o seu e-mail, `CHAVES_ENC_KEY` gerada na hora, `ADMIN_EMAIL` (recebe os alertas da instância) e, se o plano do Supabase não for o gratuito, `ALERTA_BANCO_LIMITE_MB` com o tamanho do plano (no projeto compartilhado, o banco inteiro conta).
-- [ ] Cliente OAuth do Google com o redirect `https://vagaaberta.app.br/api/auth/google/callback`.
+- [x] Cliente OAuth do Google com o redirect `https://vagaaberta.app.br/api/auth/google/callback`.
 - [ ] Bucket R2 privado, token restrito ao bucket e CORS de `PUT` para `https://vagaaberta.app.br`.
 - [ ] Domínio verificado no Resend (SPF, DKIM, DMARC).
 - [ ] O cron aparece em **Vercel → Settings → Cron Jobs** e a primeira rodada deixa `faxina_diaria` no log.
