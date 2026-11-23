@@ -109,7 +109,7 @@ export async function exchangeCode(code: string, clientId: string, redirectUri: 
   if (error) throw error;
   if (data) {
     const credencial = data as string;
-    track("contrata_mcp_conectado", {
+    track("vaga_aberta_mcp_conectado", {
       quem: { credencial }, chave: credencial,
       // O nome do cliente OAuth (ex.: "Claude") e os escopos dados; nada da pessoa.
       propriedades: async () => {

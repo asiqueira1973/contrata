@@ -68,7 +68,7 @@ export async function savePerson(ctx: ContextoMembro, id: string | null, input: 
   if (error) throw error;
   if (!id) {
     const pessoaId = data as string;
-    track("contrata_pessoa_cadastrada", {
+    track("vaga_aberta_pessoa_cadastrada", {
       quem: quemDoAtor(ctx.ator, ctx.empresa.id), chave: pessoaId,
       // Com acesso: o cadastro ligou a pessoa a um membro de mesmo e-mail.
       propriedades: async () => {

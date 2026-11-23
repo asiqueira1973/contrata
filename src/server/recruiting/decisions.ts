@@ -97,20 +97,20 @@ function codigoDoErro(e: unknown): string {
 }
 
 // ---------------------------------------------------------------- analytics (8.11; seção 21)
-// Depois de uma decisão executada: contrata_decisao_confirmada e, para cada candidatura que ela
+// Depois de uma decisão executada: vaga_aberta_decisao_confirmada e, para cada candidatura que ela
 // encerrou (`alvos`, as que receberam a mensagem; no contratar sem mensagem, a própria),
-// contrata_candidatura_encerrada. O tempo desde a chegada é lido depois da resposta, só com
+// vaga_aberta_candidatura_encerrada. O tempo desde a chegada é lido depois da resposta, só com
 // analytics ligado. Só enums e números; nada pessoal. Nunca lança.
 function rastreia(ctx: Ctx, item: ItemDecisao, alvos: string[], extra: { editada: boolean; criadaEm: string | null; lote: number; decisaoId?: string }) {
   const quem = quemDoAtor(ctx.ator, ctx.empresa.id);
   const tipo = item.tipo;
   const horas = extra.criadaEm ? Math.max(0, Math.round(((Date.now() - new Date(extra.criadaEm).getTime()) / 3_600_000) * 10) / 10) : 0;
-  track("contrata_decisao_confirmada", { quem, chave: extra.decisaoId, propriedades: { tipo, editada: extra.editada, horas_ate_confirmar: horas, lote: extra.lote } });
+  track("vaga_aberta_decisao_confirmada", { quem, chave: extra.decisaoId, propriedades: { tipo, editada: extra.editada, horas_ate_confirmar: horas, lote: extra.lote } });
   if (tipo === "reabrir" || tipo === "enviar_mensagem") return;
   const situacao = tipo === "reprovar" ? "reprovada" : tipo === "contratar" ? "contratada" : "encerrada_vaga";
   const ids = tipo === "encerrar_vaga" ? alvos : [item.candidatura];
   for (const id of ids) {
-    track("contrata_candidatura_encerrada", {
+    track("vaga_aberta_candidatura_encerrada", {
       quem, chave: id,
       propriedades: async () => {
         const { data } = await db().from("rs_candidaturas").select("recebida_em").eq("empresa_id", ctx.empresa.id).eq("id", id).maybeSingle();
@@ -177,7 +177,7 @@ export async function proposeDecision(ctx: Ctx, p: { tipo: TipoDecisao; candidat
     p_payload: s.data as never, p_justificativa: (p.justificativa ?? null) as never, p_ator: atorJson(ctx.ator), p_alcance: alcanceJson(ctx.alcance) as never,
   });
   if (error) throw error;
-  track("contrata_decisao_proposta", { quem: quemDoAtor(ctx.ator, ctx.empresa.id), chave: data as string, propriedades: { tipo: p.tipo, origem: origemDoAtor(ctx.ator) } });
+  track("vaga_aberta_decisao_proposta", { quem: quemDoAtor(ctx.ator, ctx.empresa.id), chave: data as string, propriedades: { tipo: p.tipo, origem: origemDoAtor(ctx.ator) } });
   return { decisao_id: data as string, mensagem: copy.decisoes.propostaCriada };
 }
 

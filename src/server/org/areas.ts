@@ -45,7 +45,7 @@ export async function saveArea(ctx: ContextoMembro, id: string | null, input: z.
     p_ator: atorJson(ctx.ator),
   });
   if (error) throw error;
-  if (!id) track("contrata_area_criada", { quem: quemDoAtor(ctx.ator, ctx.empresa.id), chave: data as string, propriedades: {} });
+  if (!id) track("vaga_aberta_area_criada", { quem: quemDoAtor(ctx.ator, ctx.empresa.id), chave: data as string, propriedades: {} });
   return data as string;
 }
 

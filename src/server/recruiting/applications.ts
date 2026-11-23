@@ -177,7 +177,7 @@ export async function applyToJob(p: {
       { onConflict: "empresa_id,versao", ignoreDuplicates: true });
   }
   const criada = await chamaCria(p.empresa, vaga.id, e, r.respostas, p.origem, p.ator, versao, e.talentos, generateToken().hash, e.convite);
-  if (!criada.existente) track("contrata_candidatura_iniciada", { quem: { candidatura: criada.id }, chave: criada.id, propriedades: {} });
+  if (!criada.existente) track("vaga_aberta_candidatura_iniciada", { quem: { candidatura: criada.id }, chave: criada.id, propriedades: {} });
   if (criada.existente && criada.recebida) {
     // 11.3: não muda nada; gira o link e manda de novo.
     const url = await giraLink(p.empresa.id, criada.id);
@@ -289,7 +289,7 @@ async function conclui(empresa: EmpresaDaCandidatura, c: CandidaturaParaConcluir
   if (r.ja_recebida) return { recebida: true };
   if (r.notificacao_id) await deliverLater(r.notificacao_id, empresa.nome);
   deliverDueLater(empresa.id); // candidatura.criada (8.8)
-  track("contrata_candidatura_enviada", {
+  track("vaga_aberta_candidatura_enviada", {
     quem: { candidatura: c.id }, chave: c.id,
     propriedades: {
       origem: c.origem, com_curriculo: !!arquivo, talentos: c.talentos_pedido,
@@ -327,7 +327,7 @@ export async function addCandidateManually(p: {
     conferido = r;
   }
   const criada = await chamaCria(p.empresa, vaga.id, parsed.data, [], "manual", p.ator, "manual", false, generateToken().hash);
-  if (!criada.existente) track("contrata_candidatura_iniciada", { quem: { candidatura: criada.id }, chave: criada.id, propriedades: {} });
+  if (!criada.existente) track("vaga_aberta_candidatura_iniciada", { quem: { candidatura: criada.id }, chave: criada.id, propriedades: {} });
   if (criada.existente) throw new DomainError("candidato_ja_inscrito", 409);
   let arquivo = null;
   if (p.curriculo && conferido) {
@@ -395,7 +395,7 @@ export async function requestReview(token: string, texto: unknown): Promise<void
   const { data: vagaId, error } = await db().rpc("rs_fn_pede_revisao", { p_candidatura: c.id, p_texto: t || (null as never) });
   if (error) throw error;
   deliverDueLater(c.empresa.id); // revisao.pedida (8.8)
-  track("contrata_revisao_pedida", { quem: { candidatura: c.id }, chave: c.id, propriedades: {} });
+  track("vaga_aberta_revisao_pedida", { quem: { candidatura: c.id }, chave: c.id, propriedades: {} });
   // Quem recebe: o responsável da vaga; sem ele, os administradores ativos.
   const { data: resp } = await db().from("rs_vaga_equipe").select("membro_id, membro:membro_id(empresa_id, removido_em, usuario_id)")
     .eq("vaga_id", vagaId as string).eq("papel_na_vaga", "responsavel");
@@ -439,7 +439,7 @@ export async function withdraw(token: string): Promise<void> {
   const id = (data as { notificacao_id: string | null }).notificacao_id;
   if (id) await deliverLater(id, c.empresa.nome);
   deliverDueLater(c.empresa.id); // candidatura.desistiu (8.8)
-  track("contrata_candidatura_encerrada", {
+  track("vaga_aberta_candidatura_encerrada", {
     quem: { candidatura: c.id }, chave: c.id,
     propriedades: { situacao: "desistiu", origem: "pagina", dias_ate_encerrar: diasDesde(c.recebida_em) },
   });
@@ -546,7 +546,7 @@ export async function deleteData(token: string, codigo: unknown): Promise<{ empr
   if (e2) throw e2;
   const lista = (paths as string[] | null) ?? [];
   deliverDueLater(c.empresa.id); // candidatura.anonimizada (8.8)
-  track("contrata_dados_excluidos", { quem: { candidatura: c.id }, chave: c.id, propriedades: {} });
+  track("vaga_aberta_dados_excluidos", { quem: { candidatura: c.id }, chave: c.id, propriedades: {} });
   await afterResponse(async () => {
     for (const path of lista) {
       try {

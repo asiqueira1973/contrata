@@ -12,7 +12,7 @@ Em 23/11/2026: repositório `asiqueira1973/contrata` público, projeto `vaga-abe
 - [x] Bucket R2 privado, token restrito ao bucket e CORS de `PUT` para `https://vagaaberta.app.br`.
 - [x] Domínio verificado no Resend (SPF, DKIM, DMARC).
 - [ ] O cron aparece em **Vercel → Settings → Cron Jobs** e a primeira rodada deixa `faxina_diaria` no log.
-- [ ] **Product analytics (pedido em 23/11/2026):** ligar o envio dos eventos do 8.11 ao Visão do Produto. O código já está pronto; faltam as duas variáveis na Vercel: `VISAO_INGEST_URL=https://api.visaodeproduto.com.br/functions/v1/ingest` e `VISAO_API_KEY` (a chave de ingest do projeto, tipo Sensitive, nunca no repositório), e um deploy. Os eventos chegam com o prefixo `contrata_` (série histórica do 8.11; o exemplo do Visão usa `vaga_aberta_*`: decidir se renomeia antes de ligar). Depois, conferir no Visão que `contrata_candidatura_enviada` e `contrata_decisao_confirmada` aparecem.
+- [x] **Product analytics (23/11/2026):** eventos renomeados para `vaga_aberta_*` (antes do primeiro envio) e `VISAO_INGEST_URL` e `VISAO_API_KEY` (Sensitive) postas na Vercel; a chave foi aceita pelo ingest (202). Conferir no Visão que os eventos chegam depois do primeiro uso.
 
 ## 2. Fluxos reais (spec 9)
 - [ ] **9.1 no claude.ai:** conectar `https://vagaaberta.app.br/mcp`, criar a empresa fictícia, áreas, pessoas, convite, vaga, publicação, candidaturas pelo celular (com currículo), resumo, notas, mover, reprovar com devolutiva (e-mails reais), avaliação, contratar e encerrar.

@@ -111,7 +111,7 @@ export function registrarFormulario<S extends z.ZodObject>(server: McpServer, ct
         if (!v.ok) return comoResultado(v.r);
         // Quem clicou é a pessoa: o ator é o membro, com origem "formulario" (11.34).
         const r = await gravarComTratamento(def, v.dados, { ...membro, ator: atorDoFormulario(membro.ator) });
-        if (r.ok) track("contrata_formulario_salvo", { quem: { membro: membro.membro.id }, propriedades: { acao: def.acao, fallback: false, editado: __editado === true } });
+        if (r.ok) track("vaga_aberta_formulario_salvo", { quem: { membro: membro.membro.id }, propriedades: { acao: def.acao, fallback: false, editado: __editado === true } });
         return comoResultado(r);
       },
     );
@@ -148,7 +148,7 @@ export function registrarFormulario<S extends z.ZodObject>(server: McpServer, ct
         if (conferencia !== "ok") return erro("previa_invalida");
         // Sem formulário, quem grava é o agente, depois de a pessoa concordar na conversa.
         const r = await gravarComTratamento(def, v.dados, membro);
-        if (r.ok) track("contrata_formulario_salvo", { quem: { membro: membro.membro.id }, propriedades: { acao: def.acao, fallback: true, editado: false } });
+        if (r.ok) track("vaga_aberta_formulario_salvo", { quem: { membro: membro.membro.id }, propriedades: { acao: def.acao, fallback: true, editado: false } });
         return comoResultado(r);
       },
     );

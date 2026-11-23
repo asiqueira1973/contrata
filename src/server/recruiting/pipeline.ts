@@ -252,7 +252,7 @@ export async function moveStage(ctx: ContextoVagas, ids: string[], etapaId: stri
   if (error) throw traduz(error);
   const etapas = await nomesDeEtapas([etapaId]);
   const movidas = Number(data ?? 0);
-  if (movidas) track("contrata_etapa_alterada", { quem: quemDoAtor(ctx.ator, ctx.empresa.id), propriedades: { origem: origemDoAtor(ctx.ator), lote: movidas } });
+  if (movidas) track("vaga_aberta_etapa_alterada", { quem: quemDoAtor(ctx.ator, ctx.empresa.id), propriedades: { origem: origemDoAtor(ctx.ator), lote: movidas } });
   return { movidas, etapa: etapas.get(etapaId) ?? "" };
 }
 
@@ -274,7 +274,7 @@ export async function registerEvaluation(ctx: ContextoVagas, dados: { candidatur
     p_recomendacao: dados.recomendacao, p_comentario: dados.comentario, p_ator: atorJson(ctx.ator),
   });
   if (error) throw traduz(error);
-  track("contrata_avaliacao_registrada", { quem: quemDoAtor(ctx.ator, ctx.empresa.id), chave: `${data}:${dados.recomendacao}`, propriedades: { recomendacao: dados.recomendacao } });
+  track("vaga_aberta_avaliacao_registrada", { quem: quemDoAtor(ctx.ator, ctx.empresa.id), chave: `${data}:${dados.recomendacao}`, propriedades: { recomendacao: dados.recomendacao } });
   return { id: data as string };
 }
 

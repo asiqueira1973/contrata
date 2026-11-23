@@ -167,7 +167,7 @@ export async function sendToIngest(events: IngestEvent[]): Promise<number> {
   }
 }
 
-// Amostragem de contrata_api_chamada (seção 21): no máximo 1 a cada 10 s por credencial, por
+// Amostragem de vaga_aberta_api_chamada (seção 21): no máximo 1 a cada 10 s por credencial, por
 // instância do servidor. Recebe: a credencial. Devolve: se este pedido entra.
 const lastApiSample = new Map<string, number>();
 export function sampleApiCall(credentialId: string, now = Date.now()): boolean {
@@ -178,11 +178,11 @@ export function sampleApiCall(credentialId: string, now = Date.now()): boolean {
   return true;
 }
 
-// contrata_api_chamada (seção 21), amostrado por credencial. Recebe: a credencial, quem, o pathname,
+// vaga_aberta_api_chamada (seção 21), amostrado por credencial. Recebe: a credencial, quem, o pathname,
 // o status da resposta e a porta.
 export function trackApiCall(credentialId: string, quem: Who, pathname: string, status: number, porta: "v1" | "mcp"): void {
   if (!sampleApiCall(credentialId)) return;
-  track("contrata_api_chamada", { quem, propriedades: { rota: apiRoutePattern(pathname), status, porta } });
+  track("vaga_aberta_api_chamada", { quem, propriedades: { rota: apiRoutePattern(pathname), status, porta } });
 }
 
 // Padrão da rota (seção 21: "rota" sem id). Só os segmentos conhecidos ficam; qualquer outro vira

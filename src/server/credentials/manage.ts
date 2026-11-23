@@ -66,7 +66,7 @@ export async function createApiKey(ctx: ContextoMembro, nome: string, escopos: E
     p_ator: atorJson(ctx.ator),
   });
   if (error) throw error;
-  track("contrata_chave_criada", {
+  track("vaga_aberta_chave_criada", {
     quem: quemDoAtor(ctx.ator, ctx.empresa.id), chave: data as string,
     propriedades: { escopos },
   });

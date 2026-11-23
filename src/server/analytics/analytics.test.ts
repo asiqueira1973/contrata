@@ -44,27 +44,27 @@ describe("catálogo fechado (seção 21)", () => {
   it("os 19 eventos têm tela e esquema; nenhuma chave de propriedade pessoal", () => {
     expect(Object.keys(EVENT_SCHEMAS).sort()).toEqual(Object.keys(EVENT_SCREENS).sort());
     expect(Object.keys(EVENT_SCHEMAS)).toHaveLength(19);
-    expect(Object.keys(EVENT_SCHEMAS).every((n) => n.startsWith("contrata_"))).toBe(true);
+    expect(Object.keys(EVENT_SCHEMAS).every((n) => n.startsWith("vaga_aberta_"))).toBe(true);
     const proibido = /titulo|nome|email|e_mail|telefone|texto|mensagem|motivo|^ip$|valor|arquivo|token|codigo$|empresa|^area$|^vaga$/;
     for (const schema of Object.values(EVENT_SCHEMAS)) for (const k of Object.keys(schema.shape)) expect(k).not.toMatch(proibido);
   });
   it("propriedade fora do tipo não compila e é descartada em execução", async () => {
     setAnalyticsSinkForTests((e) => events.push(e));
-    // @ts-expect-error — titulo não é propriedade de contrata_vaga_criada.
-    track("contrata_vaga_criada", { quem: { email: "a@b.dev" }, propriedades: { origem: "chat", titulo: "Analista" } });
+    // @ts-expect-error — titulo não é propriedade de vaga_aberta_vaga_criada.
+    track("vaga_aberta_vaga_criada", { quem: { email: "a@b.dev" }, propriedades: { origem: "chat", titulo: "Analista" } });
     // @ts-expect-error — e-mail nunca é propriedade.
-    track("contrata_revisao_pedida", { quem: { candidatura: "x" }, propriedades: { email: "ana@x.dev" } });
+    track("vaga_aberta_revisao_pedida", { quem: { candidatura: "x" }, propriedades: { email: "ana@x.dev" } });
     // @ts-expect-error — origem fora da lista.
-    track("contrata_etapa_alterada", { quem: { email: "a@b.dev" }, propriedades: { origem: "whatsapp", lote: 1 } });
-    track("contrata_vaga_criada", { quem: { email: "a@b.dev" }, propriedades: { origem: "api" } });
+    track("vaga_aberta_etapa_alterada", { quem: { email: "a@b.dev" }, propriedades: { origem: "whatsapp", lote: 1 } });
+    track("vaga_aberta_vaga_criada", { quem: { email: "a@b.dev" }, propriedades: { origem: "api" } });
     await flushAnalytics();
     expect(events).toHaveLength(1);
-    expect(events[0]).toMatchObject({ nome: "contrata_vaga_criada", tela: "vagas", distinct_id: "a@b.dev", propriedades: { origem: "api" } });
+    expect(events[0]).toMatchObject({ nome: "vaga_aberta_vaga_criada", tela: "vagas", distinct_id: "a@b.dev", propriedades: { origem: "api" } });
   });
   it("id estável por evento e registro", () => {
-    const a = eventId("contrata_vaga_criada", "v1");
+    const a = eventId("vaga_aberta_vaga_criada", "v1");
     expect(a).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-8[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
-    expect(eventId("contrata_vaga_criada", "v1")).toBe(a);
+    expect(eventId("vaga_aberta_vaga_criada", "v1")).toBe(a);
   });
 });
 
@@ -77,7 +77,7 @@ describe("liga e desliga (8.11)", () => {
       return original(...a);
     }) as typeof fetch;
     try {
-      track("contrata_empresa_criada", { quem: { email: "a@b.dev" }, propriedades: {} });
+      track("vaga_aberta_empresa_criada", { quem: { email: "a@b.dev" }, propriedades: {} });
       await flushAnalytics();
       expect(await sendToIngest([])).toBe(0);
       expect(chamadas).toBe(0);
@@ -111,7 +111,7 @@ describe("liga e desliga (8.11)", () => {
       expect(recebidos.length).toBeGreaterThanOrEqual(1);
       modo = "pendura";
       const t0 = Date.now();
-      track("contrata_empresa_criada", { quem: { email: "a@b.dev" }, propriedades: {} });
+      track("vaga_aberta_empresa_criada", { quem: { email: "a@b.dev" }, propriedades: {} });
       expect(Date.now() - t0).toBeLessThan(50); // não espera a rede
       await flushAnalytics(); // o timeout de 4 s solta o envio pendurado
     } finally {
@@ -129,8 +129,8 @@ describe("eventos nos fluxos (seção 21)", () => {
     const b = await (await candidatarPost(req, params({ empresa: empresa.slug, slug: vaga.slug }))).json();
     await concluirPost(apiRequest("/x", { method: "POST", body: { concluir_token: b.concluir_token } }), params({ empresa: empresa.slug, id: b.id }));
     await flushAnalytics();
-    expect(byName("contrata_candidatura_iniciada")[0]).toMatchObject({ distinct_id: `cand_${b.id}`, tela: "candidatar", id: eventId("contrata_candidatura_iniciada", b.id) });
-    expect(byName("contrata_candidatura_enviada")[0]).toMatchObject({ distinct_id: `cand_${b.id}`, propriedades: { origem: "pagina", com_curriculo: false, talentos: false } });
+    expect(byName("vaga_aberta_candidatura_iniciada")[0]).toMatchObject({ distinct_id: `cand_${b.id}`, tela: "candidatar", id: eventId("vaga_aberta_candidatura_iniciada", b.id) });
+    expect(byName("vaga_aberta_candidatura_enviada")[0]).toMatchObject({ distinct_id: `cand_${b.id}`, propriedades: { origem: "pagina", com_curriculo: false, talentos: false } });
     const wire = JSON.stringify(events);
     for (const s of ["Ana", "ana@evento.exemplo", "11999990000", vaga.slug]) expect(wire).not.toContain(s);
   });
@@ -140,9 +140,9 @@ describe("eventos nos fluxos (seção 21)", () => {
     await callTool(token, "mover_etapa", { candidaturas: [c], etapa: "Entrevista", vaga: vaga.id });
     await callTool(token, "salvar_area", { operacao: "criar", nome: "Loja Evento", __editado: true });
     await flushAnalytics();
-    expect(byName("contrata_etapa_alterada")[0]).toMatchObject({ distinct_id: adminEmail, tela: "funil", propriedades: { origem: "mcp", lote: 1 } });
-    expect(byName("contrata_formulario_salvo")[0]).toMatchObject({ distinct_id: adminEmail, propriedades: { acao: "area", fallback: false, editado: true } });
-    expect(byName("contrata_area_criada")).toHaveLength(1);
+    expect(byName("vaga_aberta_etapa_alterada")[0]).toMatchObject({ distinct_id: adminEmail, tela: "funil", propriedades: { origem: "mcp", lote: 1 } });
+    expect(byName("vaga_aberta_formulario_salvo")[0]).toMatchObject({ distinct_id: adminEmail, propriedades: { acao: "area", fallback: false, editado: true } });
+    expect(byName("vaga_aberta_area_criada")).toHaveLength(1);
     expect(JSON.stringify(events)).not.toMatch(/Bia|bia@evento|Loja Evento/);
   });
 });
@@ -155,7 +155,7 @@ describe("achados do verifier (8.11)", () => {
     events = [];
     await callTool(token, "salvar_pessoa", { operacao: "dar_acesso", pessoa, papel: "avaliador" });
     await flushAnalytics();
-    expect(byName("contrata_membro_convidado")[0]).toMatchObject({ distinct_id: adminEmail, propriedades: { papel: "avaliador", limitado_por_area: false } });
+    expect(byName("vaga_aberta_membro_convidado")[0]).toMatchObject({ distinct_id: adminEmail, propriedades: { papel: "avaliador", limitado_por_area: false } });
   });
   it("A2: decisão pelo formulário manda candidatura_encerrada (uma por candidatura)", async () => {
     setAnalyticsSinkForTests((e) => events.push(e));
@@ -163,16 +163,16 @@ describe("achados do verifier (8.11)", () => {
     await callTool(token, "salvar_decisoes", { itens: [{ tipo: "reprovar", candidatura: c, motivo: "requisitos", assunto: "Sobre sua candidatura",
       texto: "Olá. Obrigado pelo interesse; seguimos com outras pessoas nesta etapa." }] });
     await flushAnalytics();
-    expect(byName("contrata_decisao_confirmada")[0]).toMatchObject({ propriedades: { tipo: "reprovar", editada: false, lote: 1 } });
-    expect(byName("contrata_candidatura_encerrada")[0]).toMatchObject({ id: eventId("contrata_candidatura_encerrada", c), propriedades: { situacao: "reprovada", origem: "chat" } });
+    expect(byName("vaga_aberta_decisao_confirmada")[0]).toMatchObject({ propriedades: { tipo: "reprovar", editada: false, lote: 1 } });
+    expect(byName("vaga_aberta_candidatura_encerrada")[0]).toMatchObject({ id: eventId("vaga_aberta_candidatura_encerrada", c), propriedades: { situacao: "reprovada", origem: "chat" } });
   });
   it("A6: candidatura incluída à mão também manda candidatura_iniciada", async () => {
     setAnalyticsSinkForTests((e) => events.push(e));
     const r = await callTool(token, "salvar_adicionar_candidato", { vaga: vaga.id, nome: "Ivo Manual", email: "ivo@manual.exemplo", telefone: "", linkedin_url: "" });
     const id = ((r as unknown as { structuredContent: { ids: string[] } }).structuredContent.ids)[0];
     await flushAnalytics();
-    expect(byName("contrata_candidatura_iniciada").some((e) => e.distinct_id === `cand_${id}`)).toBe(true);
-    expect(byName("contrata_candidatura_enviada").find((e) => e.distinct_id === `cand_${id}`)).toMatchObject({ propriedades: { origem: "manual" } });
+    expect(byName("vaga_aberta_candidatura_iniciada").some((e) => e.distinct_id === `cand_${id}`)).toBe(true);
+    expect(byName("vaga_aberta_candidatura_enviada").find((e) => e.distinct_id === `cand_${id}`)).toMatchObject({ propriedades: { origem: "manual" } });
   });
 });
 

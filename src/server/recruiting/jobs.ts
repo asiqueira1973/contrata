@@ -229,7 +229,7 @@ export async function createJob(ctx: ContextoVagas, dados: VagaEntrada, chave: s
   }
   invalidarPaginas(ctx.empresa.slug);
   const r = data as { id: string; criada: boolean };
-  if (r.criada) track("contrata_vaga_criada", { quem: quemDoAtor(ctx.ator, ctx.empresa.id), chave: r.id, propriedades: { origem: origemDoAtor(ctx.ator) } });
+  if (r.criada) track("vaga_aberta_vaga_criada", { quem: quemDoAtor(ctx.ator, ctx.empresa.id), chave: r.id, propriedades: { origem: origemDoAtor(ctx.ator) } });
   return r;
 }
 
@@ -276,7 +276,7 @@ export async function transitionJob(ctx: ContextoVagas, id: string, para: Status
   if (publicada) {
     const v = publicada;
     // Chave com a data: republicar depois de pausar é outro evento (o ingest deduplica pelo id).
-    track("contrata_vaga_publicada", {
+    track("vaga_aberta_vaga_publicada", {
       quem: quemDoAtor(ctx.ator, ctx.empresa.id), chave: `${v.id}:${new Date().toISOString()}`,
       propriedades: {
         origem: origemDoAtor(ctx.ator), modelo_trabalho: v.modelo_trabalho as "presencial" | "hibrido" | "remoto", regime: v.regime,

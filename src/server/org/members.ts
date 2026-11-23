@@ -101,7 +101,7 @@ export async function inviteMember(ctx: ContextoMembro, input: z.infer<typeof co
   });
   if (error) throw error;
   await sendInviteEmail(ctx, data as string, input.email, input.papel, token);
-  track("contrata_membro_convidado", {
+  track("vaga_aberta_membro_convidado", {
     quem: quemDoAtor(ctx.ator, ctx.empresa.id), chave: data as string,
     propriedades: { papel: input.papel as "administrador" | "recrutador" | "avaliador", limitado_por_area: !input.todas_areas },
   });
@@ -128,7 +128,7 @@ export async function grantAccess(ctx: ContextoMembro, pessoaId: string, input: 
   });
   if (error) throw error;
   await sendInviteEmail(ctx, data as string, pessoa.email, input.papel, token);
-  track("contrata_membro_convidado", {
+  track("vaga_aberta_membro_convidado", {
     quem: quemDoAtor(ctx.ator, ctx.empresa.id), chave: data as string,
     propriedades: { papel: input.papel as "administrador" | "recrutador" | "avaliador", limitado_por_area: !input.todas_areas },
   });
