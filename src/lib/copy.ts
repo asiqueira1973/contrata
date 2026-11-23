@@ -856,57 +856,110 @@ export const copy = {
     },
   },
 
-  // Página inicial (8.12; seção 10.1). Estrutura inspirada na referência de landing
-  // (docs/referencias/landing-breakcold.md), na família visual do Assina.
+  // Site institucional (8.12, refeito em 23/11/2026 no jeito editorial do Fechou Por Quanto, sem
+  // cara de IA; estrutura da referência docs/referencias/landing-breakcold.md). As telas são
+  // recriadas em HTML com dados fictícios (Padaria Pão de Cada Dia); nenhum dado real.
   inicio: {
-    metaTitulo: `${NOME_PRODUTO} — o sistema de recrutamento para agentes`,
-    metaDescricao: "Recrutamento e seleção conduzidos pelo Claude ou pelo ChatGPT: vagas, candidaturas, devolutivas e LGPD, sem painel. Grátis e de código aberto.",
-    selo: "Grátis e de código aberto",
-    titulo: "O sistema de recrutamento",
-    tituloDestaque: "para agentes",
-    subtitulo: "Você conduz o recrutamento conversando com o Claude ou o ChatGPT. Quem decide sobre cada pessoa continua sendo você, com um clique.",
-    conectar: "Conecte no Claude ou no ChatGPT",
-    hospedar: "Como hospedar",
-    numeros: ["18 consultas e operações", "22 formulários no chat", "Claude e ChatGPT", "LGPD de fábrica"],
-    chat: {
-      rotulo: "Exemplo de conversa no Claude com o conector",
-      janela: "Claude",
-      conector: `${NOME_PRODUTO} conectado`,
-      pedido: "Resuma a triagem da vaga de analista fiscal e prepare a devolutiva de quem não tem experiência com faturamento.",
-      chamando: "Chamando ferramentas",
+    metaTitulo: `${NOME_PRODUTO} — recrutamento e seleção dentro da sua IA`,
+    metaDescricao: "Abra vagas, leia currículos, avalie e decida conversando com o Claude, o ChatGPT ou o Grok. Sem painel, com devolutiva para todo candidato e LGPD de fábrica. Grátis e de código aberto.",
+    kicker: "Recrutamento e seleção · código aberto",
+    titulo: ["Contrate conversando.", "Dentro da sua IA."],
+    subtitulo: `O ${NOME_PRODUTO} é um sistema de recrutamento sem painel. Você abre vagas, lê currículos, avalia e decide conversando com o Claude, o ChatGPT ou o Grok. Quando algo precisa ser gravado, a IA abre um formulário na conversa, e nada acontece sem o seu clique.`,
+    conectar: "Conectar na minha IA",
+    hospedar: "Como hospedar o seu",
+    assistentes: "Funciona no Claude, no ChatGPT e no Grok. Grátis, sem instalar nada.",
+    numeros: ["18 consultas e operações", "22 formulários na conversa", "Claude, ChatGPT e Grok", "LGPD de fábrica"],
+    fotoAbertura: "Padaria de bairro abrindo de manhã cedo, com o balcão de pães e a porta de aço meio levantada",
+    conversa: {
+      rotulo: "Exemplo de conversa com o conector",
+      topoEsquerda: "Conversa",
+      topoDireita: `${NOME_PRODUTO} conectado`,
+      pedido: "Resuma a triagem da vaga de assistente administrativo e prepare a devolutiva de quem não tem experiência com faturamento.",
+      consultando: `Consultando o ${NOME_PRODUTO}`,
       ferramentas: [
-        { nome: "listar_candidaturas", args: "vaga: Analista fiscal · etapa: Triagem", tempo: "0,3 s" },
-        { nome: "ler_curriculo", args: "12 candidaturas", tempo: "1,4 s" },
-        { nome: "abrir_formulario_decisoes", args: "4 itens", tempo: "0,2 s" },
+        { nome: "listar_candidaturas", detalhe: "Assistente administrativo · Triagem", tempo: "0,3 s" },
+        { nome: "ler_curriculo", detalhe: "6 currículos", tempo: "1,2 s" },
+        { nome: "abrir_formulario_decisoes", detalhe: "2 pessoas", tempo: "0,2 s" },
       ],
-      resposta: "Das 12 candidaturas da triagem, 8 têm experiência com faturamento. Preparei a devolutiva das outras 4; confira e confirme no formulário abaixo.",
+      resposta: "Das 6 candidaturas da triagem, 4 têm experiência com faturamento. Preparei a devolutiva das outras 2. Confira e confirme abaixo.",
       formulario: "Decisões",
       itens: [
-        { nome: "Paula R.", motivo: "Não atende aos requisitos" },
-        { nome: "Diego M.", motivo: "Experiência insuficiente" },
-        { nome: "Lia S.", motivo: "Não atende aos requisitos" },
-        { nome: "Caio T.", motivo: "Experiência insuficiente" },
+        { nome: "Juliana P.", motivo: "Experiência insuficiente" },
+        { nome: "Rafael S.", motivo: "Não atende aos requisitos" },
       ],
-      devolutiva: "Devolutiva editável para cada pessoa",
-      botao: "Reprovar e enviar 4",
+      devolutiva: "Olá, Juliana. Obrigado pelo interesse na vaga de Assistente administrativo. Decidimos seguir com pessoas que já têm experiência com faturamento…",
+      botao: "Reprovar e enviar 2",
       nota: "Nada é gravado até você clicar.",
     },
-    cartoes: {
-      titulo: "Ponha agentes para trabalhar no seu recrutamento",
-      subtitulo: "As mesmas ações, por onde você preferir: no chat, por integração ou pela API.",
-      itens: [
-        { titulo: "Conector (MCP)", texto: "Vagas, candidaturas, currículos, notas, funil e banco de talentos para qualquer agente com MCP, com escopos e papéis por pessoa.", ferramentas: ["listar_vagas", "buscar_candidaturas", "mover_etapa", "historico_da_candidatura"] },
-        { titulo: "No Claude", texto: "Peça em português: o Claude consulta, resume currículos frente aos requisitos e abre o formulário já preenchido para você conferir e salvar." },
-        { titulo: "No ChatGPT", texto: "O mesmo conector no ChatGPT: consultas na conversa e formulários de cadastro e decisão direto no chat." },
-        { titulo: "API e webhooks", texto: "API REST com chave e escopos, webhooks assinados e a trilha por eventos. O n8n recebe a contratação e cria o pré-cadastro na admissão." },
+    problema: {
+      rotulo: "O problema",
+      titulo: "Sistema de recrutamento costuma ser mais uma tela para aprender.",
+      colunas: [
+        { titulo: "O painel que ninguém abre", texto: "O gestor que pediu a vaga não entra no sistema. O RH vira intermediário de planilha, e-mail e mensagem." },
+        { titulo: "Candidato sem resposta", texto: "Quase ninguém recebe devolutiva. Não por descaso: falta tempo para escrever uma a uma." },
+        { titulo: "LGPD no improviso", texto: "Currículo guardado para sempre, sem consentimento e sem prazo, em pastas e caixas de e-mail." },
+      ],
+    },
+    acreditamos: {
+      rotulo: "No que acreditamos",
+      titulo: "Os sistemas vão ser usados de dentro das IAs.",
+      paragrafos: [
+        "Hoje cada ferramenta tem o seu painel, os seus menus e o seu jeito de fazer as coisas. Achamos que isso vai mudar: você vai pedir o que precisa à IA que já usa, e ela vai consultar e operar os sistemas por você, mostrando na conversa só o que precisa da sua decisão.",
+        `O ${NOME_PRODUTO} nasceu assim. Não tem painel para quem recruta: a tela é a conversa. O que ele tem é um conector bem feito, regras claras sobre o que a IA pode fazer sozinha e um formulário para tudo o que depende de você.`,
       ],
     },
     comoFunciona: {
-      titulo: "O modelo propõe, você decide",
+      rotulo: "Como funciona",
+      titulo: "Você pede. A IA prepara. Você decide.",
       passos: [
-        { titulo: "Pergunte", texto: "\"Quais candidaturas estão paradas há uma semana?\" O agente consulta e responde na conversa." },
-        { titulo: "Confira", texto: "Para cadastrar ou decidir, o agente abre um formulário no chat, já preenchido com o que foi dito. Mover de etapa e anotar são diretos e reversíveis." },
-        { titulo: "Clique", texto: "Reprovar, contratar ou encerrar a vaga só acontece com o seu clique, e cada pessoa recebe a devolutiva." },
+        { titulo: "Peça em português", texto: "“Quais candidaturas da vaga de assistente estão paradas há uma semana?” A IA consulta o sistema e responde na conversa." },
+        { titulo: "Confira o formulário", texto: "Para abrir uma vaga, avaliar ou reprovar, ela abre um formulário dentro do chat, já preenchido com o que você disse." },
+        { titulo: "Clique para gravar", texto: "Reprovar, contratar e encerrar a vaga nunca acontecem sozinhos. E cada pessoa recebe a devolutiva por e-mail." },
+      ],
+    },
+    fluxo: {
+      rotulo: "Uma vaga do começo ao fim",
+      titulo: "Da vaga aberta à contratação, sem sair da conversa.",
+      lead: "As telas abaixo são as mesmas que aparecem no chat, com dados de exemplo.",
+      fotoAlt: "Escritório pequeno de contabilidade à tarde, com mesas, pastas e uma pessoa trabalhando de costas",
+      etapas: ["Abrir a vaga", "Comparar com os requisitos", "Contratar e encerrar", "A devolutiva que chega"],
+    },
+    candidato: {
+      rotulo: "Para quem se candidata",
+      titulo: "Respeito a quem se candidata.",
+      itens: [
+        "Sem criar conta: nome, e-mail, currículo e pronto.",
+        "Um link só seu para acompanhar o processo.",
+        "Devolutiva sempre, inclusive quando a vaga é preenchida.",
+        "Pedido de revisão de uma decisão.",
+        "Baixar ou excluir os próprios dados, a qualquer momento.",
+      ],
+      fotoAlt: "Cadeira de madeira vazia diante de uma mesa com um copo d'água, perto da janela, antes de uma entrevista",
+    },
+    pecaAssim: {
+      rotulo: "Peça assim",
+      titulo: "O que dá para pedir",
+      lead: "Copie e cole na conversa, com o conector ligado.",
+      copiar: "Copiar",
+      copiado: "Copiado",
+      grupos: [
+        { titulo: "Quem recruta", perguntas: [
+          "Abra uma vaga de assistente administrativo no Financeiro, CLT, presencial em Campinas.",
+          "Resuma as candidaturas da triagem frente aos requisitos.",
+          "Quais candidaturas estão paradas há mais de uma semana?",
+          "Reprove quem não tem experiência com faturamento, com uma devolutiva gentil.",
+        ] },
+        { titulo: "Gestor que avalia", perguntas: [
+          "Mostre as candidaturas da minha vaga que estão na entrevista.",
+          "Registre minha avaliação da Mariana na entrevista com a gestão.",
+          "Leia o currículo do Rafael e diga o que falta frente aos requisitos.",
+        ] },
+        { titulo: "RH de uma pessoa só", perguntas: [
+          "Convide a Ana como recrutadora do Financeiro.",
+          "Publique a página de carreiras.",
+          "Busque no banco de talentos quem já trabalhou com atendimento.",
+          "Mostre as propostas de decisão que estão esperando.",
+        ] },
       ],
     },
     paraQuem: {
@@ -914,41 +967,129 @@ export const copy = {
       itens: [
         "Empresas pequenas e médias que contratam algumas vezes por ano.",
         "O RH de uma pessoa só, que precisa de ajuda e não de mais uma tela.",
-        "Recrutadores e gestores que já usam o Claude ou o ChatGPT no dia a dia.",
-        "Quem quer hospedar o próprio sistema: é código aberto, licença MIT.",
+        "Recrutadores e gestores que já usam o Claude, o ChatGPT ou o Grok no dia a dia.",
+        "Quem quer hospedar o próprio sistema: o código é aberto, licença MIT.",
       ],
     },
     naoFaz: {
       titulo: "O que ele não faz",
       itens: [
         "Não reprova nem contrata sozinho: toda decisão sobre uma pessoa é um clique de alguém da equipe.",
-        "Não dá nota nem ordena candidatos: o agente resume frente aos requisitos, e a equipe julga.",
-        "Não tem painel: quem recruta usa o chat; o candidato usa a página da vaga e o link dele.",
-        "Não faz admissão, folha nem ponto: só recrutamento e seleção (a integração leva a contratação adiante).",
+        "Não dá nota nem ordena candidatos: a IA compara com os requisitos, e a equipe julga.",
+        "Não tem painel: quem recruta usa a conversa; o candidato usa a página da vaga e o link dele.",
+        "Não faz admissão, folha nem ponto: só recrutamento e seleção.",
       ],
     },
-    candidato: {
-      titulo: "Respeito a quem se candidata",
-      texto: "Página de carreiras com a vaga no Google, candidatura sem criar conta, link para acompanhar, devolutiva sempre, pedido de revisão e os próprios dados para baixar ou excluir.",
+    conectar2: {
+      rotulo: "Como conectar",
+      titulo: "Três minutos, sem instalar nada.",
+      copiar: "Copiar",
+      copiado: "Copiado",
+      passos: [
+        "Nas configurações de conectores da sua IA (no Claude, Conectores; no ChatGPT, Apps e conectores; no Grok, os conectores MCP), adicione um conector com este endereço.",
+        "Entre com a sua conta Google e crie a empresa, ou escolha a sua, se recebeu um convite.",
+        "Peça a primeira vaga.",
+      ],
+      link: "Passo a passo de cada IA",
+      fotoAlt: "Loja de roupas numa rua comercial, com a porta de vidro aberta e uma funcionária dobrando camisas no balcão",
     },
-    final: { titulo: "Comece pelo chat", texto: "Conecte o conector, crie a empresa na tela de consentimento e peça a primeira vaga." },
+    integracoes: {
+      rotulo: "Integrações e código aberto",
+      titulo: "Aberto para ligar no que você já usa.",
+      colunas: [
+        { titulo: "API", texto: "REST, com chave e escopos. Reprovar e contratar pela API viram propostas que alguém da equipe confirma." },
+        { titulo: "Webhooks", texto: "Avisos assinados para o n8n ou outro sistema: vaga publicada, candidatura recebida, contratação." },
+        { titulo: "Código aberto", texto: "Licença MIT. Hospede o seu, com o seu banco, o seu armazenamento e o seu e-mail." },
+      ],
+      links: { api: "Guia da API", hospedar: "Como hospedar" },
+      fotoAlt: "Oficina mecânica de bairro com a porta aberta para a rua e um mecânico trabalhando de costas sob um carro no elevador",
+    },
+    faq: {
+      rotulo: "Perguntas frequentes",
+      titulo: "Perguntas frequentes",
+      itens: [
+        { p: "É grátis mesmo?", r: `Sim. O ${NOME_PRODUTO} é de código aberto (licença MIT) e a instância em vagaaberta.app.br não cobra. Você só precisa de uma conta no Claude, no ChatGPT ou no Grok.` },
+        { p: "A IA decide sozinha quem é reprovado?", r: "Não. A IA consulta, resume e prepara o formulário. Reprovar, contratar e encerrar a vaga só acontecem quando alguém da equipe clica, e toda reprovação leva devolutiva." },
+        { p: "A IA dá nota ou ranqueia os candidatos?", r: "Não. Ela compara cada currículo com os requisitos da vaga e mostra onde atende ou não. Quem julga é a equipe." },
+        { p: "Funciona no Grok e em outras IAs?", r: "Funciona no Claude, no ChatGPT e no Grok. Os formulários com botão aparecem no Claude e no ChatGPT; nas outras IAs, cadastros saem por uma prévia que você confirma na conversa, e decisões sobre candidatos ficam como propostas para confirmar depois." },
+        { p: "E a LGPD?", r: "Cada empresa escolhe por quanto tempo guarda os dados; no prazo, eles são anonimizados sozinhos. Banco de talentos só com consentimento e com prazo. O candidato baixa e exclui os próprios dados pelo link dele." },
+        { p: "Posso hospedar o meu?", r: "Pode. O passo a passo está em Como hospedar: Supabase, armazenamento S3 ou R2, Resend, Google e Vercel." },
+      ],
+    },
+  },
+  // Telas recriadas no site (dados fictícios; mesmas telas do chat e do e-mail).
+  telas: {
+    empresa: "Padaria Pão de Cada Dia",
+    vaga: {
+      titulo: "Vaga",
+      campos: [
+        { rotulo: "Título", valor: "Assistente administrativo" },
+        { rotulo: "Área", valor: "Financeiro" },
+        { rotulo: "Local", valor: "Campinas/SP · Presencial" },
+        { rotulo: "Regime", valor: "CLT" },
+        { rotulo: "Salário", valor: "R$ 2.800 a R$ 3.200" },
+        { rotulo: "Candidaturas até", valor: "31/12/2026" },
+      ],
+      etapas: "Triagem · Entrevista com RH · Entrevista com a gestão · Proposta",
+      botao: "Salvar",
+    },
+    resumo: {
+      titulo: "Requisitos frente ao currículo · Mariana C.",
+      linhas: [
+        { requisito: "Ensino médio completo", situacao: "Atende", onde: "Técnico em Administração" },
+        { requisito: "Excel intermediário", situacao: "Atende", onde: "Tabelas dinâmicas, PROCV" },
+        { requisito: "Rotinas administrativas", situacao: "Atende", onde: "4 anos em duas empresas" },
+        { requisito: "Faturamento (desejável)", situacao: "Atende", onde: "Faturamento para 120 clientes" },
+      ],
+      nota: "Sem nota e sem ordem de preferência: só a comparação com o que a vaga pede.",
+    },
+    decisoes: {
+      titulo: "Decisões",
+      contratar: "Contratar Mariana C. · Assistente administrativo",
+      mensagem: "Olá, Mariana. A Padaria Pão de Cada Dia quer seguir com você na vaga de Assistente administrativo. Em breve a Carla entra em contato.",
+      encerrar: "Encerrar Assistente administrativo",
+      aviso: "1 pessoa em andamento vai receber a devolutiva de vaga preenchida.",
+      botao: "Confirmar 2",
+    },
+    email: {
+      de: "Padaria Pão de Cada Dia via Vaga Aberta",
+      assunto: "Sobre sua candidatura para Assistente administrativo",
+      corpo: [
+        "Olá, Juliana. Obrigado pelo interesse na vaga de Assistente administrativo e pelo tempo dedicado à candidatura.",
+        "Decidimos seguir com pessoas que já têm experiência com faturamento, uma parte importante do dia a dia desta posição.",
+      ],
+      botao: "Acompanhar candidatura",
+      rodape: "Se você acha que a decisão merece uma segunda análise, pode pedir uma revisão pelo seu link.",
+    },
+    acompanhamento: {
+      titulo: "Assistente administrativo",
+      situacao: "Em análise",
+      linha: ["Candidatura recebida · 23/11", "Mensagem da empresa · 25/11"],
+      acoes: ["Pedir revisão", "Baixar meus dados", "Excluir meus dados"],
+    },
   },
   rodapePublico: {
     navegacao: "Links do site",
+    secoes: "Seções",
+    comoFunciona: "Como funciona",
+    candidato: "Para o candidato",
+    perguntas: "Perguntas",
+    conectar: "Conectar",
+    produto: NOME_PRODUTO,
+    frase: "Recrutamento e seleção dentro da sua IA. Código aberto, licença MIT.",
     privacidade: "Privacidade",
     termos: "Termos",
-    docsMcp: "Conectar no Claude ou no ChatGPT",
+    docsMcp: "Conectar",
     docsApi: "API",
     hospedar: "Como hospedar",
-    codigo: "Código no GitHub",
-    feito: `${NOME_PRODUTO}: recrutamento e seleção para agentes. Código aberto, licença MIT.`,
+    codigo: "GitHub",
+    operadoPor: (nome: string) => `Operado por ${nome}`,
   },
   // Documentação pública (8.12; 10.1). Cada página é uma lista de seções.
   docs: {
-    voltar: `← ${NOME_PRODUTO}`,
     mcp: {
-      titulo: "Conectar no Claude ou no ChatGPT",
-      meta: `Como conectar o ${NOME_PRODUTO} no Claude, no ChatGPT e no Claude Code, com exemplos de pedidos.`,
+      titulo: "Conectar na sua IA",
+      meta: `Como conectar o ${NOME_PRODUTO} no Claude, no ChatGPT, no Grok e no Claude Code, com exemplos de pedidos.`,
       intro: (url: string) => `O ${NOME_PRODUTO} é um conector MCP. O endereço desta instância é ${url}. A conexão pede login com o Google e, na primeira vez, a escolha da empresa e das permissões (escopos).`,
       secoes: (url: string) => [
         { titulo: "No Claude (claude.ai e app)", paragrafos: [
@@ -961,6 +1102,11 @@ export const copy = {
           "Abra Configurações → Apps e conectores. Em Avançado, ligue o modo desenvolvedor, se ainda não estiver ligado.",
           `Crie um conector com o endereço ${url} e autenticação OAuth.`,
           "Entre com o Google, escolha a empresa e os escopos, e use o conector na conversa.",
+        ] },
+        { titulo: "No Grok", paragrafos: [
+          `Nas configurações de conectores do Grok, adicione um conector MCP remoto com o endereço ${url}.`,
+          "Entre com a sua conta Google, escolha a empresa e os escopos.",
+          "No Grok, os formulários com botão não aparecem: cadastros saem por uma prévia que você confirma na conversa, e decisões sobre candidatos ficam como propostas para alguém da equipe confirmar.",
         ] },
         { titulo: "No Claude Code", paragrafos: ["No terminal:", "Depois, dentro do Claude Code, rode /mcp e escolha autenticar: o navegador abre o login com o Google.", "O Claude Code não mostra formulários: lá o agente consulta, move de etapa, anota e grava cadastros por uma prévia que você confirma na conversa. Decisões sobre uma pessoa viram proposta, para alguém da equipe confirmar no Claude ou no ChatGPT, e convites e acessos ficam só no formulário."], codigo: `claude mcp add --transport http vaga-aberta ${url}` },
         { titulo: "Escopos e papéis", paragrafos: [
@@ -1038,7 +1184,7 @@ export const copy = {
       meta: `Como o ${NOME_PRODUTO} trata dados pessoais.`,
       secoes: (nome: string | null, contato: string | null) => [
         { titulo: "Quem somos", paragrafos: [
-          `${instancia(nome)} O ${NOME_PRODUTO} é um sistema de recrutamento e seleção de código aberto que as empresas usam pelo Claude, pelo ChatGPT e por integrações.`,
+          `${instancia(nome)} O ${NOME_PRODUTO} é um sistema de recrutamento e seleção de código aberto que as empresas usam pelo Claude, pelo ChatGPT, pelo Grok e por integrações.`,
           contato ? `Para qualquer assunto sobre privacidade: ${contato}.` : `Para qualquer assunto sobre privacidade, fale com ${QUEM_HOSPEDA}.`,
         ] },
         { titulo: "Quem é o controlador", paragrafos: [
@@ -1053,7 +1199,7 @@ export const copy = {
         { titulo: "Para quê", paragrafos: [
           "Para conduzir os processos seletivos de cada empresa, mandar os e-mails do processo (confirmação, devolutiva, mensagens), cumprir os direitos dos titulares e manter a segurança do sistema.",
           "Base legal: procedimentos preliminares a um contrato a pedido do titular (LGPD, art. 7º, V) para a candidatura; consentimento para o banco de talentos; execução de contrato e legítimo interesse para a conta de quem recruta.",
-          "Assistentes de IA (Claude, ChatGPT) leem as candidaturas a pedido da empresa, pela conexão que ela autoriza. A decisão sobre cada pessoa é sempre de alguém da equipe.",
+          "Assistentes de IA (Claude, ChatGPT, Grok) leem as candidaturas a pedido da empresa, pela conexão que ela autoriza. A decisão sobre cada pessoa é sempre de alguém da equipe.",
         ] },
         { titulo: "Com quem compartilhamos", paragrafos: [
           "Com os fornecedores que fazem o sistema funcionar, como operadores: banco de dados (Supabase), armazenamento de arquivos (Cloudflare R2 ou S3), envio de e-mail (Resend), hospedagem (Vercel) e login (Google). Alguns ficam fora do Brasil; a transferência segue a LGPD.",

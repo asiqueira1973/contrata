@@ -1,5 +1,7 @@
 # Referências para a landing page e os vídeos — Breakcold (breakcold.com)
 
+**Aplicada no site de 23/11/2026** (estrutura da Breakcold, visual editorial do Fechou Por Quanto; fotos em `fotos-site.md`).
+
 Guardado em 22/11/2026, a pedido do Alexandre, a partir de quatro capturas de tela. As imagens não
 ficaram no repositório (vieram pelo chat); este arquivo descreve o que vale copiar como ideia. É
 inspiração de estrutura e tom, não de marca: o Vaga Aberta segue a própria família visual (seção 16).

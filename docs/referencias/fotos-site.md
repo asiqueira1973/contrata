@@ -1,0 +1,18 @@
+# Fotos do site institucional (23/11/2026)
+
+Geradas no Higgsfield com `flux_2`, variante `pro`, 2K, cerca de 1,5 crédito cada. Convertidas com
+`cwebp -q 76 -resize 1800 0` (a cadeira com `-resize 1200 0`) para `public/site/*.webp`.
+
+## Fórmula (a mesma do Fechou Por Quanto)
+`[fotografia documental] de [cena brasileira comum, com detalhes concretos] + [hora do dia e luz] +
+"shot on 35mm analog film, Kodak Portra 400, natural grain, muted warm colors, realistic" +
+proibições: "no one facing the camera, no text, no legible signs, logos or license plates, not a render"`.
+Pessoas só de costas ou de lado. Nada de banco de imagens: lugares comuns que contratam.
+
+## Prompts usados
+- **padaria.webp (16:9, abertura):** Documentary photograph of a small neighborhood bakery in São Paulo opening early in the morning, glass counter with fresh pão francês and simple cakes, metal roll-up door half open to the street, warm light inside contrasting with the soft blue dawn outside, a baker seen from behind arranging trays in the background, worn tiled floor, ordinary and real, shot on 35mm analog film, Kodak Portra 400, natural grain, muted warm colors, realistic, no one facing the camera, no text, no legible signs or logos, not a render
+- **escritorio.webp (16:9, "uma vaga do começo ao fim"):** Documentary photograph of a small accounting office in a Brazilian commercial building, three simple desks with computers and paper folders, filing cabinets, a potted plant, venetian blinds letting in late afternoon sun in stripes, coffee cup on a desk, a person seen from behind working at the far desk, ordinary and lived-in, shot on 35mm analog film, Kodak Portra 400, natural grain, muted warm colors, realistic, no one facing the camera, no legible text on screens or papers, not a render
+- **cadeira.webp (3:4, candidato):** Quiet documentary photograph of an empty wooden chair facing a small table near a window in a modest Brazilian office meeting room, a glass of water and a closed notebook on the table, soft morning light, white wall with slight wear, plant in the corner, calm waiting atmosphere before a job interview, shot on 35mm analog film, Kodak Portra 400, fine grain, muted warm palette, realistic, no people, no text, not a render
+- **oficina.webp (16:9, integrações):** Documentary photograph of a small car repair workshop in a Brazilian neighborhood, open garage door to the street, workbench with organized tools, a car on a lift, a mechanic seen from behind working, daylight coming from the street, painted concrete floor with oil stains, ordinary and real, shot on 35mm analog film, Kodak Portra 400, natural grain, muted warm colors, realistic, no one facing the camera, no legible signs, logos or license plates, not a render
+- **loja.webp (16:9, como conectar):** Street-level documentary photograph of a small clothing shop on a commercial street in a Brazilian city, wide open glass door, simple racks and folded shirts visible inside, an employee seen from the side folding clothes behind the counter, sidewalk of Portuguese stone, soft midday light with shade from a tree, ordinary and unstaged, shot on 35mm analog film, Kodak Portra 400, natural grain, muted warm colors, realistic, no one facing the camera, no legible signs or text, not a render
+- **cozinha.webp (16:9, reserva, ainda sem uso):** Documentary photograph of the kitchen of a small Brazilian restaurant before lunch service, stainless steel counters, pans on the stove, vegetables being prepared on a cutting board, two cooks seen from behind and from the side working, steam and warm light, tiled walls, ordinary and real, shot on 35mm analog film, Kodak Portra 400, natural grain, muted warm colors, realistic, no one facing the camera, no text, not a render

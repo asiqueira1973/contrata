@@ -246,3 +246,6 @@ export const ANALYTICS_AMOSTRAS_EM_MEMORIA = 5000;
 export const ANALYTICS_NUMERO_MAX = 1_000_000_000;
 export const ANALYTICS_CLIENTE_MAX = 60;
 export const ANALYTICS_ROTA_MAX = 120;
+
+// Site institucional: o botão "Copiar" mostra "Copiado" por 2 s.
+export const COPIADO_MS = 2000;

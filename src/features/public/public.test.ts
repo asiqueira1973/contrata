@@ -3,11 +3,14 @@
 // privacidade e as páginas legais usam o operador das variáveis; o README cita toda variável do
 // .env.example.
 import { readFileSync } from "node:fs";
-import { afterEach, describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { createElement } from "react";
 import { renderToStaticMarkup } from "react-dom/server";
 import type { Metadata } from "next";
 import { NOME_PRODUTO, copy } from "@/lib/copy";
+// As fontes do Google só existem no build do Next: no teste, só a variável CSS.
+vi.mock("next/font/google", () => ({ Geist: () => ({ variable: "g" }), Inter: () => ({ variable: "i" }), Geist_Mono: () => ({ variable: "m" }) }));
+const { default: SiteLayout } = await import("@/app/(publico)/layout");
 import * as inicio from "@/app/(publico)/page";
 import * as mcp from "@/app/(publico)/docs/mcp/page";
 import * as api from "@/app/(publico)/docs/api/page";
@@ -29,6 +32,8 @@ const PAGINAS: [string, Pagina][] = [
 ];
 
 const html = (p: Pagina) => renderToStaticMarkup(createElement(p.default));
+// A página dentro do layout do site (cabeçalho e rodapé).
+const comLayout = (p: Pagina) => renderToStaticMarkup(createElement(SiteLayout, null, createElement(p.default)));
 const ENV = { ...process.env };
 afterEach(() => {
   process.env = { ...ENV };
@@ -38,21 +43,38 @@ describe("páginas públicas (8.12)", () => {
   it.each(PAGINAS)("%s renderiza, é indexável e tem canônica", (rota, p) => {
     expect(p.metadata.robots).toMatchObject({ index: true, follow: true });
     expect((p.metadata.alternates as { canonical: string }).canonical).toBe(rota);
-    const h = html(p);
+    const h = comLayout(p);
     expect(h).toContain("<h1");
     expect(h).toContain('href="/privacidade"');
     expect(h).toContain('href="/termos"');
+    expect(h).toContain('href="/docs/mcp"');
   });
 
-  it("a inicial tem o título, os dois caminhos e o formulário de decisão no chat", () => {
+  it("a inicial tem o título, os dois caminhos, o formulário de decisão no chat, no que acreditamos e as três IAs", () => {
     const h = html(inicio);
-    expect(h).toContain(copy.inicio.tituloDestaque);
+    for (const l of copy.inicio.titulo) expect(h).toContain(l);
     expect(h).toContain(copy.inicio.conectar);
     expect(h).toContain('href="/docs/mcp"');
     expect(h).toContain('href="/docs/auto-hospedagem"');
-    expect(h).toContain(copy.inicio.chat.botao);
+    expect(h).toContain(copy.inicio.conversa.botao);
+    expect(h).toContain(copy.inicio.acreditamos.titulo);
     expect(h).toContain(copy.inicio.naoFaz.titulo);
     expect(h).toContain(copy.inicio.paraQuem.titulo);
+    for (const ia of ["Claude", "ChatGPT", "Grok"]) expect(h).toContain(ia);
+  });
+
+  it("as fotos da inicial existem em public/site e têm texto alternativo", () => {
+    const h = html(inicio);
+    for (const f of ["padaria", "escritorio", "cadeira", "loja", "oficina"]) {
+      expect(readFileSync(`public/site/${f}.webp`).length).toBeGreaterThan(10_000);
+      expect(h).toMatch(new RegExp(`<img[^>]*alt="[^"]{20,}"[^>]*${f}|${f}[^>]*alt="[^"]{20,}"`));
+    }
+  });
+
+  it("as telas recriadas não levam dado real (só o exemplo da Padaria Pão de Cada Dia)", () => {
+    const h = html(inicio);
+    expect(h).not.toMatch(/@gmail|@outlook|siqueira/i);
+    expect(h).toContain(copy.telas.email.de);
   });
 
   it("/docs/mcp mostra o endereço do conector e o comando do Claude Code", () => {
