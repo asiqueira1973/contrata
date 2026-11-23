@@ -866,7 +866,6 @@ export const copy = {
     titulo: ["Contrate conversando.", "Dentro da sua IA."],
     subtitulo: `O ${NOME_PRODUTO} é um sistema de recrutamento sem painel. Você abre vagas, lê currículos, avalia e decide conversando com o Claude, o ChatGPT ou o Grok. Quando algo precisa ser gravado, a IA abre um formulário na conversa, e nada acontece sem o seu clique.`,
     conectar: "Conectar na minha IA",
-    hospedar: "Como hospedar o seu",
     assistentes: "Funciona no Claude, no ChatGPT e no Grok. Grátis, sem instalar nada.",
     numeros: ["18 consultas e operações", "22 formulários na conversa", "Claude, ChatGPT e Grok", "LGPD de fábrica"],
     conversa: {
@@ -942,14 +941,14 @@ export const copy = {
       grupos: [
         { titulo: "Quem recruta", perguntas: [
           "Abra uma vaga de assistente administrativo no Financeiro, CLT, presencial em Campinas.",
-          "Resuma as candidaturas da triagem frente aos requisitos.",
+          "Quem se candidatou até agora tem o que a vaga pede?",
           "Quais candidaturas estão paradas há mais de uma semana?",
           "Reprove quem não tem experiência com faturamento, com uma devolutiva gentil.",
         ] },
         { titulo: "Gestor que avalia", perguntas: [
           "Mostre as candidaturas da minha vaga que estão na entrevista.",
           "Registre minha avaliação da Mariana na entrevista com a gestão.",
-          "Leia o currículo do Rafael e diga o que falta frente aos requisitos.",
+          "Leia o currículo do Rafael e diga o que falta para a vaga.",
         ] },
         { titulo: "RH de uma pessoa só", perguntas: [
           "Convide a Ana como recrutadora do Financeiro.",
@@ -965,7 +964,6 @@ export const copy = {
         "Empresas pequenas e médias que já usam IA no trabalho: agências, consultorias, escritórios, startups e times de tecnologia.",
         "O RH de uma pessoa só, que precisa de ajuda e não de mais uma tela.",
         "Recrutadores e gestores que já usam o Claude, o ChatGPT ou o Grok no dia a dia.",
-        "Quem quer hospedar o próprio sistema: o código é aberto, licença MIT.",
       ],
     },
     naoFaz: {
@@ -995,9 +993,9 @@ export const copy = {
       colunas: [
         { titulo: "API", texto: "REST, com chave e escopos. Reprovar e contratar pela API viram propostas que alguém da equipe confirma." },
         { titulo: "Webhooks", texto: "Avisos assinados para o n8n ou outro sistema: vaga publicada, candidatura recebida, contratação." },
-        { titulo: "Código aberto", texto: "Licença MIT. Hospede o seu, com o seu banco, o seu armazenamento e o seu e-mail." },
+        { titulo: "Código aberto", texto: "Licença MIT. O código está no GitHub, no link do rodapé." },
       ],
-      links: { api: "Guia da API", hospedar: "Como hospedar" },
+      links: { api: "Guia da API" },
     },
     faq: {
       rotulo: "Perguntas frequentes",
@@ -1008,7 +1006,6 @@ export const copy = {
         { p: "A IA dá nota ou ranqueia os candidatos?", r: "Não. Ela compara cada currículo com os requisitos da vaga e mostra onde atende ou não. Quem julga é a equipe." },
         { p: "Funciona no Grok e em outras IAs?", r: "Funciona no Claude, no ChatGPT e no Grok. Os formulários com botão aparecem no Claude e no ChatGPT; nas outras IAs, cadastros saem por uma prévia que você confirma na conversa, e decisões sobre candidatos ficam como propostas para confirmar depois." },
         { p: "E a LGPD?", r: "Cada empresa escolhe por quanto tempo guarda os dados; no prazo, eles são anonimizados sozinhos. Banco de talentos só com consentimento e com prazo. O candidato baixa e exclui os próprios dados pelo link dele." },
-        { p: "Posso hospedar o meu?", r: "Pode. O passo a passo está em Como hospedar: Supabase, armazenamento S3 ou R2, Resend, Google e Vercel." },
       ],
     },
   },
@@ -1025,7 +1022,7 @@ export const copy = {
         resposta: "Abri o formulário da vaga já preenchido, com as etapas padrão. Ainda não foi gravado: confira e clique em Salvar.",
       },
       resumo: {
-        pedido: "Resuma as candidaturas da vaga frente aos requisitos.",
+        pedido: "Quem se candidatou até agora tem o que a vaga pede?",
         resposta: "A Mariana atende a todos os requisitos, inclusive o desejável:",
       },
       decisoes: {
@@ -1095,7 +1092,6 @@ export const copy = {
     termos: "Termos",
     docsMcp: "Conectar",
     docsApi: "API",
-    hospedar: "Como hospedar",
     codigo: "GitHub",
     operadoPor: (nome: string) => `Operado por ${nome}`,
   },
@@ -1132,7 +1128,7 @@ export const copy = {
           "Abra uma vaga de assistente administrativo no Financeiro, CLT, presencial em Campinas, de 2.800 a 3.200.",
           "Publique a vaga de assistente administrativo.",
           "Quais candidaturas da vaga de analista fiscal estão paradas há mais de uma semana?",
-          "Resuma os currículos da triagem frente aos requisitos da vaga.",
+          "Quem se candidatou até agora tem o que a vaga pede?",
           "Mova a Ana e o Bruno para a entrevista com o gestor.",
           "Reprove quem não tem experiência com faturamento, com uma devolutiva gentil.",
           "Mostre as propostas de decisão que estão esperando.",
@@ -1166,23 +1162,6 @@ export const copy = {
         { titulo: "API pública (site da empresa)", paragrafos: [
           "Sem chave: GET /api/publico/{empresa}/vagas e /vagas/{slug} para listar as vagas publicadas; POST /api/publico/{empresa}/vagas/{slug}/candidaturas para receber a candidatura no site da própria empresa: a resposta traz o id, o upload_url (o currículo sobe direto para o armazenamento) e o concluir_token, e a candidatura é concluída em POST /api/publico/{empresa}/candidaturas/{id}/concluir com esse token.",
         ] },
-      ],
-    },
-    hospedar: {
-      titulo: "Como hospedar",
-      meta: `Como hospedar o seu ${NOME_PRODUTO}: Supabase, armazenamento, Resend, Google e Vercel.`,
-      intro: `O ${NOME_PRODUTO} é para clonar e usar: cada instância serve uma ou mais empresas, e quem pode criar empresa é a lista CRIACAO_EMPRESA_EMAILS. O passo a passo completo, com todas as variáveis, está no README do repositório.`,
-      secoes: [
-        { titulo: "1. O que você precisa", lista: ["Conta no GitHub para clonar o repositório.", "Um projeto no Supabase (o plano gratuito serve para começar).", "Um bucket privado no Cloudflare R2 (ou outro S3).", "Uma conta no Resend com um domínio verificado (o gratuito serve para testar).", "Um cliente OAuth no Google Cloud (login obrigatório).", "Uma conta na Vercel."] },
-        { titulo: "2. Banco", paragrafos: ["No seu projeto Supabase (próprio, só desta instância), aplique as migrations da pasta supabase/migrations com o Supabase CLI. Todas as tabelas têm o prefixo rs_ e ficam fechadas para acesso público (RLS ligada, sem política): só o servidor fala com o banco."], codigo: "supabase link --project-ref SEU_PROJETO && supabase db push" },
-        { titulo: "3. Armazenamento, e-mail e Google", paragrafos: [
-          "R2: crie um bucket privado e uma chave com leitura e escrita nele; libere o CORS de PUT para o seu domínio (o currículo sobe direto do navegador).",
-          "Resend: verifique o domínio do remetente e crie a chave de API.",
-          "Google: crie um cliente OAuth (aplicativo da Web) com o redirect https://SEU_DOMINIO/api/auth/google/callback.",
-        ] },
-        { titulo: "4. Vercel", paragrafos: ["Importe o repositório, preencha as variáveis (a lista está no README e no .env.example) e publique. O cron diário (/api/cron/diario) já vem no vercel.json e é protegido por um segredo próprio, descrito no README."] },
-        { titulo: "5. Primeira empresa", paragrafos: ["Ponha o seu e-mail em CRIACAO_EMPRESA_EMAILS, conecte o conector no Claude ou no ChatGPT e crie a empresa na tela de consentimento. Depois, pelo chat, convide a equipe."] },
-        { titulo: "6. Textos legais", paragrafos: ["As páginas de Privacidade e Termos são modelos: preencha OPERADOR_NOME e OPERADOR_CONTATO com os dados de quem hospeda e revise os textos com quem cuida do jurídico."] },
       ],
     },
   },

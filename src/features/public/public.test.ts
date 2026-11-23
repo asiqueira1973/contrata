@@ -14,7 +14,6 @@ const { default: SiteLayout } = await import("@/app/(publico)/layout");
 import * as inicio from "@/app/(publico)/page";
 import * as mcp from "@/app/(publico)/docs/mcp/page";
 import * as api from "@/app/(publico)/docs/api/page";
-import * as hospedar from "@/app/(publico)/docs/auto-hospedagem/page";
 import * as privacidade from "@/app/(publico)/privacidade/page";
 import * as termos from "@/app/(publico)/termos/page";
 import { GET as sitemapGet } from "@/app/sitemap.xml/route";
@@ -26,7 +25,6 @@ const PAGINAS: [string, Pagina][] = [
   ["/", inicio],
   ["/docs/mcp", mcp],
   ["/docs/api", api],
-  ["/docs/auto-hospedagem", hospedar],
   ["/privacidade", privacidade],
   ["/termos", termos],
 ];
@@ -55,7 +53,7 @@ describe("páginas públicas (8.12)", () => {
     for (const l of copy.inicio.titulo) expect(h).toContain(l);
     expect(h).toContain(copy.inicio.conectar);
     expect(h).toContain('href="/docs/mcp"');
-    expect(h).toContain('href="/docs/auto-hospedagem"');
+    expect(h).not.toMatch(/hosped/i);
     expect(h).toContain(copy.inicio.conversa.botao);
     expect(h).toContain(copy.inicio.acreditamos.titulo);
     expect(h).toContain(copy.inicio.naoFaz.titulo);

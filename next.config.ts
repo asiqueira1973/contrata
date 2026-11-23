@@ -33,6 +33,11 @@ const csp = [
 const nextConfig: NextConfig = {
   cacheComponents: true,
   partialPrefetching: true,
+  // O passo a passo de hospedagem fica só no README do GitHub (23/11/2026): o endereço antigo
+  // da página leva para lá.
+  async redirects() {
+    return [{ source: "/docs/auto-hospedagem", destination: "https://github.com/asiqueira1973/contrata#hospedar-a-sua-inst%C3%A2ncia-passo-a-passo", permanent: true }];
+  },
   async headers() {
     return [
       {

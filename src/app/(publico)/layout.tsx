@@ -40,7 +40,6 @@ export default function SiteLayout({ children }: { children: ReactNode }) {
           <nav className={s.rodapeLinks} aria-label={r.navegacao}>
             <Link href="/docs/mcp">{r.docsMcp}</Link>
             <Link href="/docs/api">{r.docsApi}</Link>
-            <Link href="/docs/auto-hospedagem">{r.hospedar}</Link>
             <Link href="/privacidade">{r.privacidade}</Link>
             <Link href="/termos">{r.termos}</Link>
             <a href={URL_CODIGO} rel="noopener">{r.codigo}</a>

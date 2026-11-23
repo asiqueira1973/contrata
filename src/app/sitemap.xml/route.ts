@@ -4,7 +4,7 @@ import { paginasParaSitemap } from "@/server/careers/public";
 import { siteOrigin } from "@/server/oauth/server";
 
 // Páginas institucionais fixas (8.12), na ordem do rodapé.
-const PAGINAS_FIXAS = ["/", "/docs/mcp", "/docs/api", "/docs/auto-hospedagem", "/privacidade", "/termos"];
+const PAGINAS_FIXAS = ["/", "/docs/mcp", "/docs/api", "/privacidade", "/termos"];
 
 function url(loc: string, lastmod?: string): string {
   return `<url><loc>${loc}</loc>${lastmod ? `<lastmod>${new Date(lastmod).toISOString()}</lastmod>` : ""}</url>`;

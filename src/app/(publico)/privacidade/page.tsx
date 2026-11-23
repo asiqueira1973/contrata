@@ -20,7 +20,7 @@ export default function PrivacidadePage() {
     <DocPage
       titulo={c.titulo}
       atualizado={copy.legal.atualizado}
-      aviso={copy.legal.modelo}
+      aviso={op.nome ? undefined : copy.legal.modelo}
       secoes={c.secoes(op.nome, op.contato)}
     />
   );

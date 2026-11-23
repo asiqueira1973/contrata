@@ -34,7 +34,6 @@ export default function InicioPage() {
             <p className={s.heroSub}>{c.subtitulo}</p>
             <div className={s.acoes}>
               <Link className={s.botao} href="/docs/mcp">{c.conectar}</Link>
-              <Link className={s.botaoSec} href="/docs/auto-hospedagem">{c.hospedar}</Link>
             </div>
             <p className={s.assistentes}>{c.assistentes}</p>
             <ul className={s.numeros}>{c.numeros.map((n) => <li key={n} className={s.num}>{n}</li>)}</ul>
@@ -158,7 +157,6 @@ export default function InicioPage() {
           </div>
           <div className={s.linksLinha}>
             <Link className={s.linkSeta} href="/docs/api">{c.integracoes.links.api} →</Link>
-            <Link className={s.linkSeta} href="/docs/auto-hospedagem">{c.integracoes.links.hospedar} →</Link>
           </div>
         </div>
       </section>

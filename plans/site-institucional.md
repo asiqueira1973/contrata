@@ -101,3 +101,4 @@ Decisões já tomadas por ele:
   - **Empresa de exemplo:** "Agência Norte", no lugar da padaria.
   - **Para quem:** o texto cita agências, consultorias, escritórios, startups e times de tecnologia.
   - **Uma vaga do começo ao fim:** três telas em vez de quatro, porque o e-mail foi para a seção do candidato, ao lado da página de acompanhamento.
+- **Sem hospedagem no site (23/11/2026, a pedido do Alexandre):** o passo a passo de hospedar fica só no README. Saíram o link da abertura, o do rodapé, o item de "Para quem", a pergunta frequente e a página `/docs/auto-hospedagem`, que redireciona para o README. "Frente aos requisitos" foi trocado por pedidos mais naturais ("Quem se candidatou até agora tem o que a vaga pede?").

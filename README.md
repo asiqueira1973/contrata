@@ -2,7 +2,7 @@
 
 **Recrutamento e seleção dentro da sua IA.** O Vaga Aberta é um sistema de recrutamento de código aberto e gratuito, sem painel: você abre vagas, lê currículos, avalia e decide conversando com o Claude, o ChatGPT ou o Grok. Quando algo precisa ser gravado, a IA abre um formulário na conversa, já preenchido, e nada acontece sem o seu clique. Candidatos usam páginas web simples (carreiras, candidatura e um link para acompanhar). Para automação, há API REST e webhooks.
 
-**Use agora em [vagaaberta.app.br](https://vagaaberta.app.br)**, sem instalar nada, ou hospede a sua cópia seguindo o passo a passo abaixo.
+**Use agora em [vagaaberta.app.br](https://vagaaberta.app.br)**, sem instalar nada, ou hospede a sua cópia seguindo o [passo a passo abaixo](#hospedar-a-sua-instância-passo-a-passo).
 
 ## Como aparece na conversa com a IA
 Você pede em português; a IA consulta o Vaga Aberta e, quando é preciso gravar ou decidir, abre um formulário dentro do chat. Reprovar, contratar e encerrar a vaga só acontecem com o clique de alguém da equipe, e cada pessoa recebe a devolutiva por e-mail. As telas abaixo usam dados de exemplo.
@@ -43,7 +43,7 @@ A especificação completa está em [`spec.md`](spec.md); os planos de cada épi
 - **O modelo propõe, a pessoa grava:** cadastros, mensagens e decisões abrem um formulário no chat, já preenchido, que só grava com o clique; mover de etapa e anotar são operações diretas e reversíveis. Decisão sobre uma pessoa só com o clique de alguém da equipe: pela API ou num cliente sem formulários, vira proposta.
 - **Para quem se candidata:** candidatura sem conta, link `/c/{token}` para acompanhar, retirar, pedir revisão, baixar e excluir os dados; devolutiva sempre.
 - **LGPD:** retenção por empresa com anonimização automática, banco de talentos só com consentimento e prazo, trilha de quem fez o quê, nenhum dado pessoal em log, evento ou webhook.
-- **Faxina diária** (`/api/cron/diario`) com alertas ao `ADMIN_EMAIL`, **analytics opcional** sem dado pessoal (eventos `vaga_aberta_*` no Visão do Produto), e as páginas públicas `/`, `/docs/mcp`, `/docs/api`, `/docs/auto-hospedagem`, `/privacidade` e `/termos`.
+- **Faxina diária** (`/api/cron/diario`) com alertas ao `ADMIN_EMAIL`, **analytics opcional** sem dado pessoal (eventos `vaga_aberta_*` no Visão do Produto), e as páginas públicas `/`, `/docs/mcp`, `/docs/api`, `/privacidade` e `/termos`.
 
 ## Hospedar a sua instância (passo a passo)
 
