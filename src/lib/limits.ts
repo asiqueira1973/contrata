@@ -246,6 +246,9 @@ export const ANALYTICS_AMOSTRAS_EM_MEMORIA = 5000;
 export const ANALYTICS_NUMERO_MAX = 1_000_000_000;
 export const ANALYTICS_CLIENTE_MAX = 60;
 export const ANALYTICS_ROTA_MAX = 120;
+// Log mcp_rejeitado (seção 21, v0.4.20): user-agent e mensagem de erro do SDK cortados.
+export const MCP_LOG_USER_AGENT_MAX = 120;
+export const MCP_LOG_ERRO_MAX = 200;
 
 // Site institucional: o botão "Copiar" mostra "Copiado" por 2 s.
 export const COPIADO_MS = 2000;

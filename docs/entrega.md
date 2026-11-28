@@ -14,6 +14,8 @@ Em 23/11/2026: repositório `asiqueira1973/contrata` público, projeto `vaga-abe
 - [ ] O cron aparece em **Vercel → Settings → Cron Jobs** e a primeira rodada deixa `faxina_diaria` no log.
 - [x] **Product analytics (23/11/2026):** eventos renomeados para `vaga_aberta_*` (antes do primeiro envio) e `VISAO_INGEST_URL` e `VISAO_API_KEY` (Sensitive) postas na Vercel; a chave foi aceita pelo ingest (202). Conferir no Visão que os eventos chegam depois do primeiro uso.
 
+- [ ] **Uso pelo `/mcp` (v0.4.20, 28/11/2026):** depois do deploy, quando aparecer um 400 no `/mcp`, abrir os logs da Vercel na mesma hora (o Hobby guarda 1 hora) e ler o `mcp_rejeitado`: método, `versao` e `erro`. O SDK v2 responde `server/discover` na 2026-07-28 quando o pedido traz o envelope `_meta` e o cabeçalho `Mcp-Method`; se o 400 for do `server/discover`, o `erro` diz o que faltou, e o caso segue aberto. Conferir também no Visão do Produto que `vaga_aberta_api_chamada` com `porta: mcp` some quando ninguém usa.
+
 ## 2. Fluxos reais (spec 9)
 - [ ] **9.1 no claude.ai:** conectar `https://vagaaberta.app.br/mcp`, criar a empresa fictícia, áreas, pessoas, convite, vaga, publicação, candidaturas pelo celular (com currículo), resumo, notas, mover, reprovar com devolutiva (e-mails reais), avaliação, contratar e encerrar.
 - [ ] **9.1 no ChatGPT:** o mesmo, com o Bruno avaliando pelo ChatGPT do celular.
